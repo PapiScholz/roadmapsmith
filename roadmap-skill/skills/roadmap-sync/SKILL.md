@@ -1,6 +1,6 @@
 ---
 name: roadmap-sync
-description: Generate, synchronize, and validate project roadmap checklist state against repository evidence. Use when the user asks to create or maintain roadmap.md, update task checkboxes automatically, enforce completion validation, run roadmap audits, or manage milestone/phase planning with deterministic markdown output.
+description: Generate, synchronize, and validate project roadmap checklist state against repository evidence. Use when the user asks to create or maintain ROADMAP.md (or legacy roadmap.md), update task checkboxes automatically, enforce completion validation, run roadmap audits, or manage milestone/phase planning with deterministic markdown output.
 ---
 
 # Roadmap Sync

@@ -2,24 +2,26 @@
 
 Production-grade roadmap generator and sync tool for agent-driven projects.
 
-## Install
+## Install Status
 
-### CLI package
+This package and skill are in private/internal development. Public install flows are not available yet.
+
+### Future CLI package install (not available yet)
 
 ```bash
-npm install -g roadmap-skill
+npm install -g roadmapsmith
 ```
 
-or local usage:
+### Local development usage
 
 ```bash
 npx roadmap-skill <command>
 ```
 
-### Installable skill (`npx skills add`)
+### Future skill install (`npx skills add`, not available yet)
 
 ```bash
-npx skills add <owner>/<repo> --skill roadmap-sync
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
 ## Commands
@@ -33,7 +35,7 @@ roadmap-skill validate [--roadmap-file <path>] [--project-root <path>] [--config
 
 ## Behavior
 
-- Generates deterministic `roadmap.md` with fixed section order.
+- Generates deterministic `ROADMAP.md` with fixed section order.
 - Uses stable task IDs: `<!-- rs:task=<slug> -->`.
 - Sync marks `[x]` only when validation passes.
 - Validation evidence gate:
@@ -45,9 +47,17 @@ roadmap-skill validate [--roadmap-file <path>] [--project-root <path>] [--config
 
 ## Defaults
 
-- Roadmap file: `./roadmap.md`
+- Roadmap file: `./ROADMAP.md` (falls back to `./roadmap.md` when only the legacy file exists)
 - Agent rules file: `./AGENTS.md` (falls back to `./CLAUDE.md` when present)
 - Config file: `./roadmap-skill.config.json`
+
+Roadmap resolution precedence:
+
+1. `--roadmap-file` CLI flag
+2. `config.roadmapFile` in `roadmap-skill.config.json`
+3. Existing `./ROADMAP.md`
+4. Existing `./roadmap.md` (legacy fallback)
+5. `./ROADMAP.md` when neither file exists
 
 ## Config
 
@@ -55,7 +65,7 @@ Create `roadmap-skill.config.json`:
 
 ```json
 {
-  "roadmapFile": "./roadmap.md",
+  "roadmapFile": "./ROADMAP.md",
   "agentsFile": "./AGENTS.md",
   "taskMatchers": [
     {
@@ -152,9 +162,9 @@ roadmap-skill sync --dry-run
 npm test
 ```
 
-## Publishing
+## Publishing (Future, Not Yet)
 
-### npm (public package)
+### npm (public package, future)
 
 1. Run tests.
 
@@ -182,13 +192,13 @@ npm publish --access public
 git push origin main --follow-tags
 ```
 
-### skills.sh / `npx skills add` discoverability
+### skills.sh / `npx skills add` discoverability (future)
 
-1. Push this repository publicly with `skills/roadmap-sync/SKILL.md` and `skills.json`.
+1. After internal release-readiness is complete, make the repository public with `skills/roadmap-sync/SKILL.md` and `skills.json`.
 2. Verify install flow from a clean project:
 
 ```bash
-npx skills add <owner>/<repo> --skill roadmap-sync
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
 3. Confirm the installed skill appears in your agent skill list.

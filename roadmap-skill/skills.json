@@ -9,15 +9,15 @@
     "agent roadmap"
   ],
   "usageExamples": [
-    "npx skills add <owner>/<repo> --skill roadmap-sync",
+    "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
     "roadmap-skill init",
     "roadmap-skill generate --project-root .",
     "roadmap-skill sync --audit",
     "roadmap-skill validate --json"
   ],
   "install": {
-    "command": "npx skills add <owner>/<repo> --skill roadmap-sync",
-    "source": "<owner>/<repo>",
+    "command": "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
+    "source": "PapiScholz/roadmapsmith",
     "skill": "roadmap-sync",
     "notes": "The CLI package is published separately to npm as roadmap-skill."
   },

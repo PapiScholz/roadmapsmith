@@ -1,10 +1,11 @@
 {
-  "name": "roadmap-skill",
+  "name": "roadmapsmith",
   "version": "0.1.0",
   "description": "Generate, sync, and validate deterministic project roadmaps for agent-driven execution.",
   "main": "src/index.js",
   "bin": {
-    "roadmap-skill": "bin/cli.js"
+    "roadmap-skill": "bin/cli.js",
+    "roadmapsmith": "bin/cli.js"
   },
   "type": "commonjs",
   "scripts": {
@@ -17,8 +18,17 @@
     "cli",
     "planning"
   ],
-  "author": "",
+  "author": "PapiScholz",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PapiScholz/roadmapsmith.git",
+    "directory": "roadmap-skill"
+  },
+  "bugs": {
+    "url": "https://github.com/PapiScholz/roadmapsmith/issues"
+  },
+  "homepage": "https://github.com/PapiScholz/roadmapsmith#readme",
   "engines": {
     "node": ">=18"
   },

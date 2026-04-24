@@ -21,7 +21,7 @@ test('generator outputs deterministic managed roadmap', () => {
 
   const first = generateRoadmapDocument({
     projectRoot,
-    roadmapPath: path.join(projectRoot, 'roadmap.md'),
+    roadmapPath: path.join(projectRoot, 'ROADMAP.md'),
     existingContent: '',
     config,
     plugins: []
@@ -29,7 +29,7 @@ test('generator outputs deterministic managed roadmap', () => {
 
   const second = generateRoadmapDocument({
     projectRoot,
-    roadmapPath: path.join(projectRoot, 'roadmap.md'),
+    roadmapPath: path.join(projectRoot, 'ROADMAP.md'),
     existingContent: first,
     config,
     plugins: []

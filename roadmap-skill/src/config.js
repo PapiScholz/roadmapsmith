@@ -1,10 +1,11 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { readTextIfExists } = require('./io');
 
 const DEFAULT_CONFIG = {
-  roadmapFile: './roadmap.md',
+  roadmapFile: './ROADMAP.md',
   agentsFile: './AGENTS.md',
   taskMatchers: [],
   validators: [],
@@ -63,16 +64,69 @@ function loadConfig(options = {}) {
     : path.resolve(projectRoot, 'roadmap-skill.config.json');
 
   const content = readTextIfExists(resolvedConfigPath);
+  let userConfig = {};
   if (!content) {
-    return mergeConfig({});
+    const merged = mergeConfig(userConfig);
+    Object.defineProperty(merged, '__roadmapFileExplicit', {
+      value: false,
+      enumerable: false,
+      configurable: false,
+      writable: false
+    });
+    return merged;
   }
 
-  return mergeConfig(safeParseJson(content, resolvedConfigPath));
+  userConfig = safeParseJson(content, resolvedConfigPath);
+  const merged = mergeConfig(userConfig);
+  Object.defineProperty(merged, '__roadmapFileExplicit', {
+    value: Object.prototype.hasOwnProperty.call(userConfig, 'roadmapFile'),
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+  return merged;
 }
 
 function resolveRoadmapFile(projectRoot, config, overridePath) {
-  const target = overridePath || config.roadmapFile || './roadmap.md';
-  return path.resolve(projectRoot, target);
+  if (overridePath) {
+    return path.resolve(projectRoot, overridePath);
+  }
+
+  const configuredRoadmapFile =
+    config && typeof config.roadmapFile === 'string' ? config.roadmapFile.trim() : '';
+  const hasExplicitRoadmapFile = Boolean(config && config.__roadmapFileExplicit);
+  const hasCustomConfigRoadmapFile =
+    configuredRoadmapFile.length > 0 &&
+    (hasExplicitRoadmapFile || configuredRoadmapFile !== DEFAULT_CONFIG.roadmapFile);
+
+  if (hasCustomConfigRoadmapFile) {
+    return path.resolve(projectRoot, configuredRoadmapFile);
+  }
+
+  let rootEntries = null;
+  try {
+    rootEntries = fs.readdirSync(projectRoot);
+  } catch {
+    rootEntries = null;
+  }
+
+  const canonicalRoadmapPath = path.resolve(projectRoot, DEFAULT_CONFIG.roadmapFile);
+  const legacyRoadmapPath = path.resolve(projectRoot, './roadmap.md');
+
+  const hasCanonicalRoadmap = Array.isArray(rootEntries)
+    ? rootEntries.includes('ROADMAP.md')
+    : readTextIfExists(canonicalRoadmapPath) != null;
+  const hasLegacyRoadmap = Array.isArray(rootEntries)
+    ? rootEntries.includes('roadmap.md')
+    : readTextIfExists(legacyRoadmapPath) != null;
+
+  if (hasCanonicalRoadmap) {
+    return canonicalRoadmapPath;
+  }
+  if (hasLegacyRoadmap) {
+    return legacyRoadmapPath;
+  }
+  return canonicalRoadmapPath;
 }
 
 function resolveAgentsFile(projectRoot, config, overridePath) {
