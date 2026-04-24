@@ -1,0 +1,33 @@
+{
+  "name": "roadmap-skill",
+  "version": "0.1.0",
+  "description": "Generate, sync, and validate deterministic project roadmaps for agent-driven execution.",
+  "main": "src/index.js",
+  "bin": {
+    "roadmap-skill": "bin/cli.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "roadmap",
+    "skills",
+    "agent",
+    "cli",
+    "planning"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "skills",
+    "skills.json",
+    "README.md"
+  ]
+}
