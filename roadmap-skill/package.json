@@ -36,8 +36,6 @@
     "bin",
     "src",
     "templates",
-    "skills",
-    "skills.json",
     "README.md"
   ]
 }
