@@ -7,7 +7,7 @@ Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Z
 ## Current State
 - Repository structure prepared for public distribution.
 - npm package and skill distribution ready for platform submission.
-- Two-mode product model (Zero Mode + Sync/Audit Mode) repositioning in progress.
+- Two-mode product model (Zero Mode + Sync/Audit Mode) repositioned and documented in v0.2.0.
 
 ## Phased Roadmap
 
@@ -23,12 +23,12 @@ Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Z
 - [ ] Introduce validation confidence scoring (not just pass/fail) <!-- rs:task=introduce-validation-confidence-score -->
 - [ ] Expose validation reasoning clearly (why a task passed/failed) <!-- rs:task=expose-validation-reasoning -->
 - [ ] Add guardrail: require multiple evidence types (code + test or stronger heuristics) <!-- rs:task=require-multi-evidence-validation -->
-- [ ] Define two-mode product model: Zero Mode and Sync/Audit Mode <!-- rs:task=p0-define-two-mode-product-model -->
-- [ ] Document Zero Mode discovery flow in SKILL.md <!-- rs:task=p0-document-zero-mode-skill -->
-- [ ] Document Sync/Audit Mode as existing repository-backed workflow <!-- rs:task=p0-document-sync-audit-mode-skill -->
-- [ ] Update README positioning around the two-mode workflow <!-- rs:task=p0-update-readme-two-mode-positioning -->
-- [ ] Add discovery interview contract for empty repositories <!-- rs:task=p0-discovery-interview-contract -->
-- [ ] Add guardrail: do not generate generic roadmap for empty repos without discovery <!-- rs:task=p0-guardrail-no-generic-roadmap-empty-repo -->
+- [x] Define two-mode product model: Zero Mode and Sync/Audit Mode <!-- rs:task=p0-define-two-mode-product-model -->
+- [x] Document Zero Mode discovery flow in SKILL.md <!-- rs:task=p0-document-zero-mode-skill -->
+- [x] Document Sync/Audit Mode as existing repository-backed workflow <!-- rs:task=p0-document-sync-audit-mode-skill -->
+- [x] Update README positioning around the two-mode workflow <!-- rs:task=p0-update-readme-two-mode-positioning -->
+- [x] Add discovery interview contract for empty repositories <!-- rs:task=p0-discovery-interview-contract -->
+- [x] Add guardrail: do not generate generic roadmap for empty repos without discovery <!-- rs:task=p0-guardrail-no-generic-roadmap-empty-repo -->
 
 ### Phase P1 (Important)
 - [x] Repository made public <!-- rs:task=p1-repo-made-public -->
@@ -41,11 +41,11 @@ Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Z
 - [ ] Add explicit agent usage contract (how to use roadmap-sync safely) <!-- rs:task=define-agent-usage-contract -->
 - [ ] Introduce "safe mode" for agents (strict validation, no auto-complete) <!-- rs:task=introduce-agent-safe-mode -->
 - [ ] Add CLI feedback hints when validation is weak or ambiguous <!-- rs:task=add-validation-feedback-hints -->
-- [ ] Add configurable product brief fields to roadmap-skill.config.json documentation <!-- rs:task=p1-configurable-product-brief-fields -->
-- [ ] Wire northStar, targetUser, problemStatement, v1Outcome, risks, antiGoals, exitCriteria into generator logic (currently recognized as forward-compatible config fields only) <!-- rs:task=p1-first-class-discovery-config-concepts -->
+- [x] Add configurable product brief fields to roadmap-skill.config.json documentation <!-- rs:task=p1-configurable-product-brief-fields -->
+- [ ] Wire northStar, targetUser, problemStatement, v1Outcome, risks, antiGoals, exitCriteria into generator logic (currently forward-compatible config fields only) <!-- rs:task=p1-first-class-discovery-config-concepts -->
 - [ ] Add examples for Zero Mode product discovery <!-- rs:task=p1-zero-mode-examples -->
-- [ ] Add docs/use-cases/zero-mode-discovery.md <!-- rs:task=p1-docs-zero-mode-discovery -->
-- [ ] Add docs/use-cases/sync-audit-mode.md <!-- rs:task=p1-docs-sync-audit-mode -->
+- [x] Add docs/use-cases/zero-mode-discovery.md <!-- rs:task=p1-docs-zero-mode-discovery -->
+- [x] Add docs/use-cases/sync-audit-mode.md <!-- rs:task=p1-docs-sync-audit-mode -->
 
 ### Phase P2 (Optimization)
 - [x] npm publish completed <!-- rs:task=p2-npm-publish-completed -->
@@ -66,6 +66,7 @@ Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Z
 - [x] v0.1: Internal release checklist stabilized <!-- rs:task=milestone-v0-1-internal-release-checklist-stabilized -->
 - [x] v0.2: Public repository and install discovery readiness <!-- rs:task=milestone-v0-2-public-repository-and-install-discovery-readiness -->
 - [x] v1.0: Public npm + skills.sh availability <!-- rs:task=milestone-v1-0-public-npm-and-skills-sh-availability -->
+- [x] v0.2.0 (npm): Two-mode product model — Zero Mode and Sync/Audit Mode documented <!-- rs:task=milestone-v0-2-0-two-mode-product-model -->
 
 ## Guardrail
 - [ ] Do not mark roadmap tasks as complete without repository evidence <!-- rs:task=guardrail-do-not-mark-roadmap-tasks-as-complete-without-repository-evidence -->
