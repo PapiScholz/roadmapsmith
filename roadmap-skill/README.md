@@ -2,36 +2,21 @@
 
 Production-grade roadmap generator and sync tool for agent-driven projects.
 
-## Install Status
+## Install
 
-This package and skill are in private/internal development. Public install flows are not available yet.
-
-### Primary install path: agent skill (available for private repository users)
-
-```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-```
-
-This install command adds the `roadmap-sync` agent skill. It does not install the CLI package.
-
-### Optional CLI package install (future, unavailable until npm publication)
+### CLI
 
 ```bash
 npm install -g roadmapsmith
 ```
 
-### Local development usage
+### Agent Skill
 
 ```bash
-cd roadmap-skill
-node bin/cli.js --help
-node bin/cli.js init --dry-run
-node bin/cli.js generate --project-root . --dry-run --audit
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-### Legacy/internal alias
-
-The `roadmap-skill` CLI alias remains for backward compatibility and internal use, but public examples use `roadmapsmith`.
+This adds the `roadmap-sync` agent skill. It does not install the CLI package.
 
 ## Commands
 
@@ -171,46 +156,14 @@ roadmapsmith sync --dry-run
 npm test
 ```
 
-## Publishing (Future, Not Yet)
-
-### npm (public package, future)
-
-1. Run tests.
+## Publishing
 
 ```bash
 npm test
-```
-
-2. Bump version using semver.
-
-```bash
-npm version patch
-# or: npm version minor
-# or: npm version major
-```
-
-3. Publish package.
-
-```bash
+npm version patch   # or minor / major
 npm publish --access public
-```
-
-4. Push tags.
-
-```bash
 git push origin main --follow-tags
 ```
-
-### skills.sh / `npx skills add` discoverability (future)
-
-1. After internal release-readiness is complete, make the repository public with `skills/roadmap-sync/SKILL.md` and `skills.json`.
-2. Verify install flow from a clean project:
-
-```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-```
-
-3. Confirm the installed skill appears in your agent skill list. This install command adds the agent skill, not the CLI package.
 
 ## Versioning Strategy
 
