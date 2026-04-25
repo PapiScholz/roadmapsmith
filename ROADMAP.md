@@ -16,7 +16,7 @@ Ship deterministic roadmap automation with evidence-based task completion and a 
 - [x] `package-lock.json` committed in `roadmap-skill/` <!-- rs:task=p0-package-lock-json-committed -->
 
 ### Phase P1 (Important)
-- [ ] Repository made public <!-- rs:task=p1-repo-made-public -->
+- [x] Repository made public <!-- rs:task=p1-repo-made-public -->
 - [x] npm package name confirmed <!-- rs:task=p1-npm-package-name-confirmed -->
 
 ### Phase P2 (Optimization)
