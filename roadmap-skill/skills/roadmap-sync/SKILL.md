@@ -9,11 +9,18 @@ Use this skill to keep roadmap execution state accurate and deterministic.
 
 ## Workflow
 
-1. Run `roadmap-skill init` when roadmap and agent rule files are missing.
-2. Run `roadmap-skill generate` to (re)build the managed roadmap block with phased priorities and milestones.
-3. Run `roadmap-skill validate` to inspect evidence status per task.
-4. Run `roadmap-skill sync` to apply validation outcomes to checklist state.
-5. Run `roadmap-skill sync --audit` to surface mismatches between checked state and evidence.
+1. Run `roadmapsmith init` when roadmap and agent rule files are missing.
+2. Run `roadmapsmith generate` to (re)build the managed roadmap block with phased priorities and milestones.
+3. Run `roadmapsmith validate` to inspect evidence status per task.
+4. Run `roadmapsmith sync` to apply validation outcomes to checklist state.
+5. Run `roadmapsmith sync --audit` to surface mismatches between checked state and evidence.
+
+If the npm CLI is not installed, run the local engine from the repository package directory:
+
+```bash
+cd roadmap-skill
+node bin/cli.js <command>
+```
 
 ## Guardrails
 

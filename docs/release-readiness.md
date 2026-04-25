@@ -9,6 +9,12 @@ Private/internal development. Not published.
 The canonical release checklist is maintained in [ROADMAP.md](../ROADMAP.md).
 Use this document for context and command runbook notes only.
 
+## Naming and Install Intent
+
+- Primary install path is the agent skill: `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync`.
+- The skill install command adds agent instructions, not the CLI package.
+- The optional CLI package/command is `roadmapsmith` and remains unavailable until npm publication.
+
 ## Commands
 
 ```bash

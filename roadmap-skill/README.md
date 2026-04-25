@@ -6,7 +6,15 @@ Production-grade roadmap generator and sync tool for agent-driven projects.
 
 This package and skill are in private/internal development. Public install flows are not available yet.
 
-### Future CLI package install (not available yet)
+### Primary install path: agent skill (available for private repository users)
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+```
+
+This install command adds the `roadmap-sync` agent skill. It does not install the CLI package.
+
+### Optional CLI package install (future, unavailable until npm publication)
 
 ```bash
 npm install -g roadmapsmith
@@ -15,22 +23,23 @@ npm install -g roadmapsmith
 ### Local development usage
 
 ```bash
-npx roadmap-skill <command>
+cd roadmap-skill
+node bin/cli.js --help
+node bin/cli.js init --dry-run
+node bin/cli.js generate --project-root . --dry-run --audit
 ```
 
-### Future skill install (`npx skills add`, not available yet)
+### Legacy/internal alias
 
-```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-```
+The `roadmap-skill` CLI alias remains for backward compatibility and internal use, but public examples use `roadmapsmith`.
 
 ## Commands
 
 ```bash
-roadmap-skill init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]
-roadmap-skill generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]
-roadmap-skill sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]
-roadmap-skill validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]
+roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]
+roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]
+roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]
+roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]
 ```
 
 ## Behavior
@@ -142,11 +151,11 @@ module.exports = {
 ## Example Usage
 
 ```bash
-roadmap-skill init
-roadmap-skill generate --project-root .
-roadmap-skill validate --json
-roadmap-skill sync --audit
-roadmap-skill sync --dry-run
+roadmapsmith init
+roadmapsmith generate --project-root .
+roadmapsmith validate --json
+roadmapsmith sync --audit
+roadmapsmith sync --dry-run
 ```
 
 ## Dry Run and Audit
@@ -201,7 +210,7 @@ git push origin main --follow-tags
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-3. Confirm the installed skill appears in your agent skill list.
+3. Confirm the installed skill appears in your agent skill list. This install command adds the agent skill, not the CLI package.
 
 ## Versioning Strategy
 

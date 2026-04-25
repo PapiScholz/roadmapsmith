@@ -15,10 +15,10 @@ const { applySync } = require('../src/sync');
 function printHelp() {
   console.log([
     'Usage:',
-    '  roadmap-skill init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
-    '  roadmap-skill generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]',
-    '  roadmap-skill sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
-    '  roadmap-skill validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]'
+    '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
+    '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]',
+    '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
+    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]'
   ].join('\n'));
 }
 

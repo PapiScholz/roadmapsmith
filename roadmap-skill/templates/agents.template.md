@@ -16,7 +16,7 @@ These rules govern automated roadmap synchronization for `{{roadmapPath}}`.
   - `- ⚠️ attempted but validation failed: <reason>`
 
 ## Operating Procedure
-- Use `roadmap-skill generate` to build or refresh structured roadmap sections.
-- Use `roadmap-skill sync` to reconcile checklist state against repository evidence.
-- Use `roadmap-skill validate` before manual completion claims.
+- Use `roadmapsmith generate` to build or refresh structured roadmap sections.
+- Use `roadmapsmith sync` to reconcile checklist state against repository evidence.
+- Use `roadmapsmith validate` before manual completion claims.
 - Do not manually toggle checklist items unless validation has already passed.

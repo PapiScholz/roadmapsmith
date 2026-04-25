@@ -1,5 +1,5 @@
 {
-  "name": "roadmap-skill",
+  "name": "roadmapsmith",
   "description": "Production-grade roadmap generation and sync skill package for coding agents.",
   "triggers": [
     "roadmap",
@@ -10,16 +10,16 @@
   ],
   "usageExamples": [
     "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
-    "roadmap-skill init",
-    "roadmap-skill generate --project-root .",
-    "roadmap-skill sync --audit",
-    "roadmap-skill validate --json"
+    "roadmapsmith init",
+    "roadmapsmith generate --project-root .",
+    "roadmapsmith sync --audit",
+    "roadmapsmith validate --json"
   ],
   "install": {
     "command": "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
     "source": "PapiScholz/roadmapsmith",
     "skill": "roadmap-sync",
-    "notes": "The CLI package is published separately to npm as roadmap-skill."
+    "notes": "The install command adds the agent skill. The optional CLI package is intended to be published separately to npm as roadmapsmith."
   },
   "skills": [
     {
