@@ -7,13 +7,7 @@ Deterministic roadmap generation and roadmap/task synchronization for AI coding 
 - RoadmapSmith: project/product name.
 - roadmap-sync: installable agent skill name.
 - roadmapsmith: optional CLI package and preferred command.
-- roadmap-skill/: internal package directory.
-
-## Current Status
-
-- Private/internal development
-- Not published yet
-- Not ready for npm or skills.sh public use
+- roadmap-skill/: npm package directory.
 
 ## Repository Layout
 
@@ -22,28 +16,36 @@ roadmapsmith/
 ├── README.md
 ├── AGENTS.md
 ├── ROADMAP.md
+├── CHANGELOG.md
+├── skills.json
+├── skills/
+│   └── roadmap-sync/
+│       └── SKILL.md
+├── .claude-plugin/
+│   └── plugin.json
 └── roadmap-skill/
     ├── package.json
     ├── bin/
     ├── src/
-    ├── test/
-    ├── skills.json
-    └── skills/roadmap-sync/
+    ├── templates/
+    └── test/
 ```
 
-## Monorepo-Style Package Layout
+## Install: Agent Skill (Primary)
 
-This repository currently uses a monorepo-style layout where the npm package lives in `roadmap-skill/`. Run npm/package commands from that directory.
-
-## Primary Install Path: Agent Skill
+### skills.sh and agentskill.sh
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This install command adds the `roadmap-sync` agent skill. It does not install the CLI package.
+This adds the `roadmap-sync` agent skill. It does not install the CLI package.
 
-## Optional CLI Path (Future, Unavailable Until npm Publication)
+### aitmpl.com/skills
+
+Search for `roadmapsmith` on [aitmpl.com/skills](https://aitmpl.com/skills) and follow the install prompt, or install directly using the skills CLI above.
+
+## Install: CLI (Optional)
 
 ```bash
 npm install -g roadmapsmith
