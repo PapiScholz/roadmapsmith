@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing to RoadmapSmith.
 
-This repository is currently in private/internal development, but contributions from invited collaborators are welcome.
+Contributions are welcome. Please read through the guidelines below before opening a PR.
 
 ## Before You Start
 
