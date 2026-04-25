@@ -1,5 +1,17 @@
 # Agent Execution Notes
 
+## RoadmapSmith Mode Rule
+
+Before generating or updating `ROADMAP.md`, determine the mode:
+
+- **Zero Mode** for empty or low-context repositories (no implementation files, no ROADMAP.md, stack undefined).
+- **Sync/Audit Mode** for existing repositories (code, tests, docs, TODOs, or an existing ROADMAP.md present).
+
+In Zero Mode, interview the developer using the 8 discovery questions in `skills/roadmap-sync/SKILL.md` before generating the roadmap.
+In Sync/Audit Mode, scan repository context, validate tasks against evidence, and sync checklist state.
+
+Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and rely on evidence-based validation.
+
 ## Retrospective Rules
 - Keep test discovery scoped to `test/*.test.js`; do not let files in `test/fixtures` run as tests.
 - Preserve deterministic roadmap generation by semantically merging only phase checklist tasks (`Phase P0/P1/P2`) and keeping non-phase section IDs/status stable.

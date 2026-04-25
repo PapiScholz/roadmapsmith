@@ -4,6 +4,18 @@ All notable changes to RoadmapSmith are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Two-mode product model: Zero Mode (empty repo discovery) and Sync/Audit Mode (existing repo validation).
+- Zero Mode documentation: discovery interview contract, 8 discovery questions, north star definition flow.
+- Sync/Audit Mode explicitly documented as the existing repository-backed validation workflow — not deprecated.
+- Updated product north star in ROADMAP.md to reflect two-mode operating system.
+- Updated skill instructions (SKILL.md) with mode selection rules and Zero Mode guardrails.
+- Updated AGENTS.md with RoadmapSmith Mode Rule for agent decision-making.
+- Use-case docs: `docs/use-cases/zero-mode-discovery.md` and `docs/use-cases/sync-audit-mode.md`.
+- Forward-compatible discovery config fields (`northStar`, `targetUser`, `problemStatement`, `v1Outcome`, `antiGoals`, `risks`, `exitCriteria`) documented in `roadmap-skill.config.json` example (recognized by the agent; generator wiring planned for a future release).
+
 ## [0.1.0] — 2026-04-24
 
 ### Added

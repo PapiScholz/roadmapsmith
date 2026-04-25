@@ -2,11 +2,12 @@
 # RoadmapSmith Roadmap
 
 ## Product North Star
-Ship deterministic roadmap automation with evidence-based task completion and a clean path to public release.
+Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Zero Mode turns vague product ideas into executable ROADMAP.md plans, and Sync/Audit Mode keeps existing roadmaps honest through repository-backed validation.
 
 ## Current State
 - Repository structure prepared for public distribution.
 - npm package and skill distribution ready for platform submission.
+- Two-mode product model (Zero Mode + Sync/Audit Mode) repositioning in progress.
 
 ## Phased Roadmap
 
@@ -22,6 +23,12 @@ Ship deterministic roadmap automation with evidence-based task completion and a 
 - [ ] Introduce validation confidence scoring (not just pass/fail) <!-- rs:task=introduce-validation-confidence-score -->
 - [ ] Expose validation reasoning clearly (why a task passed/failed) <!-- rs:task=expose-validation-reasoning -->
 - [ ] Add guardrail: require multiple evidence types (code + test or stronger heuristics) <!-- rs:task=require-multi-evidence-validation -->
+- [ ] Define two-mode product model: Zero Mode and Sync/Audit Mode <!-- rs:task=p0-define-two-mode-product-model -->
+- [ ] Document Zero Mode discovery flow in SKILL.md <!-- rs:task=p0-document-zero-mode-skill -->
+- [ ] Document Sync/Audit Mode as existing repository-backed workflow <!-- rs:task=p0-document-sync-audit-mode-skill -->
+- [ ] Update README positioning around the two-mode workflow <!-- rs:task=p0-update-readme-two-mode-positioning -->
+- [ ] Add discovery interview contract for empty repositories <!-- rs:task=p0-discovery-interview-contract -->
+- [ ] Add guardrail: do not generate generic roadmap for empty repos without discovery <!-- rs:task=p0-guardrail-no-generic-roadmap-empty-repo -->
 
 ### Phase P1 (Important)
 - [x] Repository made public <!-- rs:task=p1-repo-made-public -->
@@ -34,6 +41,11 @@ Ship deterministic roadmap automation with evidence-based task completion and a 
 - [ ] Add explicit agent usage contract (how to use roadmap-sync safely) <!-- rs:task=define-agent-usage-contract -->
 - [ ] Introduce "safe mode" for agents (strict validation, no auto-complete) <!-- rs:task=introduce-agent-safe-mode -->
 - [ ] Add CLI feedback hints when validation is weak or ambiguous <!-- rs:task=add-validation-feedback-hints -->
+- [ ] Add configurable product brief fields to roadmap-skill.config.json documentation <!-- rs:task=p1-configurable-product-brief-fields -->
+- [ ] Wire northStar, targetUser, problemStatement, v1Outcome, risks, antiGoals, exitCriteria into generator logic (currently recognized as forward-compatible config fields only) <!-- rs:task=p1-first-class-discovery-config-concepts -->
+- [ ] Add examples for Zero Mode product discovery <!-- rs:task=p1-zero-mode-examples -->
+- [ ] Add docs/use-cases/zero-mode-discovery.md <!-- rs:task=p1-docs-zero-mode-discovery -->
+- [ ] Add docs/use-cases/sync-audit-mode.md <!-- rs:task=p1-docs-sync-audit-mode -->
 
 ### Phase P2 (Optimization)
 - [x] npm publish completed <!-- rs:task=p2-npm-publish-completed -->
@@ -45,6 +57,10 @@ Ship deterministic roadmap automation with evidence-based task completion and a 
 - [ ] Add self-healing suggestions when validation fails (agent guidance) <!-- rs:task=self-healing-validation-suggestions -->
 - [ ] Provide agent-readable output mode (structured JSON with confidence + hints) <!-- rs:task=agent-readable-validation-output -->
 - [ ] Reduce dependency on implicit AGENTS.md knowledge <!-- rs:task=reduce-agent-hidden-knowledge -->
+- [ ] Consider future CLI command: roadmapsmith discover <!-- rs:task=p2-future-cli-discover -->
+- [ ] Consider future CLI command: roadmapsmith init --interactive <!-- rs:task=p2-future-cli-init-interactive -->
+- [ ] Add agent-readable discovery output format <!-- rs:task=p2-agent-readable-discovery-output -->
+- [ ] Add product brief import support from product-brief.md <!-- rs:task=p2-product-brief-import -->
 
 ## Release Milestones
 - [x] v0.1: Internal release checklist stabilized <!-- rs:task=milestone-v0-1-internal-release-checklist-stabilized -->

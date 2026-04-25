@@ -1,6 +1,6 @@
 # RoadmapSmith
 
-Deterministic roadmap generation and roadmap/task synchronization for AI coding agents, with evidence-based task completion validation.
+Turn vague software ideas into deterministic, evidence-trackable roadmaps for AI coding agents — then keep them honest with repository-backed validation.
 
 ## Naming Model
 
@@ -76,6 +76,73 @@ node bin/cli.js validate --json
 | `roadmapsmith validate --json` | Validate roadmap structure |
 | `roadmapsmith sync --audit` | Check completed tasks against evidence |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
+
+## Two Operating Modes
+
+### Zero Mode: Start from an empty repository
+
+Use this when you have:
+
+- A new or empty repository
+- A vague product idea with no implementation files
+- No stack decision yet
+- No ROADMAP.md yet
+
+Expected agent behavior:
+
+- Do not immediately generate a generic roadmap.
+- First run a discovery conversation to define the product brief.
+- Define the product north star, target user, and problem statement.
+- Recommend or confirm stack after understanding constraints.
+- Define the v1.0 outcome, anti-goals, and risks.
+- Generate ROADMAP.md as the execution contract.
+
+Discovery questions the agent will ask:
+
+1. What product are we building?
+2. Who is the target user?
+3. What problem does it solve?
+4. What is the desired v1.0 outcome?
+5. What is explicitly out of scope?
+6. What stack do you prefer, if any?
+7. What constraints exist? (Budget, hosting, compliance, platform, deadline.)
+8. What does "done" mean for the first usable version?
+
+Recommended workflow:
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+roadmapsmith init
+roadmapsmith generate --project-root .
+```
+
+The CLI creates governance files. The AI agent performs the discovery interview using the `roadmap-sync` skill instructions before generating the roadmap.
+
+---
+
+### Sync/Audit Mode: Keep an existing roadmap honest
+
+Use this when your repository already has code, tests, docs, TODOs, or an existing ROADMAP.md.
+
+Expected behavior:
+
+- Scan repository context: detect languages, modules, commands, test frameworks, TODO/FIXME markers.
+- Generate or update the managed roadmap block.
+- Validate tasks against repository evidence.
+- Sync checklist state.
+- Audit mismatches.
+
+Recommended workflow:
+
+```bash
+roadmapsmith generate --project-root .
+roadmapsmith validate --json
+roadmapsmith sync --audit
+```
+
+This is the current mature mode. It is not deprecated — it is the primary workflow for any repository with existing implementation.
+
+---
 
 ## When to use RoadmapSmith
 
@@ -209,18 +276,22 @@ The `--audit` flag produces a reviewable record: which tasks were attempted, whi
 
 Full detail in [ROADMAP.md](./ROADMAP.md). Summary of active priorities:
 
-**P0 — Validation hardening**
+**P0 — Two-mode model + validation hardening**
+- Define and document the two-mode product model (Zero Mode and Sync/Audit Mode)
+- Discovery interview contract for empty repositories
+- Guardrail: do not generate a generic roadmap for empty repos without discovery
 - Validation confidence scoring: tasks receive a score, not a boolean
 - Stricter semantic matching to eliminate naive token collisions
 - Multi-evidence requirement: code + test, or code + artifact
 - Explainable validation: `--json` output traces every evidence signal
 
 **P1 — Configurability**
-- `northStar`, `exitCriteria`, `risks`, `antiGoals` configurable via `roadmap-skill.config.json`
+- `northStar`, `targetUser`, `problemStatement`, `v1Outcome`, `risks`, `antiGoals`, `exitCriteria` configurable via `roadmap-skill.config.json` (recognized by the agent today; generator wiring planned)
 - Explicit agent usage contract embedded in generated `AGENTS.md`
 - "Safe mode" for agents: strict validation thresholds, no auto-complete
 
-**P2 — Performance**
+**P2 — Performance + future modes**
 - Caching layer for `buildValidationContext()` — avoid full repo scan per call
 - Incremental scan strategy
 - Configurable phase definitions beyond P0/P1/P2
+- Future: `roadmapsmith discover` and `roadmapsmith init --interactive` CLI commands

@@ -18,6 +18,31 @@ npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 
 This adds the `roadmap-sync` agent skill. It does not install the CLI package.
 
+## Operating Modes
+
+### Zero Mode
+
+Agent-guided discovery for empty or low-context repositories. The developer has a product idea but no implementation files, no stack decision, and no ROADMAP.md yet.
+
+The CLI creates governance files. The AI agent (using the `roadmap-sync` skill) performs the discovery interview before generating the roadmap.
+
+```bash
+roadmapsmith init
+roadmapsmith generate --project-root .
+```
+
+### Sync/Audit Mode
+
+Repository-backed roadmap generation, validation, and synchronization. Use when the repository already has code, tests, docs, TODOs, or an existing ROADMAP.md.
+
+```bash
+roadmapsmith generate --project-root .
+roadmapsmith validate --json
+roadmapsmith sync --audit
+```
+
+---
+
 ## Commands
 
 ```bash
@@ -61,6 +86,27 @@ Create `roadmap-skill.config.json`:
 {
   "roadmapFile": "./ROADMAP.md",
   "agentsFile": "./AGENTS.md",
+
+  // Forward-compatible fields — recognized by the skill/agent for Zero Mode discovery context,
+  // but not yet read by the generator or validator. Safe to add now; they will be wired in a future release.
+  "northStar": "Ship a self-hosted CLI tool for website capture and AI-readable design analysis.",
+  "targetUser": "Frontend developers, full-stack developers, and AI coding agents.",
+  "problemStatement": "Developers lack a unified tool to capture screenshots, crawl pages, extract assets, and export structured context.",
+  "v1Outcome": "A stable CLI that captures full-page screenshots, crawls internal links, exports metadata, and produces an AI-readable report.",
+  "antiGoals": [
+    "Do not bypass authentication",
+    "Do not target private systems without authorization"
+  ],
+  "risks": [
+    "Browser automation instability",
+    "Scope creep into generic scraping"
+  ],
+  "exitCriteria": [
+    "CLI works against a public test site",
+    "Screenshots and metadata are exported deterministically",
+    "README documents safe and authorized usage"
+  ],
+
   "taskMatchers": [
     {
       "pattern": "src/payments/",
