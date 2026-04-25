@@ -67,6 +67,32 @@ node bin/cli.js generate --project-root . --dry-run --audit
 node bin/cli.js validate --json
 ```
 
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
+| `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
+| `roadmapsmith validate --json` | Validate roadmap structure |
+| `roadmapsmith sync --audit` | Check completed tasks against evidence |
+| `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
+
+## When to use RoadmapSmith
+
+Use RoadmapSmith when:
+
+- You work with AI coding agents across multiple sessions
+- Your project roadmap gets outdated quickly
+- Agents complete tasks but forget to update documentation
+- You need visible progress by phases, priorities, and releases
+- You want completed checklist items backed by repository evidence
+
+Do not use it if:
+
+- Your project is a one-file script
+- You do not use roadmaps or agent workflows
+- You only need a static TODO list
+
 ## Roadmap
 
 The canonical project roadmap and publishing checklist live in [ROADMAP.md](./ROADMAP.md).
