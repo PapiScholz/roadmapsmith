@@ -182,6 +182,43 @@ function detectTestFrameworks(projectRoot, files) {
   return Array.from(frameworks).sort((left, right) => left.localeCompare(right));
 }
 
+// Detects workspace package roots (one level deep) from package.json workspaces field
+// and physical scan of packages/, apps/, tools/. Supports prefix/* and prefix/** globs.
+function detectWorkspaces(projectRoot, files) {
+  const packages = new Set();
+  const workspacePrefixes = ['packages/', 'apps/', 'tools/'];
+
+  for (const file of files) {
+    if (!file.endsWith('/package.json')) continue;
+    for (const prefix of workspacePrefixes) {
+      if (!file.startsWith(prefix)) continue;
+      const rest = file.slice(prefix.length);
+      const segments = rest.split('/');
+      if (segments.length === 2 && segments[1] === 'package.json') {
+        packages.add(prefix + segments[0]);
+      }
+    }
+  }
+
+  const pkg = parseJsonIfExists(path.join(projectRoot, 'package.json'));
+  const globs = Array.isArray(pkg && pkg.workspaces) ? pkg.workspaces
+    : (pkg && pkg.workspaces && Array.isArray(pkg.workspaces.packages)) ? pkg.workspaces.packages
+    : [];
+  for (const glob of globs) {
+    const match = glob.match(/^([A-Za-z0-9_.-]+)\/\*{1,2}$/);
+    if (!match) continue;
+    const prefix = match[1] + '/';
+    for (const file of files) {
+      if (!file.startsWith(prefix) || !file.endsWith('/package.json')) continue;
+      const rest = file.slice(prefix.length);
+      const segments = rest.split('/');
+      if (segments.length === 2) packages.add(prefix + segments[0]);
+    }
+  }
+
+  return Array.from(packages).sort((a, b) => a.localeCompare(b));
+}
+
 function lineDiff(before, after) {
   const left = (before || '').split(/\r?\n/);
   const right = (after || '').split(/\r?\n/);
@@ -219,6 +256,7 @@ function printDryRunDiff(filePath, before, after) {
 module.exports = {
   detectLanguages,
   detectTestFrameworks,
+  detectWorkspaces,
   printDryRunDiff,
   readTextIfExists,
   walkFiles,

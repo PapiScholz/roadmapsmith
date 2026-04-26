@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { walkFiles, detectLanguages, detectTestFrameworks } = require('../io');
+const { walkFiles, detectLanguages, detectTestFrameworks, detectWorkspaces } = require('../io');
 const { createRoadmapModel, PHASE_ORDER } = require('../model');
 const { slugify, ensureTrailingNewline } = require('../utils');
 const { parseRoadmap, upsertManagedBlock } = require('../parser');
@@ -34,6 +34,9 @@ function detectModules(files) {
       for (const r of rootPrefixes) {
         const idx = file.indexOf('/' + r);
         if (idx !== -1) {
+          // Only accept nested prefix when it appears within the first two path segments
+          // (e.g. "wrapper/src/..." is fine; "a/b/c/src/..." is too deep and likely a fixture or dependency)
+          if (file.slice(0, idx).split('/').length > 2) continue;
           relative = file.slice(idx + 1 + r.length);
           found = true;
           break;
@@ -141,6 +144,7 @@ function scanProject(projectRoot) {
   const commands = detectCommands(files);
   const todos = collectTodoHints(projectRoot, files);
   const codeTodos = collectCodeTodoHints(projectRoot, files);
+  const workspaces = detectWorkspaces(projectRoot, files);
 
   const implementedFiles = files.filter((file) => /\.(js|ts|tsx|py|go|rs|java|kt|cs)$/.test(file));
   const testFiles = files.filter((file) => /(^|\/)(__tests__|tests)\//.test(file) || /\.test\.|\.spec\.|_test\.go$/.test(file));
@@ -154,6 +158,7 @@ function scanProject(projectRoot) {
     commands,
     todos,
     codeTodos,
+    workspaces,
     implementedCount: implementedFiles.length,
     testCount: testFiles.length
   };
@@ -425,6 +430,7 @@ function createModel(scan, tasks, config, customSections, checkedById) {
     implemented,
     scaffold,
     knownLimitations,
+    workspaces: scan.workspaces || [],
     implementedSummary: `${scan.implementedCount} implementation files detected`,
     todoSummary: `${scan.todos.length} TODO/FIXME markers detected`,
     stackSummary: scan.languages.length > 0 ? scan.languages.join(', ') : 'No language-specific stack detected'

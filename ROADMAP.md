@@ -157,8 +157,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **What Must Be Stable:**
 
 - [ ] `[P1]` rs:task ID slugification algorithm <!-- rs:task=prof-ms-v0-1-stable-rs-task-id-slugification-algorithm -->
-- [ ] `[P1]` managed block start/end marker format <!-- rs:task=prof-ms-v0-1-stable-managed-block-start-end-marker-format -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): start/end
+- [x] `[P1]` managed block start/end marker format <!-- rs:task=prof-ms-v0-1-stable-managed-block-start-end-marker-format -->
 
 **Intentionally Out of Scope:**
 
@@ -256,8 +255,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 **Current state:** Scans files, detects languages, test frameworks, commands, modules.
 
-- [ ] `[P2]` Improve module detection for monorepo workspace layouts <!-- rs:task=prof-mat-io-monorepo-workspace-detection -->
-  - ⚠️ attempted but validation failed: missing test evidence
+- [x] `[P2]` Improve module detection for monorepo workspace layouts <!-- rs:task=prof-mat-io-monorepo-workspace-detection -->
 
 ### lib
 

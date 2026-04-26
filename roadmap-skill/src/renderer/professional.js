@@ -73,6 +73,13 @@ function renderSection3CurrentState(model, lines) {
   }
   lines.push('');
 
+  if (model.currentState.workspaces && model.currentState.workspaces.length > 0) {
+    lines.push('### Workspace Packages');
+    lines.push('');
+    lines.push(`- Workspace packages detected: ${model.currentState.workspaces.join(', ')}`);
+    lines.push('');
+  }
+
   lines.push('### Known Limitations');
   lines.push('');
   if (model.currentState.knownLimitations && model.currentState.knownLimitations.length > 0) {

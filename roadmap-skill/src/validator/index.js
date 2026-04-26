@@ -56,6 +56,24 @@ function readFileIndex(projectRoot, files) {
   return index;
 }
 
+const KNOWN_PATH_ROOTS = [
+  'src/', 'lib/', 'bin/', 'test/', 'tests/', 'docs/', 'scripts/',
+  'packages/', 'apps/', 'tools/', '.github/', 'roadmap-skill/'
+];
+
+function hasFileExtension(token) {
+  const lastSegment = token.replace(/\\/g, '/').split('/').pop() || '';
+  return /\.[A-Za-z0-9]{1,10}$/.test(lastSegment);
+}
+
+function isLikelyPath(token) {
+  if (/^\.{1,2}\/|^\//.test(token)) return true;
+  if (hasFileExtension(token)) return true;
+  if (KNOWN_PATH_ROOTS.some((root) => token.startsWith(root))) return true;
+  if ((token.match(/\//g) || []).length >= 2) return true;
+  return false;
+}
+
 function extractExplicitPaths(text) {
   const results = new Set();
   const quoted = String(text).match(/`([^`]+)`/g) || [];
@@ -67,8 +85,9 @@ function extractExplicitPaths(text) {
   }
 
   const pathTokens = String(text).match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)/g) || [];
-  for (const token of pathTokens) {
-    results.add(token);
+  for (const raw of pathTokens) {
+    const token = raw.replace(/[.,;:!?)]+$/, '');
+    if (isLikelyPath(token)) results.add(token);
   }
 
   return Array.from(results).sort((left, right) => left.localeCompare(right));

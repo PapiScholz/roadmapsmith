@@ -6,12 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-04-26
+
+### Added
+- **`detectWorkspaces(projectRoot, files)`** in `io.js`: detects workspace package roots from `package.json` `workspaces` field (npm/yarn, supports `prefix/*` and `prefix/**`) and physical scan of `packages/*/`, `apps/*/`, `tools/*/`. Exported and wired into `scanProject`.
+- **Workspace packages** surfaced in `currentState` and rendered in professional profile Section 3 ("Workspace Packages") when detected.
+- **Monorepo test fixture** at `test/fixtures/monorepo/`: root `package.json` with `workspaces`, `packages/auth/` and `packages/core/` each with `src/` and `tests/`.
+- **4 new validator tests**: natural-language slash pairs, unquoted path recognition, trailing punctuation stripping, `detectWorkspaces` detection, and validator test-evidence inside workspace packages.
+
 ### Fixed
+- **`extractExplicitPaths` false positive**: unquoted `word/word` tokens (e.g. `start/end`, `input/output`, `read/write`) were incorrectly treated as file paths, causing spurious `missing referenced file(s): start/end` validation failures. Now filtered through `isLikelyPath()` which requires a real path signal (known root prefix, file extension, rooted path, or 3+ segments). Trailing punctuation (`.`, `,`, `)`, `:`) is stripped before the check.
+- **`detectModules` nested prefix depth**: nested prefix search (`/src/`, `/packages/`, etc.) is now limited to paths where the prefix appears within the first two path segments, preventing test fixture directories from polluting the module list of the project under scan.
 - Require comment prefix context (`//`, `#`, `*`) for TODO/FIXME markers to eliminate false positives from string literals.
 - Exclude scanner implementation code from Known Limitations; detect nested `src/` modules correctly.
 
 ### Changed
-- Regenerate root `ROADMAP.md` with clean Known Limitations and real module list in Section 6.
+- Regenerate root `ROADMAP.md`: `managed block start/end marker format` and `Improve module detection for monorepo workspace layouts` now validated and checked.
 
 ### Removed
 - Dead `renderManagedBody` function and its local `taskLine`/`checkedState` helpers from generator.
