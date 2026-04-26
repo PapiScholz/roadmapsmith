@@ -21,16 +21,16 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 ### Scaffold / Partial
 
-_No scaffold modules detected. Improve detection by adding `product.steps` to config._
+- [ ] Module "app" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-app-partially-implemented-coverage-unknown -->
+- [ ] Module "config" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-config-partially-implemented-coverage-unknown -->
+- [ ] Module "generator" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-generator-partially-implemented-coverage-unknown -->
+- [ ] Module "io" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-io-partially-implemented-coverage-unknown -->
+- [ ] Module "lib" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-lib-partially-implemented-coverage-unknown -->
+- [ ] Module "match" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-match-partially-implemented-coverage-unknown -->
 
 ### Known Limitations
 
-- [ ] roadmap-skill/src/generator/index.js:46 — function collectTodoHints(projectRoot, files) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-46-function-collecttodohints-projectroot-files -->
-- [ ] roadmap-skill/src/generator/index.js:61 — if (/TODO|FIXME/i.test(lines[i])) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-61-if-todo-fixme-i-test-lines-i -->
-- [ ] roadmap-skill/src/generator/index.js:77 — function collectCodeTodoHints(projectRoot, files) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-77-function-collectcodetodohints-projectroot-files -->
-- [ ] roadmap-skill/src/generator/index.js:92 — if (/TODO|FIXME/i.test(lines[i])) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-92-if-todo-fixme-i-test-lines-i -->
-- [ ] roadmap-skill/src/generator/index.js:114 — const todos = collectTodoHints(projectRoot, files); <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-114-const-todos-collecttodohints-projectroot-files -->
-- [ ] roadmap-skill/src/generator/index.js:115 — const codeTodos = collectCodeTodoHints(projectRoot, files); <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-115-const-codetodos-collectcodetodohints-projectroot-files -->
+- Code-level TODO/FIXME surface: 2 TODO/FIXME markers detected
 
 ## 4. Phased Execution Roadmap
 
@@ -232,7 +232,56 @@ _No scaffold modules detected. Improve detection by adding `product.steps` to co
 
 ## 6. Command-by-Command / Module-by-Module Maturity Path
 
-- [ ] `[P1]` Identify command/module boundaries for the next increment <!-- rs:task=prof-mat-identify-boundaries -->
+### app
+
+**Current state:** module detected in scan.
+
+- [ ] `[P1]` Define maturity criteria and testability gates for app <!-- rs:task=prof-mat-app-define-maturity-criteria -->
+
+### config
+
+**Current state:** Supports roadmapProfile, product block, milestones, phaseTemplates, plugins.
+
+- [ ] `[P1]` Add JSON schema validation for roadmap-skill.config.json <!-- rs:task=prof-mat-config-json-schema-validation -->
+
+### generator
+
+**Current state:** Compact and professional profiles supported; Phase→Step→Task model implemented.
+
+- [ ] `[P0]` Improve Phase→Step→Task model inference quality <!-- rs:task=prof-mat-generator-improve-phase-step-task-inference -->
+- [ ] `[P1]` Add scan-driven task suggestions per detected module <!-- rs:task=prof-mat-generator-scan-driven-task-suggestions -->
+
+### io
+
+**Current state:** Scans files, detects languages, test frameworks, commands, modules.
+
+- [ ] `[P2]` Improve module detection for monorepo workspace layouts <!-- rs:task=prof-mat-io-monorepo-workspace-detection -->
+
+### lib
+
+**Current state:** module detected in scan.
+
+- [ ] `[P1]` Define maturity criteria and testability gates for lib <!-- rs:task=prof-mat-lib-define-maturity-criteria -->
+
+### match
+
+**Current state:** Task similarity matching with edit-distance threshold.
+
+- [ ] `[P0]` Tune similarity threshold to reduce false-positive merges <!-- rs:task=prof-mat-match-tune-similarity-threshold -->
+
+### parser
+
+**Current state:** Parses managed blocks, rs:task IDs, and checked state.
+
+- [ ] `[P1]` Add parser validation for Phase→Step hierarchy markers <!-- rs:task=prof-mat-parser-phase-hierarchy-validation -->
+- [ ] `[P1]` Improve section boundary detection for professional format <!-- rs:task=prof-mat-parser-professional-section-detection -->
+
+### renderer
+
+**Current state:** Dispatcher supports compact, professional, and enterprise (error) profiles.
+
+- [ ] `[P0]` Add snapshot regression fixtures for compact and professional <!-- rs:task=prof-mat-renderer-snapshot-regression-fixtures -->
+- [ ] `[P1]` Harden priority label rendering for edge cases <!-- rs:task=prof-mat-renderer-priority-label-edge-cases -->
 
 ## 7. Output Contract Roadmap
 
