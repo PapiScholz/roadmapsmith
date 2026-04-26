@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-04-26
+
+### Added
+- **`test/utils.test.js`**: 8 tests that lock in the `slugify` algorithm — one per transform step (lowercase, non-alphanumeric collapse, leading/trailing hyphen strip, interior hyphen collapse) plus fallbacks for empty string and `null`. Fulfills v0.1 stability requirement for the rs:task ID slugification algorithm.
+- **Exit criteria ID stability tests** in `generator.test.js`: asserts the exact `prof-ph{N}-st{N}-exit-{slug}` format for auto-generated exit criteria IDs, and verifies that checked state survives regeneration via those IDs. Fulfills v0.3 stability requirement for the `prof-step-N-` task ID namespace.
+
+### Changed
+- **ROADMAP.md**: all P1 items marked complete — roadmap is 100% done.
+
 ## [0.5.0] — 2026-04-26
 
 ### Added

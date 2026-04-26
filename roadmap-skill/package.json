@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Generate, sync, and validate deterministic project roadmaps for agent-driven execution.",
   "main": "src/index.js",
   "bin": {

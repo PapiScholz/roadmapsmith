@@ -427,3 +427,36 @@ test('root ROADMAP.md Section 6 does not show generic placeholder', () => {
   assert.match(output, /### generator/, 'Section 6 must list generator module');
   assert.match(output, /### parser/, 'Section 6 must list parser module');
 });
+
+test('exit criteria IDs have exact prof-phN-stN-exit-{slug} format', () => {
+  const model = makeMinimalModel();
+  const output = renderBody(model, 'professional');
+
+  assert.match(output, /<!-- rs:task=prof-ph1-st1-exit-core-complete -->/,
+    'Expected exact exit criteria ID: prof-ph1-st1-exit-core-complete');
+
+  assert.match(output, /<!-- rs:task=prof-ph2-st1-exit-features-done -->/,
+    'Expected exact exit criteria ID: prof-ph2-st1-exit-features-done');
+});
+
+test('exit criteria checked state survives regeneration via prof-phN-stN-exit-{slug} ID', () => {
+  const phasesDetailed = [{
+    phaseNumber: 1, title: 'Foundation', priority: 'P0', objective: '',
+    steps: [{
+      stepNumber: 1, title: 'Core', priority: 'P0', dependsOn: [], objective: '',
+      tasks: [],
+      exitCriteria: [{ text: 'Core complete', priority: 'P0' }],
+      risks: []
+    }]
+  }];
+  const model = makeMinimalModel({ phasesDetailed });
+  const first = renderBody(model, 'professional');
+
+  assert.match(first, /- \[ \] `\[P0\]` Core complete <!-- rs:task=prof-ph1-st1-exit-core-complete -->/);
+
+  const checkedById = { 'prof-ph1-st1-exit-core-complete': true };
+  const model2 = makeMinimalModel({ phasesDetailed, checkedById });
+  const regenerated = renderBody(model2, 'professional');
+
+  assert.match(regenerated, /- \[x\] `\[P0\]` Core complete <!-- rs:task=prof-ph1-st1-exit-core-complete -->/);
+});
