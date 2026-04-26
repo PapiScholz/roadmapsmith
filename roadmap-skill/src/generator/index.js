@@ -10,11 +10,11 @@ const { findBestTaskMatch, dedupeTasks } = require('../match');
 const { collectPluginContributions } = require('../config');
 const { renderBody } = require('../renderer');
 
-const TODO_MARKER_RE = /\bTODO\b|\bFIXME\b/;
 const IMPL_PATTERN_RE = /[/|]TODO|TODO[|/]|[/|]FIXME|FIXME[|/]/;
+const COMMENT_TODO_RE = /(?:\/\/|#|\*\s*).*\b(?:TODO|FIXME)\b/;
 
 function isTodoMarker(line) {
-  return TODO_MARKER_RE.test(line) && !IMPL_PATTERN_RE.test(line);
+  return COMMENT_TODO_RE.test(line) && !IMPL_PATTERN_RE.test(line);
 }
 
 const GENERIC_MODULE_NAMES = new Set(['index', 'main', 'utils', 'common', 'helpers', 'types', 'constants', 'model']);
