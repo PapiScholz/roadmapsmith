@@ -26,7 +26,19 @@ roadmapsmith/
 └── roadmap-skill/
     ├── package.json
     ├── bin/
+    │   └── cli.js
     ├── src/
+    │   ├── index.js
+    │   ├── config.js
+    │   ├── io.js
+    │   ├── match.js
+    │   ├── model.js
+    │   ├── utils.js
+    │   ├── generator/
+    │   ├── parser/
+    │   ├── renderer/
+    │   ├── sync/
+    │   └── validator/
     ├── templates/
     └── test/
 ```
@@ -122,6 +134,8 @@ RoadmapSmith supports multiple output profiles. Set `roadmapProfile` in `roadmap
 ```
 
 `product.phases` is optional — if omitted, phases are inferred from P0/P1/P2 task groups. Priority at every level (phase, step, task) is a display label only. Phases and steps always sort by number, never by priority.
+
+**Supported priority labels:** `P0` (critical), `P1` (high), `P2` (normal), `P3` (later/backlog). All are valid at phase, step, and task level. In dedup resolution, lower numbers win; `P3` items are deprioritized but never silently upgraded.
 
 ### Professional profile output example
 

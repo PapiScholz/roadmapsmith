@@ -4,7 +4,6 @@
   "description": "Generate, sync, and validate deterministic project roadmaps for agent-driven execution.",
   "main": "src/index.js",
   "bin": {
-    "roadmap-skill": "bin/cli.js",
     "roadmapsmith": "bin/cli.js"
   },
   "type": "commonjs",

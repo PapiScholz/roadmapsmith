@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Require comment prefix context (`//`, `#`, `*`) for TODO/FIXME markers to eliminate false positives from string literals.
+- Exclude scanner implementation code from Known Limitations; detect nested `src/` modules correctly.
+
+### Changed
+- Regenerate root `ROADMAP.md` with clean Known Limitations and real module list in Section 6.
+
+### Removed
+- Dead `renderManagedBody` function and its local `taskLine`/`checkedState` helpers from generator.
+
 ## [0.4.0] — 2026-04-26
 
 ### Added
@@ -28,7 +38,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `mergeConfig()` passes `product.phases` through without item-by-item merging.
 - `scanProject()` now returns both `todos` (all files, for backlog candidates) and `codeTodos` (code files only, for Known Limitations).
 
-## [0.3.0] — 2026-04-25
+## [0.3.0] — 2026-04-25 *(development checkpoint — no git tag; superseded by v0.4.0)*
 
 ### Added
 - Renderer architecture: `src/renderer/` module with `compact.js`, `professional.js`, `helpers.js`, and `index.js` dispatcher.

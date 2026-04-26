@@ -13,7 +13,8 @@ function inferPriorityWeight(priority) {
   if (normalized === 'P0') return 0;
   if (normalized === 'P1') return 1;
   if (normalized === 'P2') return 2;
-  return 3;
+  if (normalized === 'P3') return 3;
+  return 4;
 }
 
 function findBestTaskMatch(candidate, existingTasks, minScore = 0.55) {
@@ -80,7 +81,6 @@ function dedupeTasks(tasks) {
 }
 
 module.exports = {
-  canonicalSignature,
   dedupeTasks,
   findBestTaskMatch
 };

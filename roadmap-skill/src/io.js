@@ -217,10 +217,8 @@ function printDryRunDiff(filePath, before, after) {
 }
 
 module.exports = {
-  DEFAULT_IGNORED_DIRS,
   detectLanguages,
   detectTestFrameworks,
-  parseJsonIfExists,
   printDryRunDiff,
   readTextIfExists,
   walkFiles,

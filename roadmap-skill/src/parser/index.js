@@ -102,8 +102,6 @@ function upsertManagedBlock(existingContent, managedBody) {
 }
 
 module.exports = {
-  MANAGED_END,
-  MANAGED_START,
   parseRoadmap,
   upsertManagedBlock
 };

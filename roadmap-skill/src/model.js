@@ -28,6 +28,5 @@ function createRoadmapModel(input) {
 
 module.exports = {
   PHASE_ORDER,
-  createRoadmapModel,
-  phaseWeight
+  createRoadmapModel
 };

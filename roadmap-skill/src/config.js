@@ -170,7 +170,6 @@ function loadPlugins(projectRoot, pluginEntries) {
   const plugins = [];
   for (const entry of pluginEntries || []) {
     const pluginPath = path.resolve(projectRoot, entry);
-    // eslint-disable-next-line global-require, import/no-dynamic-require
     const pluginModule = require(pluginPath);
     plugins.push({
       name: path.basename(pluginPath),
@@ -188,7 +187,12 @@ function collectPluginContributions(plugins, hookName, context) {
     if (typeof hook !== 'function') {
       continue;
     }
-    const result = hook(context);
+    let result;
+    try {
+      result = hook(context);
+    } catch (err) {
+      throw new Error(`Plugin "${plugin.name}" failed in hook "${hookName}": ${err.message}`);
+    }
     if (Array.isArray(result)) {
       for (const item of result) {
         contributions.push(item);

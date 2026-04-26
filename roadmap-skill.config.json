@@ -37,7 +37,7 @@
             "title": "Renderer Architecture",
             "priority": "P1",
             "dependsOn": [],
-            "objective": "Extract renderManagedBody into a dispatcher pattern supporting multiple profiles.",
+            "objective": "Renderer architecture with compact and professional profiles dispatched via renderBody.",
             "tasks": [
               { "id": "prof-task-preserve-compact-backward-compatibility", "text": "Preserve compact backward compatibility", "priority": "P0" },
               { "id": "prof-task-extract-compact-renderer", "text": "Extract compact renderer to renderer/compact.js", "priority": "P1" },

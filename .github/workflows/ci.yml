@@ -10,8 +10,11 @@ on:
 
 jobs:
   test:
-    name: Test roadmap-skill
+    name: Test roadmap-skill (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20']
 
     defaults:
       run:
@@ -21,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: npm
           cache-dependency-path: roadmap-skill/package-lock.json
 
