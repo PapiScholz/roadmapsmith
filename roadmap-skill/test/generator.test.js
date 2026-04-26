@@ -365,3 +365,65 @@ test('sections 5-12 render priority labels on actionable items', () => {
 
   assert.match(output, /`\[P0\]`[\s\S]*<!-- rs:task=prof-/, 'Expected P0 priority labels on prof- task IDs in sections 5-12');
 });
+
+test('TODO scanner implementation code is not classified as Known Limitation', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-scanner-impl-'));
+  fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ name: 'test-pkg', version: '1.0.0' }));
+  fs.mkdirSync(path.join(projectRoot, 'src'));
+  fs.writeFileSync(path.join(projectRoot, 'src', 'scanner.js'), [
+    "'use strict';",
+    "function collectTodoHints(projectRoot, files) {",
+    "  const hints = [];",
+    "  for (const line of files) {",
+    "    if (/TODO|FIXME/i.test(line)) hints.push(line);",
+    "  }",
+    "  return hints;",
+    "}",
+    "const codeTodos = collectTodoHints('.', []);",
+    "module.exports = { collectTodoHints };",
+  ].join('\n'));
+
+  const config = { ...loadConfig({ projectRoot }), roadmapProfile: 'professional', product: { name: 'Test' } };
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+
+  const knownLimitSection = output.match(/### Known Limitations([\s\S]*?)(?=\n##)/);
+  if (knownLimitSection) {
+    assert.doesNotMatch(knownLimitSection[1], /collectTodoHints/, 'camelCase function name must not appear in Known Limitations');
+    assert.doesNotMatch(knownLimitSection[1], /TODO\|FIXME/, 'regex literal must not appear in Known Limitations');
+  }
+});
+
+test('detectModules finds modules in nested package layout (roadmap-skill/src/*)', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-nested-mods-'));
+  fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ name: 'test-nested', version: '1.0.0' }));
+  for (const subdir of ['roadmap-skill/src/generator', 'roadmap-skill/src/parser', 'roadmap-skill/src/renderer']) {
+    fs.mkdirSync(path.join(projectRoot, subdir), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, subdir, 'index.js'), "'use strict';\n");
+  }
+  for (const file of ['config.js', 'match.js', 'io.js']) {
+    fs.writeFileSync(path.join(projectRoot, 'roadmap-skill', 'src', file), "'use strict';\n");
+  }
+
+  const config = { ...loadConfig({ projectRoot }), roadmapProfile: 'professional', product: { name: 'Test' } };
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+
+  assert.doesNotMatch(output, /Identify command\/module boundaries for the next increment/,
+    'Generic placeholder must not appear when nested modules are detected');
+  assert.match(output, /### generator/, 'Expected generator subsection in Section 6');
+  assert.match(output, /### parser/, 'Expected parser subsection in Section 6');
+  assert.match(output, /### config/, 'Expected config subsection (flat file) in Section 6');
+});
+
+test('root ROADMAP.md Section 6 does not show generic placeholder', () => {
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  const existingContent = (() => {
+    try { return fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8'); } catch { return ''; }
+  })();
+  const config = { ...loadConfig({ projectRoot }), roadmapProfile: 'professional' };
+  const output = generateRoadmapDocument({ projectRoot, existingContent, config, plugins: [] });
+
+  assert.doesNotMatch(output, /Identify command\/module boundaries for the next increment/,
+    'Section 6 must list real modules, not the generic placeholder');
+  assert.match(output, /### generator/, 'Section 6 must list generator module');
+  assert.match(output, /### parser/, 'Section 6 must list parser module');
+});

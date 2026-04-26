@@ -10,21 +10,49 @@ const { findBestTaskMatch, dedupeTasks } = require('../match');
 const { collectPluginContributions } = require('../config');
 const { renderBody } = require('../renderer');
 
+const TODO_MARKER_RE = /\bTODO\b|\bFIXME\b/;
+const IMPL_PATTERN_RE = /[/|]TODO|TODO[|/]|[/|]FIXME|FIXME[|/]/;
+
+function isTodoMarker(line) {
+  return TODO_MARKER_RE.test(line) && !IMPL_PATTERN_RE.test(line);
+}
+
+const GENERIC_MODULE_NAMES = new Set(['index', 'main', 'utils', 'common', 'helpers', 'types', 'constants', 'model']);
+
 function detectModules(files) {
   const modules = new Set();
-  const roots = ['src/', 'apps/', 'packages/', 'lib/', 'cmd/', 'internal/'];
+  const rootPrefixes = ['src/', 'apps/', 'packages/', 'lib/', 'cmd/', 'internal/'];
 
   for (const file of files) {
-    const root = roots.find((candidate) => file.startsWith(candidate));
-    if (!root) {
-      continue;
+    let relative;
+
+    const directRoot = rootPrefixes.find((r) => file.startsWith(r));
+    if (directRoot) {
+      relative = file.slice(directRoot.length);
+    } else {
+      let found = false;
+      for (const r of rootPrefixes) {
+        const idx = file.indexOf('/' + r);
+        if (idx !== -1) {
+          relative = file.slice(idx + 1 + r.length);
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
     }
-    const relative = file.slice(root.length);
+
     const first = relative.split('/')[0];
-    if (!first || first.includes('.')) {
-      continue;
+    if (!first) continue;
+
+    if (first.includes('.')) {
+      const name = first.slice(0, first.lastIndexOf('.'));
+      if (name && !GENERIC_MODULE_NAMES.has(name)) {
+        modules.add(name);
+      }
+    } else {
+      modules.add(first);
     }
-    modules.add(first);
   }
 
   return Array.from(modules).sort((left, right) => left.localeCompare(right));
@@ -58,7 +86,7 @@ function collectTodoHints(projectRoot, files) {
 
     const lines = content.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
-      if (/TODO|FIXME/i.test(lines[i])) {
+      if (isTodoMarker(lines[i])) {
         hints.push({
           file,
           line: i + 1,
@@ -89,7 +117,7 @@ function collectCodeTodoHints(projectRoot, files) {
 
     const lines = content.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
-      if (/TODO|FIXME/i.test(lines[i])) {
+      if (isTodoMarker(lines[i])) {
         hints.push({
           file,
           line: i + 1,
