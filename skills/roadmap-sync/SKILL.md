@@ -80,6 +80,58 @@ cd roadmap-skill
 node bin/cli.js <command>
 ```
 
+## Profile Selection
+
+RoadmapSmith supports multiple roadmap output profiles. Set `roadmapProfile` in `roadmap-skill.config.json`:
+
+- `compact` (default): phase-grouped checklist (P0 / P1 / P2). Backward compatible.
+- `professional`: 12-section structured roadmap with sequential steps, milestones, maturity path, and success criteria.
+- `enterprise`: planned (not yet implemented — throws a clear error if selected).
+
+To use the professional profile, add to `roadmap-skill.config.json`:
+
+```json
+{
+  "roadmapProfile": "professional",
+  "product": {
+    "name": "My Project",
+    "northStar": "One-sentence mission.",
+    "positioning": "What makes this different.",
+    "primaryUser": "Who uses this.",
+    "targetOutcome": "What success looks like.",
+    "antiGoals": [],
+    "risks": [],
+    "successCriteria": []
+  }
+}
+```
+
+The professional profile renders:
+1. Product North Star
+2. Positioning and Competitive Advantage
+3. Explicit Current State (Implemented / Scaffold / Known Limitations — code-file TODOs only, no doc noise)
+4. Phased Execution Roadmap — **Phase → Step → Task** three-level hierarchy, each with independent priority labels
+5. Versioned Milestones (What Must Exist `[P0]` / What Must Be Stable `[P1]` / Out of Scope)
+6. Module/Command Maturity Path — subsection per module with current state and next task
+7–12. Output Contract, Testing, Distribution, Documentation, Risks, Success Criteria — all with `[Px]` priority labels
+
+**Section 4 hierarchy example:**
+```markdown
+### Phase 1: Product Architecture
+**Phase Priority:** `[P1]`
+
+#### Step 1.2: Model Improvements
+**Step Priority:** `[P0]`   ← higher priority than phase; still renders second (stepNumber=2)
+
+**Tasks:**
+- [ ] `[P0]` Add phasesDetailed model field <!-- rs:task=prof-task-add-phasesdetailed-model-field -->
+- [ ] `[P1]` Filter code vs doc TODOs        <!-- rs:task=prof-task-filter-code-vs-doc-todos -->
+```
+
+Phases sort by `phaseNumber`. Steps sort by `stepNumber` within their phase. Priority is a display label only — never a sort key. Phase 2 may carry P0 and still render after Phase 1.
+
+Optionally define explicit phases in config (`product.phases[]`). If omitted, phases are inferred from P0/P1/P2 task groups.
+
 ## Guardrails
 
 - Mark tasks complete only when repository evidence exists.

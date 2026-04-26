@@ -1,73 +1,312 @@
 <!-- rs:managed:start -->
 # RoadmapSmith Roadmap
 
-## Product North Star
-Ship RoadmapSmith as a two-mode roadmap operating system for AI coding agents: Zero Mode turns vague product ideas into executable ROADMAP.md plans, and Sync/Audit Mode keeps existing roadmaps honest through repository-backed validation.
+## 1. Product North Star
 
-## Current State
-- Repository structure prepared for public distribution.
-- npm package and skill distribution ready for platform submission.
-- Two-mode product model (Zero Mode + Sync/Audit Mode) repositioned and documented in v0.2.0.
+Make every software project ship with a living, evidence-backed roadmap — zero manual maintenance.
 
-## Phased Roadmap
+**Primary user:** Solo developers and small teams using AI coding agents (Claude Code, Copilot, etc.).
 
-### Phase P0 (Critical)
-- [x] CI green on `main` <!-- rs:task=p0-ci-green-on-main -->
-- [x] Package metadata completed <!-- rs:task=p0-package-metadata-completed -->
-- [x] `package-lock.json` committed in `roadmap-skill/` <!-- rs:task=p0-package-lock-json-committed -->
-- [ ] Redesign validation algorithm to reduce false positives in `findCodeEvidence` <!-- rs:task=p0-redesign-findcodeevidence-reduce-false-positives -->
-- [ ] Align validation logic between `findCodeEvidence` (score-based) and `findTestEvidence` (OR-based) <!-- rs:task=p0-align-findcodeevidence-findtestevidence-logic -->
-- [ ] Introduce stricter semantic matching for task validation to avoid naive token matching <!-- rs:task=p0-stricter-semantic-matching-task-validation -->
-- [ ] Make validation deterministic and explainable by tracing why a task passed <!-- rs:task=p0-deterministic-explainable-validation-trace -->
-- [ ] Prevent agents from marking tasks as complete when validation confidence is low <!-- rs:task=prevent-low-confidence-task-completion -->
-- [ ] Introduce validation confidence scoring (not just pass/fail) <!-- rs:task=introduce-validation-confidence-score -->
-- [ ] Expose validation reasoning clearly (why a task passed/failed) <!-- rs:task=expose-validation-reasoning -->
-- [ ] Add guardrail: require multiple evidence types (code + test or stronger heuristics) <!-- rs:task=require-multi-evidence-validation -->
-- [x] Define two-mode product model: Zero Mode and Sync/Audit Mode <!-- rs:task=p0-define-two-mode-product-model -->
-- [x] Document Zero Mode discovery flow in SKILL.md <!-- rs:task=p0-document-zero-mode-skill -->
-- [x] Document Sync/Audit Mode as existing repository-backed workflow <!-- rs:task=p0-document-sync-audit-mode-skill -->
-- [x] Update README positioning around the two-mode workflow <!-- rs:task=p0-update-readme-two-mode-positioning -->
-- [x] Add discovery interview contract for empty repositories <!-- rs:task=p0-discovery-interview-contract -->
-- [x] Add guardrail: do not generate generic roadmap for empty repos without discovery <!-- rs:task=p0-guardrail-no-generic-roadmap-empty-repo -->
+**Target outcome:** Developers run one command and get a production-grade, evidence-validated ROADMAP.md they are proud to publish — and it stays accurate as the project evolves.
 
-### Phase P1 (Important)
-- [x] Repository made public <!-- rs:task=p1-repo-made-public -->
-- [x] npm package name confirmed <!-- rs:task=p1-npm-package-name-confirmed -->
-- [ ] Make `northStar`, `exitCriteria`, `risks`, and `antiGoals` configurable via `roadmap-skill.config.json` <!-- rs:task=p1-configurable-northstar-exitcriteria-risks-antigoals -->
-- [ ] Refactor roadmap model creation to remove hardcoded business logic <!-- rs:task=p1-refactor-roadmap-model-remove-hardcoded-logic -->
-- [ ] Introduce safe plugin loading with try/catch and meaningful error reporting <!-- rs:task=p1-safe-plugin-loading-trycatch-error-reporting -->
-- [ ] Add plugin validation sandboxing to prevent plugin crash from breaking execution <!-- rs:task=p1-plugin-validation-sandboxing -->
-- [ ] Simplify AGENTS.md rules into deterministic and minimal instructions <!-- rs:task=simplify-agents-rules -->
-- [ ] Add explicit agent usage contract (how to use roadmap-sync safely) <!-- rs:task=define-agent-usage-contract -->
-- [ ] Introduce "safe mode" for agents (strict validation, no auto-complete) <!-- rs:task=introduce-agent-safe-mode -->
-- [ ] Add CLI feedback hints when validation is weak or ambiguous <!-- rs:task=add-validation-feedback-hints -->
-- [x] Add configurable product brief fields to roadmap-skill.config.json documentation <!-- rs:task=p1-configurable-product-brief-fields -->
-- [ ] Wire northStar, targetUser, problemStatement, v1Outcome, risks, antiGoals, exitCriteria into generator logic (currently forward-compatible config fields only) <!-- rs:task=p1-first-class-discovery-config-concepts -->
-- [ ] Add examples for Zero Mode product discovery <!-- rs:task=p1-zero-mode-examples -->
-- [x] Add docs/use-cases/zero-mode-discovery.md <!-- rs:task=p1-docs-zero-mode-discovery -->
-- [x] Add docs/use-cases/sync-audit-mode.md <!-- rs:task=p1-docs-sync-audit-mode -->
+## 2. Positioning and Competitive Advantage
 
-### Phase P2 (Optimization)
-- [x] npm publish completed <!-- rs:task=p2-npm-publish-completed -->
-- [x] skills.sh submission completed <!-- rs:task=p2-skills-sh-submission-completed -->
-- [ ] Implement caching layer for `buildValidationContext` (fileIndex, walkFiles, etc.) <!-- rs:task=p2-caching-layer-buildvalidationcontext -->
-- [ ] Add incremental scan strategy to avoid full repo scan on every execution <!-- rs:task=p2-incremental-scan-strategy -->
-- [ ] Make hardcoded limits configurable: TODO scan file limit (120), TODO extraction limit (12), evidence file cap (20) <!-- rs:task=p2-configurable-hardcoded-limits -->
-- [ ] Allow dynamic phase configuration beyond P0/P1/P2 with custom phases support <!-- rs:task=p2-dynamic-phase-configuration-custom-phases -->
-- [ ] Add self-healing suggestions when validation fails (agent guidance) <!-- rs:task=self-healing-validation-suggestions -->
-- [ ] Provide agent-readable output mode (structured JSON with confidence + hints) <!-- rs:task=agent-readable-validation-output -->
-- [ ] Reduce dependency on implicit AGENTS.md knowledge <!-- rs:task=reduce-agent-hidden-knowledge -->
-- [ ] Consider future CLI command: roadmapsmith discover <!-- rs:task=p2-future-cli-discover -->
-- [ ] Consider future CLI command: roadmapsmith init --interactive <!-- rs:task=p2-future-cli-init-interactive -->
-- [ ] Add agent-readable discovery output format <!-- rs:task=p2-agent-readable-discovery-output -->
-- [ ] Add product brief import support from product-brief.md <!-- rs:task=p2-product-brief-import -->
+RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and syncs ROADMAP.md files directly from repository evidence. Unlike static roadmap templates or project management tools, RoadmapSmith keeps the roadmap honest: tasks are only marked complete when code, tests, or artifacts back them up.
 
-## Release Milestones
-- [x] v0.1: Internal release checklist stabilized <!-- rs:task=milestone-v0-1-internal-release-checklist-stabilized -->
-- [x] v0.2: Public repository and install discovery readiness <!-- rs:task=milestone-v0-2-public-repository-and-install-discovery-readiness -->
-- [x] v1.0: Public npm + skills.sh availability <!-- rs:task=milestone-v1-0-public-npm-and-skills-sh-availability -->
-- [x] v0.2.0 (npm): Two-mode product model — Zero Mode and Sync/Audit Mode documented <!-- rs:task=milestone-v0-2-0-two-mode-product-model -->
+## 3. Explicit Current State
 
-## Guardrail
-- [ ] Do not mark roadmap tasks as complete without repository evidence <!-- rs:task=guardrail-do-not-mark-roadmap-tasks-as-complete-without-repository-evidence -->
+### Implemented
+
+- [x] 31 implementation files across Go, JavaScript, Python, Rust <!-- rs:task=prof-state-impl-31-implementation-files-across-go-javascript-python-rust -->
+
+### Scaffold / Partial
+
+_No scaffold modules detected. Improve detection by adding `product.steps` to config._
+
+### Known Limitations
+
+- [ ] roadmap-skill/src/generator/index.js:46 — function collectTodoHints(projectRoot, files) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-46-function-collecttodohints-projectroot-files -->
+- [ ] roadmap-skill/src/generator/index.js:61 — if (/TODO|FIXME/i.test(lines[i])) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-61-if-todo-fixme-i-test-lines-i -->
+- [ ] roadmap-skill/src/generator/index.js:77 — function collectCodeTodoHints(projectRoot, files) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-77-function-collectcodetodohints-projectroot-files -->
+- [ ] roadmap-skill/src/generator/index.js:92 — if (/TODO|FIXME/i.test(lines[i])) { <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-92-if-todo-fixme-i-test-lines-i -->
+- [ ] roadmap-skill/src/generator/index.js:114 — const todos = collectTodoHints(projectRoot, files); <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-114-const-todos-collecttodohints-projectroot-files -->
+- [ ] roadmap-skill/src/generator/index.js:115 — const codeTodos = collectCodeTodoHints(projectRoot, files); <!-- rs:task=prof-state-limit-roadmap-skill-src-generator-index-js-115-const-codetodos-collectcodetodohints-projectroot-files -->
+
+## 4. Phased Execution Roadmap
+
+### Phase 1: Product Architecture
+
+**Phase Priority:** `[P1]`
+
+**Objective:** Establish the renderer architecture, model hierarchy, and config schema that power all future profiles.
+
+#### Step 1.1: Renderer Architecture
+
+**Step Priority:** `[P1]`
+**Depends on:** None
+
+**Objective:** Extract renderManagedBody into a dispatcher pattern supporting multiple profiles.
+
+**Tasks:**
+
+- [ ] `[P0]` Preserve compact backward compatibility <!-- rs:task=prof-task-preserve-compact-backward-compatibility -->
+- [ ] `[P1]` Extract compact renderer to renderer/compact.js <!-- rs:task=prof-task-extract-compact-renderer -->
+- [ ] `[P2]` Add renderer dispatcher (renderBody) <!-- rs:task=prof-task-add-renderer-dispatcher -->
+
+**Exit Criteria:**
+
+- [ ] `[P0]` Compact output remains byte-stable where expected <!-- rs:task=prof-ph1-st1-exit-compact-output-remains-byte-stable-where-expected -->
+- [ ] `[P1]` Professional profile renders all 12 sections <!-- rs:task=prof-ph1-st1-exit-professional-profile-renders-all-12-sections -->
+
+#### Step 1.2: Model Improvements
+
+**Step Priority:** `[P0]`
+**Depends on:** None
+
+**Objective:** Add Phase→Step→Task hierarchy and task-level priority to the professional model.
+
+**Tasks:**
+
+- [ ] `[P0]` Add phasesDetailed model field <!-- rs:task=prof-task-add-phasesdetailed-model-field -->
+- [ ] `[P1]` Filter code vs doc TODOs in Known Limitations inference <!-- rs:task=prof-task-filter-code-vs-doc-todos -->
+- [ ] `[P1]` Add task-level priority rendering with [P0]/[P1] labels <!-- rs:task=prof-task-add-task-priority-rendering -->
+
+**Exit Criteria:**
+
+- [ ] `[P0]` A P0 task inside a P2 step renders with [P0] label in correct step position <!-- rs:task=prof-ph1-st2-exit-a-p0-task-inside-a-p2-step-renders-with-p0-label-in-correct-step-position -->
+- [ ] `[P1]` Known Limitations no longer includes doc-only TODO mentions <!-- rs:task=prof-ph1-st2-exit-known-limitations-no-longer-includes-doc-only-todo-mentions -->
+
+### Phase 2: Validation Quality
+
+**Phase Priority:** `[P0]`
+
+**Objective:** Harden evidence-based validation and reduce false-positive task matching.
+
+#### Step 2.1: Evidence Validation Hardening
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 1
+
+**Objective:** Fix false-positive validation and improve evidence scoring reliability.
+
+**Tasks:**
+
+- [ ] `[P0]` Fix false-positive task similarity matching on overlapping text <!-- rs:task=prof-task-fix-false-positive-task-matching -->
+- [ ] `[P1]` Add fixture for doc-only TODO filtering test <!-- rs:task=prof-task-add-doc-only-todo-fixture -->
+- [ ] `[P1]` Improve evidence scoring for test file coverage <!-- rs:task=prof-task-improve-evidence-scoring -->
+
+**Exit Criteria:**
+
+- [ ] `[P0]` All validation tests pass on node, python, go, rust fixtures <!-- rs:task=prof-ph2-st1-exit-all-validation-tests-pass-on-node-python-go-rust-fixtures -->
+- [ ] `[P0]` No false-positive task merges on similar-text tasks <!-- rs:task=prof-ph2-st1-exit-no-false-positive-task-merges-on-similar-text-tasks -->
+
+### Phase 3: Showcase and Distribution
+
+**Phase Priority:** `[P2]`
+
+**Objective:** Make RoadmapSmith's own generated ROADMAP.md and README a compelling showcase.
+
+#### Step 3.1: README and Docs
+
+**Step Priority:** `[P3]`
+**Depends on:** Phase 1, Phase 2
+
+**Objective:** Update all user-facing docs to reflect Phase→Step→Task model and professional profile.
+
+**Tasks:**
+
+- [ ] `[P2]` Add generated roadmap excerpt to README with Phase→Step→Task example <!-- rs:task=prof-task-add-roadmap-excerpt-to-readme -->
+- [ ] `[P2]` Update SKILL.md with Phase→Step→Task documentation <!-- rs:task=prof-task-update-skill-md-phase-step-task -->
+- [ ] `[P2]` Add CHANGELOG.md entry for v0.4.0 <!-- rs:task=prof-task-update-changelog-v040 -->
+
+**Exit Criteria:**
+
+- [ ] `[P2]` README shows real Phase→Step→Task output from ROADMAP.md <!-- rs:task=prof-ph3-st1-exit-readme-shows-real-phase-step-task-output-from-roadmap-md -->
+- [ ] `[P2]` CHANGELOG.md updated through current release <!-- rs:task=prof-ph3-st1-exit-changelog-md-updated-through-current-release -->
+
+#### Step 3.2: npm Publishing
+
+**Step Priority:** `[P1]`
+**Depends on:** Phase 1, Phase 2
+
+**Objective:** Publish RoadmapSmith to npm with stable semver aligned with git tags.
+
+**Tasks:**
+
+- [ ] `[P0]` Publish stable semver to npm <!-- rs:task=prof-task-publish-stable-semver-to-npm -->
+- [ ] `[P1]` Tag git release aligned with npm publish <!-- rs:task=prof-task-tag-git-release-aligned-with-npm -->
+- [ ] `[P1]` Document npm global and npx install instructions <!-- rs:task=prof-task-document-npx-install-instructions -->
+
+**Exit Criteria:**
+
+- [ ] `[P0]` npm publish succeeds and package is installable via npx roadmapsmith <!-- rs:task=prof-ph3-st2-exit-npm-publish-succeeds-and-package-is-installable-via-npx-roadmapsmith -->
+- [ ] `[P1]` Git tag matches npm version <!-- rs:task=prof-ph3-st2-exit-git-tag-matches-npm-version -->
+
+## 5. Versioned Milestones
+
+### v0.1
+
+**Goal:** Foundation baseline complete
+
+**What Must Exist:**
+
+- [ ] `[P0]` CLI binary with init, generate, sync, validate commands <!-- rs:task=prof-ms-v0-1-exist-cli-binary-with-init-generate-sync-validate-commands -->
+- [ ] `[P0]` Parser correctly extracts rs:task IDs and checked state <!-- rs:task=prof-ms-v0-1-exist-parser-correctly-extracts-rs-task-ids-and-checked-state -->
+- [ ] `[P0]` Managed block preserved across regeneration <!-- rs:task=prof-ms-v0-1-exist-managed-block-preserved-across-regeneration -->
+
+**What Must Be Stable:**
+
+- [ ] `[P1]` rs:task ID slugification algorithm <!-- rs:task=prof-ms-v0-1-stable-rs-task-id-slugification-algorithm -->
+- [ ] `[P1]` managed block start/end marker format <!-- rs:task=prof-ms-v0-1-stable-managed-block-start-end-marker-format -->
+
+**Intentionally Out of Scope:**
+
+- Multiple roadmap profiles
+- Plugin system
+- Enterprise features
+
+### v0.2
+
+**Goal:** Core feature coverage stabilized
+
+**What Must Exist:**
+
+- [ ] `[P0]` Evidence-based validation (code, test, artifact) <!-- rs:task=prof-ms-v0-2-exist-evidence-based-validation-code-test-artifact -->
+- [ ] `[P0]` Plugin hook system (registerTaskDetectors, registerValidators) <!-- rs:task=prof-ms-v0-2-exist-plugin-hook-system-registertaskdetectors-registervalidators -->
+- [ ] `[P0]` Multi-language fixture test suite (Node, Python, Go, Rust) <!-- rs:task=prof-ms-v0-2-exist-multi-language-fixture-test-suite-node-python-go-rust -->
+
+**What Must Be Stable:**
+
+- [ ] `[P1]` Validation evidence scoring algorithm <!-- rs:task=prof-ms-v0-2-stable-validation-evidence-scoring-algorithm -->
+- [ ] `[P1]` Task similarity matching threshold <!-- rs:task=prof-ms-v0-2-stable-task-similarity-matching-threshold -->
+
+**Intentionally Out of Scope:**
+
+- Professional roadmap profile
+- Product metadata config block
+
+### v0.3
+
+**Goal:** Professional roadmap profile and renderer architecture
+
+**What Must Exist:**
+
+- [ ] `[P0]` Renderer architecture with compact and professional profiles <!-- rs:task=prof-ms-v0-3-exist-renderer-architecture-with-compact-and-professional-profiles -->
+- [ ] `[P0]` 12-section professional roadmap output <!-- rs:task=prof-ms-v0-3-exist-12-section-professional-roadmap-output -->
+- [ ] `[P0]` roadmapProfile field in roadmap-skill.config.json <!-- rs:task=prof-ms-v0-3-exist-roadmapprofile-field-in-roadmap-skill-config-json -->
+- [ ] `[P0]` product metadata block in config <!-- rs:task=prof-ms-v0-3-exist-product-metadata-block-in-config -->
+- [ ] `[P0]` Sequential step model for Section 4 <!-- rs:task=prof-ms-v0-3-exist-sequential-step-model-for-section-4 -->
+
+**What Must Be Stable:**
+
+- [ ] `[P1]` compact profile output (backward compatible) <!-- rs:task=prof-ms-v0-3-stable-compact-profile-output-backward-compatible -->
+- [ ] `[P1]` professional profile section structure <!-- rs:task=prof-ms-v0-3-stable-professional-profile-section-structure -->
+- [ ] `[P1]` prof-step-N- task ID namespace <!-- rs:task=prof-ms-v0-3-stable-prof-step-n-task-id-namespace -->
+
+**Intentionally Out of Scope:**
+
+- Enterprise profile implementation
+- AI-assisted roadmap generation beyond scan inference
+
+### v1.0
+
+**Goal:** Production readiness exit criteria met
+
+**What Must Exist:**
+
+- [ ] `[P0]` All test fixtures green across Node, Python, Go, Rust, generic <!-- rs:task=prof-ms-v1-0-exist-all-test-fixtures-green-across-node-python-go-rust-generic -->
+- [ ] `[P0]` README.md showcases professional output with excerpt <!-- rs:task=prof-ms-v1-0-exist-readme-md-showcases-professional-output-with-excerpt -->
+- [ ] `[P0]` SKILL.md documents profile selection <!-- rs:task=prof-ms-v1-0-exist-skill-md-documents-profile-selection -->
+- [ ] `[P0]` Published to npm with stable semver <!-- rs:task=prof-ms-v1-0-exist-published-to-npm-with-stable-semver -->
+
+**What Must Be Stable:**
+
+- [ ] `[P1]` All CLI commands <!-- rs:task=prof-ms-v1-0-stable-all-cli-commands -->
+- [ ] `[P1]` Config schema (roadmapProfile, product, milestones, phaseTemplates) <!-- rs:task=prof-ms-v1-0-stable-config-schema-roadmapprofile-product-milestones-phasetemplates -->
+- [ ] `[P1]` Plugin hook signatures <!-- rs:task=prof-ms-v1-0-stable-plugin-hook-signatures -->
+
+**Intentionally Out of Scope:**
+
+- GUI or web interface
+- Remote roadmap storage
+
+## 6. Command-by-Command / Module-by-Module Maturity Path
+
+- [ ] `[P1]` Identify command/module boundaries for the next increment <!-- rs:task=prof-mat-identify-boundaries -->
+
+## 7. Output Contract Roadmap
+
+### Output Format
+
+- [ ] `[P0]` Define stable public output format (stdout, files, exit codes) <!-- rs:task=prof-out-define-stable-public-output-format-stdout-files-exit-codes -->
+- [ ] `[P1]` Version output format alongside package version <!-- rs:task=prof-out-version-output-format-alongside-package-version -->
+
+### Breaking Changes
+
+- [ ] `[P1]` Document breaking vs. non-breaking output changes <!-- rs:task=prof-out-document-breaking-vs-non-breaking-output-changes -->
+- [ ] `[P1]` Add output schema validation to CI <!-- rs:task=prof-out-add-output-schema-validation-to-ci -->
+
+## 8. Testing and Quality-Gate Roadmap
+
+### Test Coverage
+
+- [ ] `[P0]` Unit test coverage for all core modules <!-- rs:task=prof-test-unit-test-coverage-for-all-core-modules -->
+- [ ] `[P0]` Integration tests covering the full generate → sync → validate pipeline <!-- rs:task=prof-test-integration-tests-covering-the-full-generate-sync-validate-pipeline -->
+- [ ] `[P1]` Regression fixtures for compact and professional profile output <!-- rs:task=prof-test-regression-fixtures-for-compact-and-professional-profile-output -->
+- [ ] `[P1]` Edge case coverage: empty repo, no config, large monorepo scan <!-- rs:task=prof-test-edge-case-coverage-empty-repo-no-config-large-monorepo-scan -->
+
+### Quality Gates
+
+- [ ] `[P0]` CI quality gate: tests must pass before merge <!-- rs:task=prof-test-ci-quality-gate-tests-must-pass-before-merge -->
+- [ ] `[P0]` Block merge when generated roadmap loses checked state <!-- rs:task=prof-test-block-merge-when-generated-roadmap-loses-checked-state -->
+- [ ] `[P1]` Add professional renderer snapshot tests <!-- rs:task=prof-test-add-professional-renderer-snapshot-tests -->
+
+## 9. Distribution Roadmap
+
+### npm Registry
+
+- [ ] `[P0]` Publish to npm registry with stable semver <!-- rs:task=prof-dist-publish-to-npm-registry-with-stable-semver -->
+- [ ] `[P0]` Ensure CLI binary is correctly linked in package.json `bin` <!-- rs:task=prof-dist-ensure-cli-binary-is-correctly-linked-in-package-json-bin -->
+
+### Release Process
+
+- [ ] `[P1]` Tag git releases aligned with npm publish <!-- rs:task=prof-dist-tag-git-releases-aligned-with-npm-publish -->
+- [ ] `[P1]` Document install instructions for npm global and npx usage <!-- rs:task=prof-dist-document-install-instructions-for-npm-global-and-npx-usage -->
+
+## 10. Documentation Roadmap
+
+### Core Docs
+
+- [ ] `[P0]` README.md covers install, commands, and profile selection <!-- rs:task=prof-doc-readme-md-covers-install-commands-and-profile-selection -->
+- [ ] `[P0]` SKILL.md reflects current feature set and guardrails <!-- rs:task=prof-doc-skill-md-reflects-current-feature-set-and-guardrails -->
+- [ ] `[P1]` CHANGELOG.md maintained for each release <!-- rs:task=prof-doc-changelog-md-maintained-for-each-release -->
+
+### Showcase
+
+- [ ] `[P1]` docs/ use-cases cover compact and professional profiles <!-- rs:task=prof-doc-docs-use-cases-cover-compact-and-professional-profiles -->
+- [ ] `[P1]` Generated ROADMAP.md showcases professional Phase→Step→Task output <!-- rs:task=prof-doc-generated-roadmap-md-showcases-professional-phase-step-task-output -->
+
+## 11. Risks, Constraints, and Anti-Goals
+
+### Risks
+
+- [ ] `[P0]` Inference quality degrades on very large monorepos (scan cap at 120 files) <!-- rs:task=prof-risk-inference-quality-degrades-on-very-large-monorepos-scan-cap-at-120-files -->
+- [ ] `[P1]` Professional profile sections may feel over-structured for small hobby projects <!-- rs:task=prof-risk-professional-profile-sections-may-feel-over-structured-for-small-hobby-projects -->
+- [ ] `[P1]` Task similarity matching may mis-merge tasks with overlapping language <!-- rs:task=prof-risk-task-similarity-matching-may-mis-merge-tasks-with-overlapping-language -->
+- [ ] `[P1]` Roadmap drift if users edit the managed block directly instead of using the CLI <!-- rs:task=prof-risk-roadmap-drift-if-users-edit-the-managed-block-directly-instead-of-using-the-cli -->
+
+### Anti-Goals
+
+- Replace project management tools like Linear or Jira
+- Require a backend service or database
+- Generate roadmaps without real repository context
+- Act as a project planning tool that replaces human judgment
+
+## 12. 1.0 Measurable Success Criteria
+
+- [ ] `[P0]` compact mode generates idempotent output on all fixture projects <!-- rs:task=prof-sc-compact-mode-generates-idempotent-output-on-all-fixture-projects -->
+- [ ] `[P0]` professional mode renders all 12 required sections without errors <!-- rs:task=prof-sc-professional-mode-renders-all-12-required-sections-without-errors -->
+- [ ] `[P0]` checked task state survives regeneration across both profiles <!-- rs:task=prof-sc-checked-task-state-survives-regeneration-across-both-profiles -->
+- [ ] `[P0]` RoadmapSmith's own ROADMAP.md is generated entirely by RoadmapSmith itself <!-- rs:task=prof-sc-roadmapsmith-s-own-roadmap-md-is-generated-entirely-by-roadmapsmith-itself -->
+- [ ] `[P0]` npm test passes with no failures on all fixture languages <!-- rs:task=prof-sc-npm-test-passes-with-no-failures-on-all-fixture-languages -->
 <!-- rs:managed:end -->

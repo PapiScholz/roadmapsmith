@@ -77,6 +77,75 @@ node bin/cli.js validate --json
 | `roadmapsmith sync --audit` | Check completed tasks against evidence |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
 
+## Roadmap Profiles
+
+RoadmapSmith supports multiple output profiles. Set `roadmapProfile` in `roadmap-skill.config.json`:
+
+| Profile | Description | Status |
+|---|---|---|
+| `compact` | Checklist-style output grouped by phase (P0/P1/P2). Default. Backward compatible. | Stable |
+| `professional` | 12-section roadmap with Phase → Step → Task hierarchy and task-level priority labels. | Stable |
+| `enterprise` | Extended profile with additional governance sections. | Planned |
+
+### Selecting a profile
+
+```json
+{
+  "roadmapProfile": "professional",
+  "product": {
+    "name": "My Project",
+    "northStar": "One sentence that describes the product mission.",
+    "positioning": "What makes this different from alternatives.",
+    "primaryUser": "Who uses this and in what context.",
+    "targetOutcome": "What success looks like for the user.",
+    "antiGoals": ["Things this product will never do"],
+    "risks": ["Known risks to delivery or adoption"],
+    "successCriteria": ["Measurable criteria for v1.0"],
+    "phases": [
+      {
+        "phaseNumber": 1, "title": "Foundation", "priority": "P0",
+        "objective": "Establish a baseline.",
+        "steps": [{
+          "stepNumber": 1, "title": "Core Setup", "priority": "P0",
+          "dependsOn": [], "objective": "Close critical path items.",
+          "tasks": [
+            { "id": "prof-task-setup-ci", "text": "Set up CI pipeline", "priority": "P0" },
+            { "id": "prof-task-add-tests", "text": "Add automated tests", "priority": "P1" }
+          ],
+          "exitCriteria": [{ "text": "CI green on main", "priority": "P0" }],
+          "risks": []
+        }]
+      }
+    ]
+  }
+}
+```
+
+`product.phases` is optional — if omitted, phases are inferred from P0/P1/P2 task groups. Priority at every level (phase, step, task) is a display label only. Phases and steps always sort by number, never by priority.
+
+### Professional profile output example
+
+This repository's own `ROADMAP.md` is generated with RoadmapSmith using the `professional` profile. Here is an excerpt from Section 4:
+
+```markdown
+## 4. Phased Execution Roadmap
+
+### Phase 1: Product Architecture
+**Phase Priority:** `[P1]`
+**Objective:** Establish the renderer architecture and model hierarchy.
+
+#### Step 1.2: Model Improvements
+**Step Priority:** `[P0]`   ← P0 priority inside a P1 phase; renders second (stepNumber=2)
+**Depends on:** None
+
+**Tasks:**
+- [ ] `[P0]` Add phasesDetailed model field <!-- rs:task=prof-task-add-phasesdetailed-model-field -->
+- [ ] `[P1]` Filter code vs doc TODOs       <!-- rs:task=prof-task-filter-code-vs-doc-todos -->
+
+**Exit Criteria:**
+- [ ] `[P0]` A P0 task in a P2 step renders with [P0] label in correct position <!-- rs:task=prof-ph1-st2-exit-... -->
+```
+
 ## Two Operating Modes
 
 ### Zero Mode: Start from an empty repository

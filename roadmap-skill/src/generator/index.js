@@ -8,6 +8,7 @@ const { slugify, ensureTrailingNewline } = require('../utils');
 const { parseRoadmap, upsertManagedBlock } = require('../parser');
 const { findBestTaskMatch, dedupeTasks } = require('../match');
 const { collectPluginContributions } = require('../config');
+const { renderBody } = require('../renderer');
 
 function detectModules(files) {
   const modules = new Set();
@@ -73,6 +74,37 @@ function collectTodoHints(projectRoot, files) {
   return hints;
 }
 
+function collectCodeTodoHints(projectRoot, files) {
+  const hints = [];
+  const codeFiles = files.filter((file) => /\.(js|ts|tsx|py|go|rs)$/.test(file)).slice(0, 120);
+
+  for (const file of codeFiles) {
+    const absolutePath = path.resolve(projectRoot, file);
+    let content = '';
+    try {
+      content = fs.readFileSync(absolutePath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      if (/TODO|FIXME/i.test(lines[i])) {
+        hints.push({
+          file,
+          line: i + 1,
+          text: lines[i].trim()
+        });
+      }
+      if (hints.length >= 6) {
+        return hints;
+      }
+    }
+  }
+
+  return hints;
+}
+
 function scanProject(projectRoot) {
   const files = walkFiles(projectRoot);
   const languages = detectLanguages(files);
@@ -80,17 +112,20 @@ function scanProject(projectRoot) {
   const modules = detectModules(files);
   const commands = detectCommands(files);
   const todos = collectTodoHints(projectRoot, files);
+  const codeTodos = collectCodeTodoHints(projectRoot, files);
 
   const implementedFiles = files.filter((file) => /\.(js|ts|tsx|py|go|rs|java|kt|cs)$/.test(file));
   const testFiles = files.filter((file) => /(^|\/)(__tests__|tests)\//.test(file) || /\.test\.|\.spec\.|_test\.go$/.test(file));
 
   return {
+    projectRoot,
     files,
     languages,
     testFrameworks,
     modules,
     commands,
     todos,
+    codeTodos,
     implementedCount: implementedFiles.length,
     testCount: testFiles.length
   };
@@ -328,10 +363,131 @@ function renderManagedBody(model) {
   return ensureTrailingNewline(lines.join('\n')).trimEnd();
 }
 
+function inferProjectName(projectRoot) {
+  const pkgPath = path.join(projectRoot, 'package.json');
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkg.name) return pkg.name;
+  } catch {
+    // ignore — try other manifests
+  }
+  return path.basename(projectRoot);
+}
+
+function buildPhasesDetailed(phases, config) {
+  const configPhases = config.product && Array.isArray(config.product.phases)
+    ? config.product.phases : [];
+  if (configPhases.length > 0) return configPhases;
+
+  return [
+    {
+      phaseNumber: 1,
+      title: 'Foundation Baseline',
+      priority: 'P0',
+      objective: 'Establish a stable, testable baseline that unblocks all downstream delivery.',
+      steps: [{
+        stepNumber: 1,
+        title: 'Core Implementation',
+        priority: 'P0',
+        dependsOn: [],
+        objective: 'Close critical path items.',
+        tasks: phases.P0,
+        exitCriteria: [
+          { text: 'All P0 tasks validated by evidence', priority: 'P0' },
+          { text: 'CI is green on main', priority: 'P0' }
+        ],
+        risks: []
+      }]
+    },
+    {
+      phaseNumber: 2,
+      title: 'Feature Completeness',
+      priority: 'P1',
+      objective: 'Expand functionality and reduce operational risk.',
+      steps: [{
+        stepNumber: 1,
+        title: 'Feature Delivery',
+        priority: 'P1',
+        dependsOn: [1],
+        objective: 'Deliver planned P1 features.',
+        tasks: phases.P1,
+        exitCriteria: [
+          { text: 'All P1 tasks validated by evidence', priority: 'P1' },
+          { text: 'No regressions on Phase 1 functionality', priority: 'P0' }
+        ],
+        risks: []
+      }]
+    },
+    {
+      phaseNumber: 3,
+      title: 'Release Hardening',
+      priority: 'P2',
+      objective: 'Complete hardening and production readiness for v1.0.',
+      steps: [{
+        stepNumber: 1,
+        title: 'Hardening',
+        priority: 'P2',
+        dependsOn: [2],
+        objective: 'Close P2 items and harden release.',
+        tasks: phases.P2,
+        exitCriteria: [
+          { text: 'All P2 tasks validated by evidence', priority: 'P2' },
+          { text: 'Release candidate checklist complete', priority: 'P0' }
+        ],
+        risks: []
+      }]
+    }
+  ];
+}
+
+function buildSteps(phases, config) {
+  const configSteps = config.product && Array.isArray(config.product.steps) ? config.product.steps : [];
+  if (configSteps.length > 0) return configSteps;
+
+  const stepDefs = [
+    { stepNumber: 1, title: 'Foundation Baseline', priority: 'P0', dependsOn: [], phaseKey: 'P0',
+      objective: 'Establish a stable, testable baseline that unblocks all downstream delivery.' },
+    { stepNumber: 2, title: 'Feature Completeness', priority: 'P1', dependsOn: [1], phaseKey: 'P1',
+      objective: 'Expand functionality, improve reliability, and reduce operational risk.' },
+    { stepNumber: 3, title: 'Release Hardening', priority: 'P2', dependsOn: [2], phaseKey: 'P2',
+      objective: 'Complete hardening, final validation, and production readiness for v1.0.' }
+  ];
+
+  const defaultExitCriteria = {
+    1: ['All P0 tasks validated by evidence', 'CI is green on main'],
+    2: ['All P1 tasks validated by evidence', 'No regressions on P0 functionality'],
+    3: ['All P2 tasks validated by evidence', 'Release candidate checklist complete']
+  };
+
+  return stepDefs.map((def) => ({
+    stepNumber: def.stepNumber,
+    title: def.title,
+    priority: def.priority,
+    dependsOn: def.dependsOn,
+    objective: def.objective,
+    deliverables: phases[def.phaseKey] || [],
+    exitCriteria: defaultExitCriteria[def.stepNumber] || [],
+    risks: []
+  }));
+}
+
 function createModel(scan, tasks, config, customSections, checkedById) {
   const phases = groupByPhase(tasks);
 
+  const implemented = [
+    `${scan.implementedCount} implementation files across ${scan.languages.join(', ') || 'detected stack'}`
+  ];
+
+  const scaffold = scan.modules.length > 0
+    ? scan.modules.slice(0, 6).map((m) => `Module "${m}" partially implemented — coverage unknown`)
+    : [];
+
+  const knownLimitations = (scan.codeTodos || []).slice(0, 6).map((t) => `${t.file}:${t.line} — ${t.text.slice(0, 80)}`);
+
   const currentState = {
+    implemented,
+    scaffold,
+    knownLimitations,
     implementedSummary: `${scan.implementedCount} implementation files detected`,
     todoSummary: `${scan.todos.length} TODO/FIXME markers detected`,
     stackSummary: scan.languages.length > 0 ? scan.languages.join(', ') : 'No language-specific stack detected'
@@ -351,23 +507,50 @@ function createModel(scan, tasks, config, customSections, checkedById) {
     commandBreakdown.push(`Command: ${command}`);
   }
 
+  const productConfig = config.product || {};
+  const inferredName = inferProjectName(scan.projectRoot || process.cwd());
+  const product = {
+    name: productConfig.name || inferredName,
+    northStar: productConfig.northStar || '',
+    positioning: productConfig.positioning || '',
+    primaryUser: productConfig.primaryUser || '',
+    targetOutcome: productConfig.targetOutcome || ''
+  };
+
+  const defaultRisks = [
+    'Roadmap drift if checklist state diverges from repository evidence',
+    'Silent regressions when tasks are marked complete without tests',
+    'Scope creep that delays the v1.0 milestone path'
+  ];
+  const defaultAntiGoals = [
+    'Do not mark tasks complete without repository evidence',
+    'Do not introduce non-deterministic roadmap formatting',
+    'Do not hide validation failures from roadmap consumers'
+  ];
+
+  const risks = (productConfig.risks && productConfig.risks.length > 0) ? productConfig.risks : defaultRisks;
+  const antiGoals = (productConfig.antiGoals && productConfig.antiGoals.length > 0) ? productConfig.antiGoals : defaultAntiGoals;
+  const successCriteria = productConfig.successCriteria || [];
+
+  const northStar = productConfig.northStar
+    || 'Ship validated, high-impact increments with deterministic delivery and transparent completion evidence.';
+
+  const steps = buildSteps(phases, config);
+  const phasesDetailed = buildPhasesDetailed(phases, config);
+
   return createRoadmapModel({
-    northStar: 'Ship validated, high-impact increments with deterministic delivery and transparent completion evidence.',
+    northStar,
+    product,
     currentState,
     phases,
+    steps,
+    phasesDetailed,
     milestones: config.milestones,
     commandBreakdown,
     exitCriteria,
-    risks: [
-      'Roadmap drift if checklist state diverges from repository evidence',
-      'Silent regressions when tasks are marked complete without tests',
-      'Scope creep that delays the v1.0 milestone path'
-    ],
-    antiGoals: [
-      'Do not mark tasks complete without repository evidence',
-      'Do not introduce non-deterministic roadmap formatting',
-      'Do not hide validation failures from roadmap consumers'
-    ],
+    risks,
+    antiGoals,
+    successCriteria,
     customSections,
     checkedById
   });
@@ -424,7 +607,8 @@ function generateRoadmapDocument(options) {
   const matcherCandidates = applyTaskMatchers(scan, config);
   const merged = mergeWithExisting([...baseCandidates, ...matcherCandidates, ...pluginTaskCandidates], existingPhaseTasks);
   const model = createModel(scan, merged, config, [...configSections, ...pluginSections], existingCheckedById);
-  const managedBody = renderManagedBody(model);
+  const profile = config.roadmapProfile || 'compact';
+  const managedBody = renderBody(model, profile);
 
   return upsertManagedBlock(existingContent, managedBody);
 }

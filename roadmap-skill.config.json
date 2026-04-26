@@ -1,0 +1,216 @@
+{
+  "roadmapProfile": "professional",
+  "product": {
+    "name": "RoadmapSmith",
+    "northStar": "Make every software project ship with a living, evidence-backed roadmap — zero manual maintenance.",
+    "positioning": "RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and syncs ROADMAP.md files directly from repository evidence. Unlike static roadmap templates or project management tools, RoadmapSmith keeps the roadmap honest: tasks are only marked complete when code, tests, or artifacts back them up.",
+    "primaryUser": "Solo developers and small teams using AI coding agents (Claude Code, Copilot, etc.).",
+    "targetOutcome": "Developers run one command and get a production-grade, evidence-validated ROADMAP.md they are proud to publish — and it stays accurate as the project evolves.",
+    "antiGoals": [
+      "Replace project management tools like Linear or Jira",
+      "Require a backend service or database",
+      "Generate roadmaps without real repository context",
+      "Act as a project planning tool that replaces human judgment"
+    ],
+    "risks": [
+      "Inference quality degrades on very large monorepos (scan cap at 120 files)",
+      "Professional profile sections may feel over-structured for small hobby projects",
+      "Task similarity matching may mis-merge tasks with overlapping language",
+      "Roadmap drift if users edit the managed block directly instead of using the CLI"
+    ],
+    "successCriteria": [
+      "compact mode generates idempotent output on all fixture projects",
+      "professional mode renders all 12 required sections without errors",
+      "checked task state survives regeneration across both profiles",
+      "RoadmapSmith's own ROADMAP.md is generated entirely by RoadmapSmith itself",
+      "npm test passes with no failures on all fixture languages"
+    ],
+    "phases": [
+      {
+        "phaseNumber": 1,
+        "title": "Product Architecture",
+        "priority": "P1",
+        "objective": "Establish the renderer architecture, model hierarchy, and config schema that power all future profiles.",
+        "steps": [
+          {
+            "stepNumber": 1,
+            "title": "Renderer Architecture",
+            "priority": "P1",
+            "dependsOn": [],
+            "objective": "Extract renderManagedBody into a dispatcher pattern supporting multiple profiles.",
+            "tasks": [
+              { "id": "prof-task-preserve-compact-backward-compatibility", "text": "Preserve compact backward compatibility", "priority": "P0" },
+              { "id": "prof-task-extract-compact-renderer", "text": "Extract compact renderer to renderer/compact.js", "priority": "P1" },
+              { "id": "prof-task-add-renderer-dispatcher", "text": "Add renderer dispatcher (renderBody)", "priority": "P2" }
+            ],
+            "exitCriteria": [
+              { "text": "Compact output remains byte-stable where expected", "priority": "P0" },
+              { "text": "Professional profile renders all 12 sections", "priority": "P1" }
+            ],
+            "risks": []
+          },
+          {
+            "stepNumber": 2,
+            "title": "Model Improvements",
+            "priority": "P0",
+            "dependsOn": [],
+            "objective": "Add Phase→Step→Task hierarchy and task-level priority to the professional model.",
+            "tasks": [
+              { "id": "prof-task-add-phasesdetailed-model-field", "text": "Add phasesDetailed model field", "priority": "P0" },
+              { "id": "prof-task-filter-code-vs-doc-todos", "text": "Filter code vs doc TODOs in Known Limitations inference", "priority": "P1" },
+              { "id": "prof-task-add-task-priority-rendering", "text": "Add task-level priority rendering with [P0]/[P1] labels", "priority": "P1" }
+            ],
+            "exitCriteria": [
+              { "text": "A P0 task inside a P2 step renders with [P0] label in correct step position", "priority": "P0" },
+              { "text": "Known Limitations no longer includes doc-only TODO mentions", "priority": "P1" }
+            ],
+            "risks": []
+          }
+        ]
+      },
+      {
+        "phaseNumber": 2,
+        "title": "Validation Quality",
+        "priority": "P0",
+        "objective": "Harden evidence-based validation and reduce false-positive task matching.",
+        "steps": [
+          {
+            "stepNumber": 1,
+            "title": "Evidence Validation Hardening",
+            "priority": "P0",
+            "dependsOn": [1],
+            "objective": "Fix false-positive validation and improve evidence scoring reliability.",
+            "tasks": [
+              { "id": "prof-task-fix-false-positive-task-matching", "text": "Fix false-positive task similarity matching on overlapping text", "priority": "P0" },
+              { "id": "prof-task-add-doc-only-todo-fixture", "text": "Add fixture for doc-only TODO filtering test", "priority": "P1" },
+              { "id": "prof-task-improve-evidence-scoring", "text": "Improve evidence scoring for test file coverage", "priority": "P1" }
+            ],
+            "exitCriteria": [
+              { "text": "All validation tests pass on node, python, go, rust fixtures", "priority": "P0" },
+              { "text": "No false-positive task merges on similar-text tasks", "priority": "P0" }
+            ],
+            "risks": []
+          }
+        ]
+      },
+      {
+        "phaseNumber": 3,
+        "title": "Showcase and Distribution",
+        "priority": "P2",
+        "objective": "Make RoadmapSmith's own generated ROADMAP.md and README a compelling showcase.",
+        "steps": [
+          {
+            "stepNumber": 1,
+            "title": "README and Docs",
+            "priority": "P3",
+            "dependsOn": [1, 2],
+            "objective": "Update all user-facing docs to reflect Phase→Step→Task model and professional profile.",
+            "tasks": [
+              { "id": "prof-task-add-roadmap-excerpt-to-readme", "text": "Add generated roadmap excerpt to README with Phase→Step→Task example", "priority": "P2" },
+              { "id": "prof-task-update-skill-md-phase-step-task", "text": "Update SKILL.md with Phase→Step→Task documentation", "priority": "P2" },
+              { "id": "prof-task-update-changelog-v040", "text": "Add CHANGELOG.md entry for v0.4.0", "priority": "P2" }
+            ],
+            "exitCriteria": [
+              { "text": "README shows real Phase→Step→Task output from ROADMAP.md", "priority": "P2" },
+              { "text": "CHANGELOG.md updated through current release", "priority": "P2" }
+            ],
+            "risks": []
+          },
+          {
+            "stepNumber": 2,
+            "title": "npm Publishing",
+            "priority": "P1",
+            "dependsOn": [1, 2],
+            "objective": "Publish RoadmapSmith to npm with stable semver aligned with git tags.",
+            "tasks": [
+              { "id": "prof-task-publish-stable-semver-to-npm", "text": "Publish stable semver to npm", "priority": "P0" },
+              { "id": "prof-task-tag-git-release-aligned-with-npm", "text": "Tag git release aligned with npm publish", "priority": "P1" },
+              { "id": "prof-task-document-npx-install-instructions", "text": "Document npm global and npx install instructions", "priority": "P1" }
+            ],
+            "exitCriteria": [
+              { "text": "npm publish succeeds and package is installable via npx roadmapsmith", "priority": "P0" },
+              { "text": "Git tag matches npm version", "priority": "P1" }
+            ],
+            "risks": []
+          }
+        ]
+      }
+    ]
+  },
+  "milestones": [
+    {
+      "version": "v0.1",
+      "goal": "Foundation baseline complete",
+      "mustExist": [
+        "CLI binary with init, generate, sync, validate commands",
+        "Parser correctly extracts rs:task IDs and checked state",
+        "Managed block preserved across regeneration"
+      ],
+      "mustBeStable": [
+        "rs:task ID slugification algorithm",
+        "managed block start/end marker format"
+      ],
+      "outOfScope": [
+        "Multiple roadmap profiles",
+        "Plugin system",
+        "Enterprise features"
+      ]
+    },
+    {
+      "version": "v0.2",
+      "goal": "Core feature coverage stabilized",
+      "mustExist": [
+        "Evidence-based validation (code, test, artifact)",
+        "Plugin hook system (registerTaskDetectors, registerValidators)",
+        "Multi-language fixture test suite (Node, Python, Go, Rust)"
+      ],
+      "mustBeStable": [
+        "Validation evidence scoring algorithm",
+        "Task similarity matching threshold"
+      ],
+      "outOfScope": [
+        "Professional roadmap profile",
+        "Product metadata config block"
+      ]
+    },
+    {
+      "version": "v0.3",
+      "goal": "Professional roadmap profile and renderer architecture",
+      "mustExist": [
+        "Renderer architecture with compact and professional profiles",
+        "12-section professional roadmap output",
+        "roadmapProfile field in roadmap-skill.config.json",
+        "product metadata block in config",
+        "Sequential step model for Section 4"
+      ],
+      "mustBeStable": [
+        "compact profile output (backward compatible)",
+        "professional profile section structure",
+        "prof-step-N- task ID namespace"
+      ],
+      "outOfScope": [
+        "Enterprise profile implementation",
+        "AI-assisted roadmap generation beyond scan inference"
+      ]
+    },
+    {
+      "version": "v1.0",
+      "goal": "Production readiness exit criteria met",
+      "mustExist": [
+        "All test fixtures green across Node, Python, Go, Rust, generic",
+        "README.md showcases professional output with excerpt",
+        "SKILL.md documents profile selection",
+        "Published to npm with stable semver"
+      ],
+      "mustBeStable": [
+        "All CLI commands",
+        "Config schema (roadmapProfile, product, milestones, phaseTemplates)",
+        "Plugin hook signatures"
+      ],
+      "outOfScope": [
+        "GUI or web interface",
+        "Remote roadmap storage"
+      ]
+    }
+  ]
+}

@@ -10,14 +10,19 @@ function phaseWeight(phase) {
 function createRoadmapModel(input) {
   return {
     northStar: input.northStar,
+    product: input.product || {},
     currentState: input.currentState,
     phases: input.phases,
+    steps: input.steps || [],
+    phasesDetailed: input.phasesDetailed || [],
     milestones: input.milestones,
     commandBreakdown: input.commandBreakdown,
     exitCriteria: input.exitCriteria,
     risks: input.risks,
     antiGoals: input.antiGoals,
-    customSections: input.customSections || []
+    successCriteria: input.successCriteria || [],
+    customSections: input.customSections || [],
+    checkedById: input.checkedById || {}
   };
 }
 

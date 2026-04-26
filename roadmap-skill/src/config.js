@@ -7,10 +7,23 @@ const { readTextIfExists } = require('./io');
 const DEFAULT_CONFIG = {
   roadmapFile: './ROADMAP.md',
   agentsFile: './AGENTS.md',
+  roadmapProfile: 'compact',
   taskMatchers: [],
   validators: [],
   customSections: [],
   plugins: [],
+  product: {
+    name: '',
+    northStar: '',
+    positioning: '',
+    primaryUser: '',
+    targetOutcome: '',
+    antiGoals: [],
+    risks: [],
+    successCriteria: [],
+    steps: [],
+    phases: []
+  },
   milestones: [
     { version: 'v0.1', goal: 'Foundation baseline complete' },
     { version: 'v0.2', goal: 'Core feature coverage stabilized' },
@@ -53,6 +66,13 @@ function mergeConfig(userConfig) {
     phaseTemplates: {
       ...DEFAULT_CONFIG.phaseTemplates,
       ...((userConfig && userConfig.phaseTemplates) || {})
+    },
+    product: {
+      ...DEFAULT_CONFIG.product,
+      ...((userConfig && userConfig.product) || {}),
+      phases: (userConfig && userConfig.product && Array.isArray(userConfig.product.phases))
+        ? userConfig.product.phases
+        : DEFAULT_CONFIG.product.phases
     }
   };
 }
