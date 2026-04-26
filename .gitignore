@@ -8,3 +8,4 @@ dist/
 build/
 .tmp/
 .cache/
+.claude/hooks/.sync.lock
