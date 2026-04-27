@@ -10,3 +10,5 @@ build/
 .cache/
 .claude/hooks/.sync.lock
 .worktrees/
+.dev/
+roadmap-skill/.codex/skills/
