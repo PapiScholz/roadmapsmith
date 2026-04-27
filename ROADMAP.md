@@ -17,16 +17,16 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 ### Implemented
 
-- [x] 31 implementation files across Go, JavaScript, Python, Rust <!-- rs:task=prof-state-impl-31-implementation-files-across-go-javascript-python-rust -->
+- [x] 38 implementation files across Go, JavaScript, Python, Rust <!-- rs:task=prof-state-impl-38-implementation-files-across-go-javascript-python-rust -->
 
 ### Scaffold / Partial
 
-- [x] Module "app" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-app-partially-implemented-coverage-unknown -->
 - [x] Module "config" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-config-partially-implemented-coverage-unknown -->
 - [x] Module "generator" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-generator-partially-implemented-coverage-unknown -->
 - [x] Module "io" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-io-partially-implemented-coverage-unknown -->
-- [x] Module "lib" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-lib-partially-implemented-coverage-unknown -->
 - [x] Module "match" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-match-partially-implemented-coverage-unknown -->
+- [x] Module "parser" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-parser-partially-implemented-coverage-unknown -->
+- [x] Module "renderer" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-renderer-partially-implemented-coverage-unknown -->
 
 ### Known Limitations
 
@@ -45,7 +45,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **Step Priority:** `[P1]`
 **Depends on:** None
 
-**Objective:** Extract renderManagedBody into a dispatcher pattern supporting multiple profiles.
+**Objective:** Renderer architecture with compact and professional profiles dispatched via renderBody.
 
 **Tasks:**
 
@@ -156,7 +156,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 **What Must Be Stable:**
 
-- [ ] `[P1]` rs:task ID slugification algorithm <!-- rs:task=prof-ms-v0-1-stable-rs-task-id-slugification-algorithm -->
+- [x] `[P1]` rs:task ID slugification algorithm — _Stable as of v0.5.1 — locked by test/utils.test.js. Meta-declaration: not evidence-scannable by sync._ <!-- rs:task=prof-ms-v0-1-stable-rs-task-id-slugification-algorithm -->
 - [x] `[P1]` managed block start/end marker format <!-- rs:task=prof-ms-v0-1-stable-managed-block-start-end-marker-format -->
 
 **Intentionally Out of Scope:**
@@ -201,7 +201,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [x] `[P1]` compact profile output (backward compatible) <!-- rs:task=prof-ms-v0-3-stable-compact-profile-output-backward-compatible -->
 - [x] `[P1]` professional profile section structure <!-- rs:task=prof-ms-v0-3-stable-professional-profile-section-structure -->
--   `[P1]` prof-step-N- task ID namespace <!-- rs:task=prof-ms-v0-3-stable-prof-step-n-task-id-namespace -->
+- [x] `[P1]` prof-step-N- task ID namespace — _Stable as of v0.5.1 — locked by exit criteria ID format and checked-state roundtrip tests in generator.test.js. Meta-declaration: not evidence-scannable by sync._ <!-- rs:task=prof-ms-v0-3-stable-prof-step-n-task-id-namespace -->
 
 **Intentionally Out of Scope:**
 
@@ -232,12 +232,6 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 ## 6. Command-by-Command / Module-by-Module Maturity Path
 
-### app
-
-**Current state:** module detected in scan.
-
-- [x] `[P1]` Define maturity criteria and testability gates for app <!-- rs:task=prof-mat-app-define-maturity-criteria -->
-
 ### config
 
 **Current state:** Supports roadmapProfile, product block, milestones, phaseTemplates, plugins.
@@ -256,12 +250,6 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **Current state:** Scans files, detects languages, test frameworks, commands, modules.
 
 - [x] `[P2]` Improve module detection for monorepo workspace layouts <!-- rs:task=prof-mat-io-monorepo-workspace-detection -->
-
-### lib
-
-**Current state:** module detected in scan.
-
-- [x] `[P1]` Define maturity criteria and testability gates for lib <!-- rs:task=prof-mat-lib-define-maturity-criteria -->
 
 ### match
 
@@ -282,6 +270,18 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [x] `[P0]` Add snapshot regression fixtures for compact and professional <!-- rs:task=prof-mat-renderer-snapshot-regression-fixtures -->
 - [x] `[P1]` Harden priority label rendering for edge cases <!-- rs:task=prof-mat-renderer-priority-label-edge-cases -->
+
+### sync
+
+**Current state:** module detected in scan.
+
+- [x] `[P1]` Define maturity criteria and testability gates for sync <!-- rs:task=prof-mat-sync-define-maturity-criteria -->
+
+### templates
+
+**Current state:** module detected in scan.
+
+- [x] `[P1]` Define maturity criteria and testability gates for templates <!-- rs:task=prof-mat-templates-define-maturity-criteria -->
 
 ## 7. Output Contract Roadmap
 
@@ -406,10 +406,8 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` Add validation confidence levels (design or scaffold if not implemented) <!-- rs:task=mkt-p1-add-validation-confidence-levels -->
 - [x] `[P0]` Add config option: validation.minimumConfidence <!-- rs:task=mkt-p1-add-config-validation-minimum-confidence -->
 - [x] `[P1]` Add `roadmapsmith doctor` command (scaffold or planned) <!-- rs:task=mkt-p1-add-roadmapsmith-doctor-command -->
-- [ ] `[P1]` Add docs/use-cases/ci-audit.md <!-- rs:task=mkt-p1-add-docs-use-cases-ci-audit -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): docs/use-cases/ci-audit.md
-- [ ] `[P1]` Add docs/use-cases/claude-code.md <!-- rs:task=mkt-p1-add-docs-use-cases-claude-code -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): docs/use-cases/claude-code.md
+- [x] `[P1]` Add docs/use-cases/ci-audit.md <!-- rs:task=mkt-p1-add-docs-use-cases-ci-audit -->
+- [x] `[P1]` Add docs/use-cases/claude-code.md <!-- rs:task=mkt-p1-add-docs-use-cases-claude-code -->
 - [ ] `[P2]` Add docs/limitations.md (consolidate existing known limitations) <!-- rs:task=mkt-p1-add-docs-limitations -->
   - ⚠️ attempted but validation failed: missing referenced file(s): docs/limitations.md
 

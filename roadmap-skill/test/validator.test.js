@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildValidationContext, validateTask } = require('../src/validator');
+const { buildValidationContext, validateTask, applyMinimumConfidence, CONFIDENCE_RANK } = require('../src/validator');
 const { loadConfig } = require('../src/config');
 const { walkFiles, detectWorkspaces } = require('../src/io');
 
@@ -120,4 +120,45 @@ test('validator finds test evidence inside workspace package', () => {
   );
   assert.equal(result.evidence.test, true, 'test evidence must be found inside workspace package');
   assert.equal(result.requiresTest, true, 'requiresTest must remain true — no global weakening');
+});
+
+test('applyMinimumConfidence: low confidence blocked by medium threshold', () => {
+  const results = { 'task-a': { passed: true, confidence: 'low', reasons: [] } };
+  applyMinimumConfidence(results, 'medium');
+  assert.equal(results['task-a'].passed, false);
+  assert.ok(results['task-a'].reasons.some((r) => r.includes('below required')));
+});
+
+test('applyMinimumConfidence: medium confidence blocked by high threshold', () => {
+  const results = { 'task-b': { passed: true, confidence: 'medium', reasons: [] } };
+  applyMinimumConfidence(results, 'high');
+  assert.equal(results['task-b'].passed, false);
+});
+
+test('applyMinimumConfidence: high confidence passes high threshold', () => {
+  const results = { 'task-c': { passed: true, confidence: 'high', reasons: [] } };
+  applyMinimumConfidence(results, 'high');
+  assert.equal(results['task-c'].passed, true);
+});
+
+test('applyMinimumConfidence: low allowed by low threshold', () => {
+  const results = { 'task-d': { passed: true, confidence: 'low', reasons: [] } };
+  applyMinimumConfidence(results, 'low');
+  assert.equal(results['task-d'].passed, true);
+});
+
+test('applyMinimumConfidence: already-failed task stays failed without extra reason', () => {
+  const results = { 'task-e': { passed: false, confidence: 'high', reasons: ['missing code evidence'] } };
+  applyMinimumConfidence(results, 'low');
+  assert.equal(results['task-e'].passed, false);
+  assert.equal(results['task-e'].reasons.length, 1);
+});
+
+test('confidence is low when no evidence found (attempted flag does not boost confidence)', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'no-match', text: 'xyzzy quux frobnicate zorp' }, context, config, []);
+  assert.equal(result.confidence, 'low');
 });

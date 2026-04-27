@@ -6,6 +6,8 @@ const { walkFiles, detectTestFrameworks } = require('../io');
 const { collectPluginContributions } = require('../config');
 const { escapeRegExp, tokenize } = require('../utils');
 
+const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
+
 const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
 ]);
@@ -370,7 +372,7 @@ function validateTask(task, context, config, plugins) {
   const attempted = hasEvidence || pathHints.length > 0 || symbolHints.length > 0;
 
   const evidenceCount = [evidence.code, evidence.test, evidence.artifact].filter(Boolean).length;
-  const confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : attempted ? 'medium' : 'low';
+  const confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : 'low';
 
   return {
     taskId: task.id,
@@ -417,9 +419,25 @@ function auditValidation(tasks, results) {
   };
 }
 
+function applyMinimumConfidence(results, minimumConfidence) {
+  const minRank = CONFIDENCE_RANK[minimumConfidence] ?? 0;
+  if (minRank === 0) return;
+  for (const result of Object.values(results)) {
+    if ((CONFIDENCE_RANK[result.confidence] ?? 0) < minRank) {
+      result.passed = false;
+      result.reasons = [
+        ...result.reasons,
+        `validation confidence "${result.confidence}" is below required "${minimumConfidence}"`
+      ];
+    }
+  }
+}
+
 module.exports = {
   auditValidation,
   buildValidationContext,
   validateTask,
-  validateTasks
+  validateTasks,
+  CONFIDENCE_RANK,
+  applyMinimumConfidence
 };
