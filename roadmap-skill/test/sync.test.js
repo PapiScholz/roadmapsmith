@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseRoadmap } = require('../src/parser');
 const { applySync } = require('../src/sync');
-const { buildValidationContext, validateTasks } = require('../src/validator');
+const { buildValidationContext, validateTasks, applyMinimumConfidence } = require('../src/validator');
 const { loadConfig } = require('../src/config');
 
 function setupFixture(name) {
@@ -57,4 +57,27 @@ test('sync writes one warning line when validation fails', () => {
   const warningMatches = second.match(/⚠️ attempted but validation failed/g) || [];
   assert.equal(warningMatches.length, 1);
   assert.match(second, /missing test evidence/);
+});
+
+test('sync pipeline: low-confidence task stays unchecked when minimumConfidence is medium', () => {
+  const content = '## Phase 1\n- [ ] implement xyzzy module\n';
+  const tasks = [{ id: 'implement-xyzzy-module', text: 'implement xyzzy module', lineIndex: 1, checked: false }];
+  const results = { 'implement-xyzzy-module': { passed: true, confidence: 'low', reasons: [] } };
+
+  applyMinimumConfidence(results, 'medium');
+  const next = applySync(content, tasks, results);
+
+  assert.ok(next.includes('- [ ] implement xyzzy module'), 'Task should remain unchecked');
+  assert.equal(results['implement-xyzzy-module'].passed, false);
+});
+
+test('sync pipeline: high-confidence task gets checked when minimumConfidence is medium', () => {
+  const content = '## Phase 1\n- [ ] implement xyzzy module\n';
+  const tasks = [{ id: 'implement-xyzzy-module', text: 'implement xyzzy module', lineIndex: 1, checked: false }];
+  const results = { 'implement-xyzzy-module': { passed: true, confidence: 'high', reasons: [] } };
+
+  applyMinimumConfidence(results, 'medium');
+  const next = applySync(content, tasks, results);
+
+  assert.ok(next.includes('- [x] implement xyzzy module'), 'Task should be checked');
 });

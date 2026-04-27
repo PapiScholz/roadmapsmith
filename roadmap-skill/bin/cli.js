@@ -9,7 +9,7 @@ const { readTextIfExists, writeText, printDryRunDiff } = require('../src/io');
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
 const { generateRoadmapDocument } = require('../src/generator');
 const { parseRoadmap } = require('../src/parser');
-const { buildValidationContext, validateTasks, auditValidation } = require('../src/validator');
+const { buildValidationContext, validateTasks, auditValidation, CONFIDENCE_RANK, applyMinimumConfidence } = require('../src/validator');
 const { applySync } = require('../src/sync');
 
 function printHelp() {
@@ -152,6 +152,7 @@ async function run() {
     const parsedRoadmap = parseRoadmap(content);
     const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
     const results = validateTasks(parsedRoadmap.tasks, validationContext, config, validationContext.plugins);
+    applyMinimumConfidence(results, config.validation?.minimumConfidence);
     const next = applySync(content, parsedRoadmap.tasks, results);
     const dryRun = isEnabled(flags['dry-run']);
     const writeResult = writeText(roadmapFile, next, { dryRun });
@@ -187,7 +188,6 @@ async function run() {
     const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
     const results = validateTasks(tasks, validationContext, config, validationContext.plugins);
 
-    const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
     const minRank = CONFIDENCE_RANK[config.validation && config.validation.minimumConfidence] ?? 0;
     const visibleTasks = tasks.filter((task) => (CONFIDENCE_RANK[results[task.id].confidence] ?? 0) >= minRank);
 

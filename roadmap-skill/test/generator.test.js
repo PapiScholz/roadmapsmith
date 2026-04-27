@@ -460,3 +460,34 @@ test('exit criteria checked state survives regeneration via prof-phN-stN-exit-{s
 
   assert.match(regenerated, /- \[x\] `\[P0\]` Core complete <!-- rs:task=prof-ph1-st1-exit-core-complete -->/);
 });
+
+test('mustBeStable item with note is not auto-checked on first render', () => {
+  const model = createRoadmapModel({
+    northStar: 'test',
+    product: { name: 'Test', northStar: 'test' },
+    currentState: {
+      implemented: [], scaffold: [], knownLimitations: [],
+      implementedSummary: '0 files', todoSummary: '0 TODOs', stackSummary: 'JS'
+    },
+    phases: { P0: [], P1: [], P2: [] },
+    steps: [],
+    phasesDetailed: [],
+    milestones: [{ version: 'v0.1', goal: 'test', mustBeStable: [{ text: 'stable algo', note: 'Locked as of v0.5.1.' }] }],
+    commandBreakdown: [],
+    exitCriteria: [],
+    risks: [],
+    antiGoals: [],
+    successCriteria: [],
+    customSections: [],
+    customPhases: [],
+    checkedById: {}
+  });
+
+  const output = renderBody(model, 'professional');
+  const stableLine = output.split('\n').find((l) => l.includes('stable algo'));
+  assert.ok(stableLine, 'mustBeStable item must appear in output');
+  assert.ok(
+    stableLine.includes('- [ ]'),
+    `mustBeStable item with note must not be auto-checked when checkedById is empty, got: ${stableLine}`
+  );
+});

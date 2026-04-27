@@ -1,7 +1,7 @@
 {
   "name": "roadmapsmith",
   "version": "0.6.0",
-  "description": "Generate, sync, and validate deterministic project roadmaps for agent-driven execution.",
+  "description": "Evidence-backed ROADMAP.md generator and sync tool for AI coding agents.",
   "main": "src/index.js",
   "bin": {
     "roadmapsmith": "bin/cli.js"
@@ -23,7 +23,15 @@
     "monorepo",
     "claude-code",
     "ai-agent",
-    "project-management"
+    "project-management",
+    "coding-agents",
+    "agent-skills",
+    "roadmap-generator",
+    "roadmap-sync",
+    "task-validation",
+    "developer-tools",
+    "markdown",
+    "agent-workflow"
   ],
   "author": "PapiScholz",
   "license": "MIT",

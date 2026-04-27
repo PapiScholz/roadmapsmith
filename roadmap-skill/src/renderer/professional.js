@@ -177,9 +177,11 @@ function renderSection5Milestones(model, lines) {
       lines.push('');
       for (const item of milestone.mustBeStable) {
         const text = typeof item === 'string' ? item : item.text;
-        const note = typeof item === 'object' && item.note ? ` — _${item.note}_` : '';
+        const hasNote = typeof item === 'object' && Boolean(item.note);
+        const note = hasNote ? ` — _${item.note}_` : '';
         const id = `prof-ms-${msSlug}-stable-${slugify(text)}`;
-        lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P1]\` ${text}${note} <!-- rs:task=${id} -->`);
+        const isChecked = checkedState(model, id);
+        lines.push(`- [${isChecked ? 'x' : ' '}] \`[P1]\` ${text}${note} <!-- rs:task=${id} -->`);
       }
       lines.push('');
     }
@@ -430,6 +432,63 @@ function renderSection11Risks(model, lines) {
   lines.push('');
 }
 
+function renderSection13CustomPhases(model, lines) {
+  const phases = model.customPhases || [];
+  if (phases.length === 0) {
+    return;
+  }
+
+  lines.push(sectionHeader(13, 'Extended Phases'));
+  lines.push('');
+
+  const sorted = [...phases].sort((a, b) => a.phaseNumber - b.phaseNumber);
+  for (const phase of sorted) {
+    lines.push(`### Phase ${phase.phaseNumber}: ${phase.title}`);
+    lines.push('');
+    lines.push(`**Phase Priority:** ${priorityLabel(phase.priority)}`);
+    lines.push(`**Objective:** ${phase.objective}`);
+    lines.push('');
+
+    const steps = [...(phase.steps || [])].sort((a, b) => a.stepNumber - b.stepNumber);
+    for (const step of steps) {
+      const stepLabel = `${phase.phaseNumber}.${step.stepNumber}`;
+      lines.push(`#### Step ${stepLabel}: ${step.title}`);
+      lines.push('');
+      lines.push(`**Step Priority:** ${priorityLabel(step.priority)}`);
+      const deps = step.dependsOn && step.dependsOn.length > 0
+        ? step.dependsOn.map((n) => `Phase ${n}`).join(', ')
+        : 'None';
+      lines.push(`**Depends on:** ${deps}`);
+      lines.push('');
+      if (step.objective) {
+        lines.push(`**Objective:** ${step.objective}`);
+        lines.push('');
+      }
+
+      if (step.tasks && step.tasks.length > 0) {
+        lines.push('**Tasks:**');
+        lines.push('');
+        for (const task of step.tasks) {
+          lines.push(taskLineWithPriority(task, model));
+        }
+        lines.push('');
+      }
+
+      if (step.exitCriteria && step.exitCriteria.length > 0) {
+        lines.push('**Exit Criteria:**');
+        lines.push('');
+        for (const item of step.exitCriteria) {
+          const text = typeof item === 'string' ? item : item.text;
+          const pri = (typeof item === 'object' && item.priority) ? `${priorityLabel(item.priority)} ` : '';
+          const id = (typeof item === 'object' && item.id) ? item.id : `mkt-ph${phase.phaseNumber}-st${step.stepNumber}-exit-${slugify(text)}`;
+          lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${pri}${text} <!-- rs:task=${id} -->`);
+        }
+        lines.push('');
+      }
+    }
+  }
+}
+
 function renderSection12SuccessCriteria(model, lines) {
   lines.push(sectionHeader(12, '1.0 Measurable Success Criteria'));
   lines.push('');
@@ -469,6 +528,7 @@ function renderProfessional(model) {
   renderSection10Documentation(model, lines);
   renderSection11Risks(model, lines);
   renderSection12SuccessCriteria(model, lines);
+  renderSection13CustomPhases(model, lines);
 
   return ensureTrailingNewline(lines.join('\n')).trimEnd();
 }
