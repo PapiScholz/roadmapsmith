@@ -172,9 +172,10 @@ test('canonical artifact heuristic: "Add SECURITY.md" detects SECURITY.md as art
   assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for SECURITY.md');
   assert.equal(result.passed, true, 'task should pass when SECURITY.md exists');
   assert.ok(
-    result.reasons.some((r) => r.includes('heuristic') && r.includes('SECURITY.md')),
-    `expected heuristic reason, got: ${result.reasons.join('; ')}`
+    result.evidence.heuristicArtifacts.includes('SECURITY.md'),
+    `expected SECURITY.md in heuristicArtifacts, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
   );
+  assert.equal(result.reasons.length, 0, 'passing task must have no reasons');
 });
 
 test('canonical artifact heuristic: "Add README file" detects README.md as artifact evidence', () => {
@@ -185,6 +186,10 @@ test('canonical artifact heuristic: "Add README file" detects README.md as artif
   const result = validateTask({ id: 'add-readme', text: 'Add README file' }, context, config, []);
   assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for README.md');
   assert.equal(result.passed, true, 'task should pass when README.md exists');
+  assert.ok(
+    result.evidence.heuristicArtifacts.includes('README.md'),
+    `expected README.md in heuristicArtifacts, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
+  );
 });
 
 test('canonical artifact heuristic: "Add billing module" does not false-positive on canonical files', () => {
@@ -193,8 +198,9 @@ test('canonical artifact heuristic: "Add billing module" does not false-positive
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask({ id: 'billing', text: 'Add billing module' }, context, config, []);
-  assert.ok(
-    !result.reasons.some((r) => r.includes('heuristic')),
-    `billing module must not trigger canonical heuristic, got: ${result.reasons.join('; ')}`
+  assert.deepEqual(
+    result.evidence.heuristicArtifacts,
+    [],
+    `billing module must not trigger canonical heuristic, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
   );
 });

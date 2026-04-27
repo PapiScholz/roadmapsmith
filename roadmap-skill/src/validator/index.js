@@ -223,7 +223,7 @@ function findTestEvidence(taskText, fileIndex) {
 function findArtifactEvidence(taskText, fileIndex) {
   const normalized = String(taskText).toLowerCase();
   const files = [];
-  const heuristicReasons = [];
+  const heuristicArtifacts = [];
 
   for (const [keyword, filename] of Object.entries(CANONICAL_FILES)) {
     if (normalized.includes(keyword)) {
@@ -232,13 +232,13 @@ function findArtifactEvidence(taskText, fileIndex) {
       );
       if (hit) {
         files.push(hit.relativePath);
-        heuristicReasons.push(`artifact detected via heuristic: ${filename}`);
+        heuristicArtifacts.push(hit.relativePath);
       }
     }
   }
 
   if (!isDocTask(taskText) && !normalized.includes('artifact') && !normalized.includes('release')) {
-    return { files, heuristicReasons };
+    return { files, heuristicArtifacts };
   }
 
   const artifactPatterns = [
@@ -256,7 +256,7 @@ function findArtifactEvidence(taskText, fileIndex) {
     }
   }
 
-  return { files: files.slice(0, 20), heuristicReasons };
+  return { files: files.slice(0, 20), heuristicArtifacts };
 }
 
 function evaluateRule(rule, task, context) {
@@ -348,7 +348,7 @@ function validateTask(task, context, config, plugins) {
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex);
   const filesFromTests = findTestEvidence(task.text, context.fileIndex);
-  const { files: filesFromArtifacts, heuristicReasons: artifactHints } = findArtifactEvidence(task.text, context.fileIndex);
+  const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
 
   const evidence = {
     code: filesFromCode.length > 0 || filesFromSymbols.length > 0,
@@ -358,7 +358,8 @@ function validateTask(task, context, config, plugins) {
     symbols: filesFromSymbols,
     codeFiles: filesFromCode,
     testFiles: filesFromTests,
-    artifactFiles: filesFromArtifacts
+    artifactFiles: filesFromArtifacts,
+    heuristicArtifacts
   };
 
   const reasons = [];
@@ -398,7 +399,7 @@ function validateTask(task, context, config, plugins) {
     taskId: task.id,
     passed: uniqueReasons.length === 0,
     confidence,
-    reasons: [...uniqueReasons, ...artifactHints],
+    reasons: uniqueReasons,
     evidence,
     requiresTest,
     hasEvidence,
