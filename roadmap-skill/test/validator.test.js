@@ -162,3 +162,39 @@ test('confidence is low when no evidence found (attempted flag does not boost co
   const result = validateTask({ id: 'no-match', text: 'xyzzy quux frobnicate zorp' }, context, config, []);
   assert.equal(result.confidence, 'low');
 });
+
+test('canonical artifact heuristic: "Add SECURITY.md" detects SECURITY.md as artifact evidence', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'add-security', text: 'Add SECURITY.md' }, context, config, []);
+  assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for SECURITY.md');
+  assert.equal(result.passed, true, 'task should pass when SECURITY.md exists');
+  assert.ok(
+    result.reasons.some((r) => r.includes('heuristic') && r.includes('SECURITY.md')),
+    `expected heuristic reason, got: ${result.reasons.join('; ')}`
+  );
+});
+
+test('canonical artifact heuristic: "Add README file" detects README.md as artifact evidence', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'add-readme', text: 'Add README file' }, context, config, []);
+  assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for README.md');
+  assert.equal(result.passed, true, 'task should pass when README.md exists');
+});
+
+test('canonical artifact heuristic: "Add billing module" does not false-positive on canonical files', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'billing', text: 'Add billing module' }, context, config, []);
+  assert.ok(
+    !result.reasons.some((r) => r.includes('heuristic')),
+    `billing module must not trigger canonical heuristic, got: ${result.reasons.join('; ')}`
+  );
+});

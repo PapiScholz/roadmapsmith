@@ -382,7 +382,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P1]` Add badges (npm version, CI status, license) to README <!-- rs:task=mkt-p0-add-badges-npm-ci-license -->
 - [x] `[P1]` Add comparison table (vs TODO.md, GitHub Issues, etc.) to README <!-- rs:task=mkt-p0-add-comparison-table -->
 - [x] `[P2]` Add GitHub Actions audit template example <!-- rs:task=mkt-p0-add-github-actions-audit-template -->
-- [ ] `[P2]` Add SECURITY.md <!-- rs:task=mkt-p0-add-security-md -->
+- [x] `[P2]` Add SECURITY.md <!-- rs:task=mkt-p0-add-security-md -->
 
 **Exit Criteria:**
 

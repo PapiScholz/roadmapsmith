@@ -31,6 +31,13 @@ const GENERIC_TASK_TOKENS = new Set([
   'tests'
 ]);
 
+const CANONICAL_FILES = {
+  security: 'SECURITY.md',
+  readme: 'README.md',
+  changelog: 'CHANGELOG.md',
+  license: 'LICENSE'
+};
+
 function readFileIndex(projectRoot, files) {
   const index = [];
   for (const relativePath of files) {
@@ -215,10 +222,23 @@ function findTestEvidence(taskText, fileIndex) {
 
 function findArtifactEvidence(taskText, fileIndex) {
   const normalized = String(taskText).toLowerCase();
-  const matches = [];
+  const files = [];
+  const heuristicReasons = [];
+
+  for (const [keyword, filename] of Object.entries(CANONICAL_FILES)) {
+    if (normalized.includes(keyword)) {
+      const hit = fileIndex.find(
+        (f) => f.relativePath === filename || f.relativePath.endsWith('/' + filename)
+      );
+      if (hit) {
+        files.push(hit.relativePath);
+        heuristicReasons.push(`artifact detected via heuristic: ${filename}`);
+      }
+    }
+  }
 
   if (!isDocTask(taskText) && !normalized.includes('artifact') && !normalized.includes('release')) {
-    return matches;
+    return { files, heuristicReasons };
   }
 
   const artifactPatterns = [
@@ -231,12 +251,12 @@ function findArtifactEvidence(taskText, fileIndex) {
   ];
 
   for (const file of fileIndex) {
-    if (artifactPatterns.some((pattern) => pattern.test(file.relativePath))) {
-      matches.push(file.relativePath);
+    if (artifactPatterns.some((pattern) => pattern.test(file.relativePath)) && !files.includes(file.relativePath)) {
+      files.push(file.relativePath);
     }
   }
 
-  return matches.slice(0, 20);
+  return { files: files.slice(0, 20), heuristicReasons };
 }
 
 function evaluateRule(rule, task, context) {
@@ -328,7 +348,7 @@ function validateTask(task, context, config, plugins) {
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex);
   const filesFromTests = findTestEvidence(task.text, context.fileIndex);
-  const filesFromArtifacts = findArtifactEvidence(task.text, context.fileIndex);
+  const { files: filesFromArtifacts, heuristicReasons: artifactHints } = findArtifactEvidence(task.text, context.fileIndex);
 
   const evidence = {
     code: filesFromCode.length > 0 || filesFromSymbols.length > 0,
@@ -378,7 +398,7 @@ function validateTask(task, context, config, plugins) {
     taskId: task.id,
     passed: uniqueReasons.length === 0,
     confidence,
-    reasons: uniqueReasons,
+    reasons: [...uniqueReasons, ...artifactHints],
     evidence,
     requiresTest,
     hasEvidence,
