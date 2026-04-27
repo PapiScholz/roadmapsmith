@@ -184,6 +184,40 @@ RoadmapSmith supports multiple output profiles. Set `roadmapProfile` in `roadmap
 
 **Supported priority labels:** `P0` (critical), `P1` (high), `P2` (normal), `P3` (later/backlog). All are valid at phase, step, and task level. In dedup resolution, lower numbers win; `P3` items are deprioritized but never silently upgraded.
 
+**`customPhases`** — top-level config key (sibling to `roadmapProfile`, outside `product`) that overrides inferred phase groups with explicit structure:
+
+```json
+{
+  "customPhases": [
+    {
+      "phaseNumber": 4,
+      "title": "Launch Preparation",
+      "priority": "P1",
+      "objective": "Prepare the project for public release.",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "Repository Polish",
+          "priority": "P1",
+          "dependsOn": [3],
+          "tasks": [
+            { "id": "mkt-add-demo", "text": "Add demo.gif or README placeholder", "priority": "P1" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Set `validation.minimumConfidence` to suppress low-confidence results in CI:
+
+```json
+{
+  "validation": { "minimumConfidence": "medium" }
+}
+```
+
 ### Professional profile output example
 
 This repository's own `ROADMAP.md` is generated with RoadmapSmith using the `professional` profile. Here is an excerpt from Section 4:
