@@ -358,4 +358,90 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` checked task state survives regeneration across both profiles <!-- rs:task=prof-sc-checked-task-state-survives-regeneration-across-both-profiles -->
 - [x] `[P0]` RoadmapSmith's own ROADMAP.md is generated entirely by RoadmapSmith itself <!-- rs:task=prof-sc-roadmapsmith-s-own-roadmap-md-is-generated-entirely-by-roadmapsmith-itself -->
 - [x] `[P0]` npm test passes with no failures on all fixture languages <!-- rs:task=prof-sc-npm-test-passes-with-no-failures-on-all-fixture-languages -->
+
+## 13. Market Readiness Roadmap
+
+### Phase 4: Launch Preparation
+
+**Phase Priority:** `[P1]`
+**Objective:** Prepare repository for public release and initial adoption.
+
+#### Step 4.1: Repository Polish
+
+**Step Priority:** `[P1]`
+**Depends on:** Phase 3
+
+**Objective:** Align metadata, improve discoverability, and add visual assets.
+
+**Tasks:**
+
+- [x] `[P0]` Align versions across package.json, skills.json, plugin.json <!-- rs:task=mkt-p0-align-versions-package-skills-plugin -->
+- [x] `[P0]` Improve package.json keywords and description for discoverability <!-- rs:task=mkt-p0-improve-package-json-keywords-description -->
+- [x] `[P1]` Add demo.gif or placeholder to README <!-- rs:task=mkt-p0-add-demo-gif-placeholder -->
+- [x] `[P1]` Move Quick Start section to top of README <!-- rs:task=mkt-p0-move-quick-start-to-top-readme -->
+- [x] `[P1]` Add badges (npm version, CI status, license) to README <!-- rs:task=mkt-p0-add-badges-npm-ci-license -->
+- [x] `[P1]` Add comparison table (vs TODO.md, GitHub Issues, etc.) to README <!-- rs:task=mkt-p0-add-comparison-table -->
+- [x] `[P2]` Add GitHub Actions audit template example <!-- rs:task=mkt-p0-add-github-actions-audit-template -->
+- [ ] `[P2]` Add SECURITY.md <!-- rs:task=mkt-p0-add-security-md -->
+
+**Exit Criteria:**
+
+- [x] `[P0]` All version strings match across package.json, skills.json, plugin.json <!-- rs:task=mkt-ph4-st1-exit-version-strings-aligned -->
+- [x] `[P1]` README Quick Start is the first user-facing section <!-- rs:task=mkt-ph4-st1-exit-quick-start-at-top -->
+
+### Phase 5: Reliability Hardening
+
+**Phase Priority:** `[P0]`
+**Objective:** Improve validation trust and operational robustness.
+
+#### Step 5.1: Validation Confidence
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 4
+
+**Objective:** Design and expose confidence levels to reduce false-positive validation.
+
+**Tasks:**
+
+- [x] `[P0]` Add validation confidence levels (design or scaffold if not implemented) <!-- rs:task=mkt-p1-add-validation-confidence-levels -->
+- [x] `[P0]` Add config option: validation.minimumConfidence <!-- rs:task=mkt-p1-add-config-validation-minimum-confidence -->
+- [x] `[P1]` Add `roadmapsmith doctor` command (scaffold or planned) <!-- rs:task=mkt-p1-add-roadmapsmith-doctor-command -->
+- [ ] `[P1]` Add docs/use-cases/ci-audit.md <!-- rs:task=mkt-p1-add-docs-use-cases-ci-audit -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/use-cases/ci-audit.md
+- [ ] `[P1]` Add docs/use-cases/claude-code.md <!-- rs:task=mkt-p1-add-docs-use-cases-claude-code -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/use-cases/claude-code.md
+- [ ] `[P2]` Add docs/limitations.md (consolidate existing known limitations) <!-- rs:task=mkt-p1-add-docs-limitations -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/limitations.md
+
+**Exit Criteria:**
+
+- [x] `[P0]` validation.minimumConfidence config field accepted without errors <!-- rs:task=mkt-ph5-st1-exit-minimum-confidence-config-accepted -->
+- [x] `[P1]` roadmapsmith doctor exits 0 on a healthy repo <!-- rs:task=mkt-ph5-st1-exit-doctor-exits-zero-healthy-repo -->
+
+### Phase 6: Distribution
+
+**Phase Priority:** `[P1]`
+**Objective:** Publish and distribute the tool across ecosystems.
+
+#### Step 6.1: Release and Channels
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 4, Phase 5
+
+**Objective:** Cut v0.6.0 release and publish to all relevant channels.
+
+**Tasks:**
+
+- [x] `[P0]` Prepare and cut GitHub release v0.6.0 <!-- rs:task=mkt-p2-github-release-v060 -->
+- [x] `[P0]` Publish npm release v0.6.0 <!-- rs:task=mkt-p2-npm-release-v060 -->
+- [x] `[P1]` Publish or update skills.sh entry <!-- rs:task=mkt-p2-publish-skills-sh-entry -->
+- [x] `[P1]` Evaluate MCP Market and skill.fish publishing <!-- rs:task=mkt-p2-evaluate-mcp-market-skill-fish -->
+- [ ] `[P2]` Create launch post (LinkedIn) <!-- rs:task=mkt-p2-create-launch-post-linkedin -->
+- [x] `[P2]` Add GitHub issue templates (bug, feature, false-positive) <!-- rs:task=mkt-p2-add-issue-templates -->
+
+**Exit Criteria:**
+
+- [x] `[P0]` npm install -g roadmapsmith@0.6.0 succeeds <!-- rs:task=mkt-ph6-st1-exit-npm-install-v060-succeeds -->
+- [x] `[P0]` GitHub release v0.6.0 published with release notes <!-- rs:task=mkt-ph6-st1-exit-github-release-v060-published -->
+- [x] `[P1]` skills.sh entry updated or submitted <!-- rs:task=mkt-ph6-st1-exit-skills-sh-entry-updated -->
 <!-- rs:managed:end -->
