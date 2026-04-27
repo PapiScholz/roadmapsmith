@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-This project is currently in private/internal development. Security fixes are applied on the default branch (`main`) and included in the next release candidate.
+This is an open-source project. Security fixes are applied on the default branch (`main`) and included in the next release.
 
 | Version | Supported |
 | ------- | --------- |
