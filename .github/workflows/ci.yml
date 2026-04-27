@@ -45,3 +45,15 @@ jobs:
 
       - name: CLI generate dry-run smoke test
         run: node bin/cli.js generate --project-root . --dry-run --audit
+
+      - name: CLI validate JSON smoke test
+        run: node bin/cli.js validate --json --project-root ..
+
+      - name: CLI sync dry-run audit smoke test
+        run: node bin/cli.js sync --dry-run --audit --project-root ..
+
+      - name: CLI doctor smoke test
+        run: node bin/cli.js doctor --project-root ..
+
+      - name: npm pack dry-run
+        run: npm pack --dry-run
