@@ -18,7 +18,8 @@ function printHelp() {
     '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
-    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]'
+    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
+    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>]'
   ].join('\n'));
 }
 
@@ -204,6 +205,37 @@ async function run() {
     if (failed) {
       process.exitCode = 1;
     }
+    return;
+  }
+
+  if (command === 'doctor') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    let ok = true;
+
+    let config;
+    try {
+      config = loadConfig({ projectRoot, configPath: flags.config });
+      console.log('[ok] Config loaded without errors');
+    } catch (error) {
+      console.error(`[fail] Config error: ${error.message}`);
+      ok = false;
+    }
+
+    if (config) {
+      const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+      if (fs.existsSync(roadmapFile)) {
+        console.log(`[ok] ROADMAP file found: ${roadmapFile}`);
+      } else {
+        console.error(`[fail] ROADMAP file not found: ${roadmapFile}`);
+        ok = false;
+      }
+    }
+
+    if (!ok) {
+      process.exitCode = 1;
+      return;
+    }
+    console.log('doctor: all checks passed');
     return;
   }
 
