@@ -12,3 +12,11 @@ build/
 .worktrees/
 .dev/
 roadmap-skill/.codex/skills/
+# demo artifacts
+demo-gif/
+
+# ffmpeg temp
+assets/palette.png
+
+# backups raros
+*.mp4~

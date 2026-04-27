@@ -17,7 +17,11 @@ roadmapsmith sync --audit
 
 ## Demo
 
-> 30-second demo coming soon — see [docs/use-cases/claude-code.md](docs/use-cases/claude-code.md) for a walkthrough.
+RoadmapSmith marks tasks complete only after repository evidence exists.
+
+<video src="assets/demo.mp4" controls width="100%"></video>
+
+No manual checkboxes. No hallucinated progress. Only verifiable completion.
 
 ---
 
