@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-04-27
+
+### Added
+- **`doctor` command**: new CLI command scaffold (`roadmapsmith doctor`) for environment and config diagnostics.
+- **Canonical repo file detection**: `SECURITY.md` and `LICENSE` are now recognized as artifact evidence during task validation.
+
+### Changed
+- **`customPhases` replaces `marketPhases`**: the config key for extended phases has been renamed from `marketPhases` to `customPhases` for better generality. Update your config if you use this field.
+- **`evidence.heuristicArtifacts`**: heuristic artifact metadata moved from `reasons` into a dedicated `evidence.heuristicArtifacts` field in the validation result.
+- **`mustBeStable` items**: `hasNote` no longer auto-checks these items — real evidence is now required.
+
+### Fixed
+- `minimumConfidence` now correctly gates sync task-marking; tasks below threshold are excluded from output and exit code.
+- Confidence formula cleaned up; `CONFIDENCE_RANK` and `applyMinimumConfidence` are now exported from the public API.
+- `validate --json` in CI scoped to a known-complete task to prevent false exit-1 on pending tasks.
+
+### CI / Release
+- Added `validate --json`, `sync --dry-run --audit`, `doctor`, and `npm pack --dry-run` steps to CI pipeline.
+- Added GitHub issue templates (bug, feature, false-positive).
+
 ## [0.6.0] — 2026-04-26
 
 ### Added

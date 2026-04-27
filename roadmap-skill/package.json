@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Evidence-backed ROADMAP.md generator and sync tool for AI coding agents.",
   "main": "src/index.js",
   "bin": {
