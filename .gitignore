@@ -9,3 +9,4 @@ build/
 .tmp/
 .cache/
 .claude/hooks/.sync.lock
+.worktrees/
