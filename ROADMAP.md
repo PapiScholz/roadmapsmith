@@ -408,8 +408,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P1]` Add `roadmapsmith doctor` command (scaffold or planned) <!-- rs:task=mkt-p1-add-roadmapsmith-doctor-command -->
 - [x] `[P1]` Add docs/use-cases/ci-audit.md <!-- rs:task=mkt-p1-add-docs-use-cases-ci-audit -->
 - [x] `[P1]` Add docs/use-cases/claude-code.md <!-- rs:task=mkt-p1-add-docs-use-cases-claude-code -->
-- [ ] `[P2]` Add docs/limitations.md (consolidate existing known limitations) <!-- rs:task=mkt-p1-add-docs-limitations -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): docs/limitations.md
+- [x] `[P2]` Add docs/limitations.md (consolidate existing known limitations) <!-- rs:task=mkt-p1-add-docs-limitations -->
 
 **Exit Criteria:**
 
