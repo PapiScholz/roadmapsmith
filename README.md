@@ -19,7 +19,7 @@ roadmapsmith sync --audit
 
 RoadmapSmith marks tasks complete only after repository evidence exists.
 
-<video src="assets/demo.mp4" controls width="100%"></video>
+![RoadmapSmith evidence-backed sync demo](assets/demo.gif)
 
 No manual checkboxes. No hallucinated progress. Only verifiable completion.
 
