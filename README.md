@@ -2,92 +2,139 @@
 
 Turn vague software ideas into deterministic, evidence-trackable roadmaps for AI coding agents — then keep them honest with repository-backed validation.
 
-## Naming Model
+[![npm version](https://img.shields.io/npm/v/roadmapsmith.svg)](https://www.npmjs.com/package/roadmapsmith)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 
-- RoadmapSmith: project/product name.
-- roadmap-sync: installable agent skill name.
-- roadmapsmith: optional CLI package and preferred command.
-- roadmap-skill/: npm package directory.
-
-## Repository Layout
-
-```text
-roadmapsmith/
-├── README.md
-├── AGENTS.md
-├── ROADMAP.md
-├── CHANGELOG.md
-├── skills.json
-├── skills/
-│   └── roadmap-sync/
-│       └── SKILL.md
-├── .claude-plugin/
-│   └── plugin.json
-└── roadmap-skill/
-    ├── package.json
-    ├── bin/
-    │   └── cli.js
-    ├── src/
-    │   ├── index.js
-    │   ├── config.js
-    │   ├── io.js
-    │   ├── match.js
-    │   ├── model.js
-    │   ├── utils.js
-    │   ├── generator/
-    │   ├── parser/
-    │   ├── renderer/
-    │   ├── sync/
-    │   └── validator/
-    ├── templates/
-    └── test/
-```
-
-## Install: Agent Skill (Primary)
-
-### skills.sh and agentskill.sh
-
-```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-```
-
-This adds the `roadmap-sync` agent skill. It does not install the CLI package.
-
-### aitmpl.com/skills
-
-Search for `roadmapsmith` on [aitmpl.com/skills](https://aitmpl.com/skills) and follow the install prompt, or install directly using the skills CLI above.
-
-## Install: CLI (Optional)
+## Quick Start
 
 ```bash
 npm install -g roadmapsmith
 roadmapsmith init
 roadmapsmith generate --project-root .
+roadmapsmith sync --audit
+```
+
+## Demo
+
+> 30-second demo coming soon — see [docs/use-cases/claude-code.md](docs/use-cases/claude-code.md) for a walkthrough.
+
+---
+
+## What Problem This Solves
+
+AI coding agents operate in sessions — they lose context, rely on self-reported completion, and have no external validation anchor. Without a grounding mechanism, a task marked `[x]` means only that the model decided it was done. RoadmapSmith addresses three compounding problems:
+
+**Hallucinated completion.** Agents claim task completion without traceable evidence in code, tests, or artifacts. RoadmapSmith validates completion against repository state — not the agent's self-assessment.
+
+**Roadmap drift.** Generated roadmaps go stale as the project evolves. The `generate` and `sync` commands rebuild and reconcile the roadmap from actual repository context: detected languages, modules, test frameworks, and TODO markers read directly from the filesystem.
+
+**Session discontinuity.** Multi-session agent workflows lose progress context between sessions. `ROADMAP.md` serves as a durable, inspectable state file that any session can read, trust, and extend — without relying on conversation history.
+
+---
+
+## What Makes This Different
+
+| | RoadmapSmith | TODO list | Jira | Naive agent workflow |
+|---|---|---|---|---|
+| Grounded in repository state | ✓ | ✗ | ✗ | ✗ |
+| Detects hallucinated completion | ✓ | ✗ | ✗ | ✗ |
+| Deterministic generation | ✓ | ✗ | ✗ | ✗ |
+| Zero production dependencies | ✓ | — | ✗ | — |
+| Multi-session compatible | ✓ | varies | ✓ | varies |
+
+TODO lists track intent. Jira tracks human-managed status. Neither validates that code actually changed. A naive agent workflow trusts the model's output — which means accepting hallucinations as ground truth.
+
+RoadmapSmith introduces a third path: **validation by evidence**. Before `sync` marks a task complete, the validator runs a multi-pass evidence scan: explicit file paths mentioned in the task text → symbol names → code token matching → test file matching → artifact presence (README, CHANGELOG, docs/, dist/). The model's claim is one input; the repository is the authority.
+
+---
+
+## How It Works
+
+```
+roadmapsmith init              # Write ROADMAP.md + AGENTS.md governance files
+roadmapsmith generate          # Scan repo → emit deterministic task candidates
+roadmapsmith validate --json   # Check task completion against code/test/artifact evidence
+roadmapsmith sync              # Apply validation results (mark ✓ or warn ⚠️)
+roadmapsmith sync --audit      # Report mismatches: checked without evidence, ready but unchecked
+```
+
+Each command is independent and composable. Agents typically run `sync` after making changes; CI can run `sync --audit` to fail on mismatched state.
+
+**`generate`** indexes your repository for languages, test frameworks, modules in `src/`, `lib/`, `packages/`, and TODO/FIXME markers (up to 120 files). It emits deterministic task candidates — same input always produces the same structure. Task IDs are stable across regenerations via `<!-- rs:task=id -->` markers.
+
+**`validate`** runs the multi-pass evidence scan. Each task is scored against: backtick-quoted paths in task text, symbol names, code token matching (threshold: 2+ matches for multi-token tasks), test file matching, and artifact presence. Results include the reason a task passed or failed.
+
+**`sync`** writes only within a `<!-- rs:managed:start/end -->` block, leaving the rest of your `ROADMAP.md` untouched. It marks passing tasks `[x]` and appends `⚠️ attempted but validation failed: <reason>` for failing ones.
+
+---
+
+## Two Operating Modes
+
+### Zero Mode: Start from an empty repository
+
+Use this when you have:
+
+- A new or empty repository
+- A vague product idea with no implementation files
+- No stack decision yet
+- No ROADMAP.md yet
+
+Expected agent behavior:
+
+- Do not immediately generate a generic roadmap.
+- First run a discovery conversation to define the product brief.
+- Define the product north star, target user, and problem statement.
+- Recommend or confirm stack after understanding constraints.
+- Define the v1.0 outcome, anti-goals, and risks.
+- Generate ROADMAP.md as the execution contract.
+
+Discovery questions the agent will ask:
+
+1. What product are we building?
+2. Who is the target user?
+3. What problem does it solve?
+4. What is the desired v1.0 outcome?
+5. What is explicitly out of scope?
+6. What stack do you prefer, if any?
+7. What constraints exist? (Budget, hosting, compliance, platform, deadline.)
+8. What does "done" mean for the first usable version?
+
+Recommended workflow:
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+roadmapsmith init
+roadmapsmith generate --project-root .
+```
+
+The CLI creates governance files. The AI agent performs the discovery interview using the `roadmap-sync` skill instructions before generating the roadmap.
+
+---
+
+### Sync/Audit Mode: Keep an existing roadmap honest
+
+Use this when your repository already has code, tests, docs, TODOs, or an existing ROADMAP.md.
+
+Expected behavior:
+
+- Scan repository context: detect languages, modules, commands, test frameworks, TODO/FIXME markers.
+- Generate or update the managed roadmap block.
+- Validate tasks against repository evidence.
+- Sync checklist state.
+- Audit mismatches.
+
+Recommended workflow:
+
+```bash
+roadmapsmith generate --project-root .
 roadmapsmith validate --json
 roadmapsmith sync --audit
 ```
 
-## Local Development
+This is the current mature mode. It is not deprecated — it is the primary workflow for any repository with existing implementation.
 
-```bash
-cd roadmap-skill
-npm install
-npm test
-node bin/cli.js --help
-node bin/cli.js init --dry-run
-node bin/cli.js generate --project-root . --dry-run --audit
-node bin/cli.js validate --json
-```
-
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
-| `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
-| `roadmapsmith validate --json` | Validate roadmap structure |
-| `roadmapsmith sync --audit` | Check completed tasks against evidence |
-| `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
+---
 
 ## Roadmap Profiles
 
@@ -160,73 +207,6 @@ This repository's own `ROADMAP.md` is generated with RoadmapSmith using the `pro
 - [ ] `[P0]` A P0 task in a P2 step renders with [P0] label in correct position <!-- rs:task=prof-ph1-st2-exit-... -->
 ```
 
-## Two Operating Modes
-
-### Zero Mode: Start from an empty repository
-
-Use this when you have:
-
-- A new or empty repository
-- A vague product idea with no implementation files
-- No stack decision yet
-- No ROADMAP.md yet
-
-Expected agent behavior:
-
-- Do not immediately generate a generic roadmap.
-- First run a discovery conversation to define the product brief.
-- Define the product north star, target user, and problem statement.
-- Recommend or confirm stack after understanding constraints.
-- Define the v1.0 outcome, anti-goals, and risks.
-- Generate ROADMAP.md as the execution contract.
-
-Discovery questions the agent will ask:
-
-1. What product are we building?
-2. Who is the target user?
-3. What problem does it solve?
-4. What is the desired v1.0 outcome?
-5. What is explicitly out of scope?
-6. What stack do you prefer, if any?
-7. What constraints exist? (Budget, hosting, compliance, platform, deadline.)
-8. What does "done" mean for the first usable version?
-
-Recommended workflow:
-
-```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-roadmapsmith init
-roadmapsmith generate --project-root .
-```
-
-The CLI creates governance files. The AI agent performs the discovery interview using the `roadmap-sync` skill instructions before generating the roadmap.
-
----
-
-### Sync/Audit Mode: Keep an existing roadmap honest
-
-Use this when your repository already has code, tests, docs, TODOs, or an existing ROADMAP.md.
-
-Expected behavior:
-
-- Scan repository context: detect languages, modules, commands, test frameworks, TODO/FIXME markers.
-- Generate or update the managed roadmap block.
-- Validate tasks against repository evidence.
-- Sync checklist state.
-- Audit mismatches.
-
-Recommended workflow:
-
-```bash
-roadmapsmith generate --project-root .
-roadmapsmith validate --json
-roadmapsmith sync --audit
-```
-
-This is the current mature mode. It is not deprecated — it is the primary workflow for any repository with existing implementation.
-
----
-
 ## When to use RoadmapSmith
 
 Use RoadmapSmith when:
@@ -243,63 +223,92 @@ Do not use it if:
 - You do not use roadmaps or agent workflows
 - You only need a static TODO list
 
-## Roadmap
+## Commands
 
-The canonical project roadmap and publishing checklist live in [ROADMAP.md](./ROADMAP.md).
+| Command | Purpose |
+|---|---|
+| `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
+| `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
+| `roadmapsmith validate --json` | Validate roadmap structure |
+| `roadmapsmith sync --audit` | Check completed tasks against evidence |
+| `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
 
-## Warning
+## Install: Agent Skill (Primary)
 
-Do not mark roadmap tasks as completed unless repository evidence exists.
+### skills.sh and agentskill.sh
 
----
-
-## What Problem This Solves
-
-AI coding agents operate in sessions — they lose context, rely on self-reported completion, and have no external validation anchor. Without a grounding mechanism, a task marked `[x]` means only that the model decided it was done. RoadmapSmith addresses three compounding problems:
-
-**Hallucinated completion.** Agents claim task completion without traceable evidence in code, tests, or artifacts. RoadmapSmith validates completion against repository state — not the agent's self-assessment.
-
-**Roadmap drift.** Generated roadmaps go stale as the project evolves. The `generate` and `sync` commands rebuild and reconcile the roadmap from actual repository context: detected languages, modules, test frameworks, and TODO markers read directly from the filesystem.
-
-**Session discontinuity.** Multi-session agent workflows lose progress context between sessions. `ROADMAP.md` serves as a durable, inspectable state file that any session can read, trust, and extend — without relying on conversation history.
-
----
-
-## What Makes This Different
-
-| | RoadmapSmith | TODO list | Jira | Naive agent workflow |
-|---|---|---|---|---|
-| Grounded in repository state | ✓ | ✗ | ✗ | ✗ |
-| Detects hallucinated completion | ✓ | ✗ | ✗ | ✗ |
-| Deterministic generation | ✓ | ✗ | ✗ | ✗ |
-| Zero production dependencies | ✓ | — | ✗ | — |
-| Multi-session compatible | ✓ | varies | ✓ | varies |
-
-TODO lists track intent. Jira tracks human-managed status. Neither validates that code actually changed. A naive agent workflow trusts the model's output — which means accepting hallucinations as ground truth.
-
-RoadmapSmith introduces a third path: **validation by evidence**. Before `sync` marks a task complete, the validator runs a multi-pass evidence scan: explicit file paths mentioned in the task text → symbol names → code token matching → test file matching → artifact presence (README, CHANGELOG, docs/, dist/). The model's claim is one input; the repository is the authority.
-
----
-
-## How It Works
-
-```
-roadmapsmith init              # Write ROADMAP.md + AGENTS.md governance files
-roadmapsmith generate          # Scan repo → emit deterministic task candidates
-roadmapsmith validate --json   # Check task completion against code/test/artifact evidence
-roadmapsmith sync              # Apply validation results (mark ✓ or warn ⚠️)
-roadmapsmith sync --audit      # Report mismatches: checked without evidence, ready but unchecked
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-Each command is independent and composable. Agents typically run `sync` after making changes; CI can run `sync --audit` to fail on mismatched state.
+This adds the `roadmap-sync` agent skill. It does not install the CLI package.
 
-**`generate`** indexes your repository for languages, test frameworks, modules in `src/`, `lib/`, `packages/`, and TODO/FIXME markers (up to 120 files). It emits deterministic task candidates — same input always produces the same structure. Task IDs are stable across regenerations via `<!-- rs:task=id -->` markers.
+### aitmpl.com/skills
 
-**`validate`** runs the multi-pass evidence scan. Each task is scored against: backtick-quoted paths in task text, symbol names, code token matching (threshold: 2+ matches for multi-token tasks), test file matching, and artifact presence. Results include the reason a task passed or failed.
+Search for `roadmapsmith` on [aitmpl.com/skills](https://aitmpl.com/skills) and follow the install prompt, or install directly using the skills CLI above.
 
-**`sync`** writes only within a `<!-- rs:managed:start/end -->` block, leaving the rest of your `ROADMAP.md` untouched. It marks passing tasks `[x]` and appends `⚠️ attempted but validation failed: <reason>` for failing ones.
+## Install: CLI (Optional)
 
----
+```bash
+npm install -g roadmapsmith
+roadmapsmith init
+roadmapsmith generate --project-root .
+roadmapsmith validate --json
+roadmapsmith sync --audit
+```
+
+## Local Development
+
+```bash
+cd roadmap-skill
+npm install
+npm test
+node bin/cli.js --help
+node bin/cli.js init --dry-run
+node bin/cli.js generate --project-root . --dry-run --audit
+node bin/cli.js validate --json
+```
+
+## Naming Model
+
+- RoadmapSmith: project/product name.
+- roadmap-sync: installable agent skill name.
+- roadmapsmith: optional CLI package and preferred command.
+- roadmap-skill/: npm package directory.
+
+## Repository Layout
+
+```text
+roadmapsmith/
+├── README.md
+├── AGENTS.md
+├── ROADMAP.md
+├── CHANGELOG.md
+├── skills.json
+├── skills/
+│   └── roadmap-sync/
+│       └── SKILL.md
+├── .claude-plugin/
+│   └── plugin.json
+└── roadmap-skill/
+    ├── package.json
+    ├── bin/
+    │   └── cli.js
+    ├── src/
+    │   ├── index.js
+    │   ├── config.js
+    │   ├── io.js
+    │   ├── match.js
+    │   ├── model.js
+    │   ├── utils.js
+    │   ├── generator/
+    │   ├── parser/
+    │   ├── renderer/
+    │   ├── sync/
+    │   └── validator/
+    ├── templates/
+    └── test/
+```
 
 ## Agent Safety Layer
 
@@ -352,6 +361,8 @@ The `--audit` flag produces a reviewable record: which tasks were attempted, whi
 **Requires disciplined usage.** RoadmapSmith enforces nothing on the agent itself — it reports mismatches. If an agent ignores `--audit` output or never calls `sync`, the governance layer provides no value. The system works only when it is part of the workflow, not an afterthought.
 
 **Not a test runner.** Validation checks for the presence of evidence, not the correctness of code. A test file referencing a task's keywords is sufficient for validation to pass, even if the tests themselves fail. Passing validation is necessary but not sufficient for a task to be genuinely complete.
+
+See [docs/limitations.md](docs/limitations.md) for more detail.
 
 ---
 
