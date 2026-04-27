@@ -1,0 +1,22 @@
+name: False positive report
+description: Validator incorrectly marks a task complete or incomplete
+labels: [false-positive]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Which task was mis-evaluated?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual validator output
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: roadmapsmith version
+    validations:
+      required: true
