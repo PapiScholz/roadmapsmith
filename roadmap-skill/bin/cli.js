@@ -187,16 +187,20 @@ async function run() {
     const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
     const results = validateTasks(tasks, validationContext, config, validationContext.plugins);
 
+    const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
+    const minRank = CONFIDENCE_RANK[config.validation && config.validation.minimumConfidence] ?? 0;
+    const visibleTasks = tasks.filter((task) => (CONFIDENCE_RANK[results[task.id].confidence] ?? 0) >= minRank);
+
     if (isEnabled(flags.json)) {
-      const payload = tasks.map((task) => ({ task, result: results[task.id] }));
+      const payload = visibleTasks.map((task) => ({ task, result: results[task.id] }));
       console.log(JSON.stringify(payload, null, 2));
     } else {
-      tasks.forEach((task) => {
+      visibleTasks.forEach((task) => {
         console.log(formatResultLine(task, results[task.id]));
       });
     }
 
-    const failed = tasks.some((task) => !results[task.id].passed);
+    const failed = visibleTasks.some((task) => !results[task.id].passed);
     if (failed) {
       process.exitCode = 1;
     }

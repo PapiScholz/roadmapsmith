@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-04-26
+
+### Added
+- **Validation confidence levels**: `validateTask()` now returns a `confidence` field (`'high' | 'medium' | 'low'`) based on evidence breadth — `high` when 2+ evidence types (code, test, artifact) are found, `medium` for single-source evidence or tasks with path/symbol hints, `low` when no evidence is detected.
+- **`validation.minimumConfidence` config option**: tasks below the configured confidence threshold are excluded from `roadmapsmith validate` output and do not contribute to the exit code. Defaults to `'low'` (no filtering). Set to `'medium'` or `'high'` to suppress low-confidence results and reduce false-positive CI failures.
+
+### Changed
+- **Version alignment**: `skills.json` and `.claude-plugin/plugin.json` bumped to match `roadmap-skill/package.json` (all at `0.6.0`).
+- **`roadmap-skill/package.json` keywords**: expanded from 5 generic terms to 13 targeted keywords (`validation`, `sync`, `task-tracking`, `evidence-based`, `deterministic`, `monorepo`, `claude-code`, `ai-agent`, `project-management`) for improved npm discoverability.
+
 ## [0.5.1] — 2026-04-26
 
 ### Added

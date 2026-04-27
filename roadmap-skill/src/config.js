@@ -24,6 +24,9 @@ const DEFAULT_CONFIG = {
     steps: [],
     phases: []
   },
+  validation: {
+    minimumConfidence: 'low'
+  },
   milestones: [
     { version: 'v0.1', goal: 'Foundation baseline complete' },
     { version: 'v0.2', goal: 'Core feature coverage stabilized' },
@@ -73,6 +76,10 @@ function mergeConfig(userConfig) {
       phases: (userConfig && userConfig.product && Array.isArray(userConfig.product.phases))
         ? userConfig.product.phases
         : DEFAULT_CONFIG.product.phases
+    },
+    validation: {
+      ...DEFAULT_CONFIG.validation,
+      ...((userConfig && userConfig.validation) || {})
     }
   };
 }

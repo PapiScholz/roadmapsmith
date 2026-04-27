@@ -367,15 +367,20 @@ function validateTask(task, context, config, plugins) {
   }
 
   const uniqueReasons = Array.from(new Set(reasons));
+  const attempted = hasEvidence || pathHints.length > 0 || symbolHints.length > 0;
+
+  const evidenceCount = [evidence.code, evidence.test, evidence.artifact].filter(Boolean).length;
+  const confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : attempted ? 'medium' : 'low';
 
   return {
     taskId: task.id,
     passed: uniqueReasons.length === 0,
+    confidence,
     reasons: uniqueReasons,
     evidence,
     requiresTest,
     hasEvidence,
-    attempted: hasEvidence || pathHints.length > 0 || symbolHints.length > 0
+    attempted
   };
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Generate, synchronize, and validate deterministic project roadmaps for AI coding agents. Provides the roadmap-sync agent skill and optional CLI for evidence-based task completion tracking.",
   "author": {
     "name": "PapiScholz"
