@@ -147,7 +147,7 @@
         "Managed block preserved across regeneration"
       ],
       "mustBeStable": [
-        "rs:task ID slugification algorithm",
+        { "text": "rs:task ID slugification algorithm", "note": "Stable as of v0.5.1 — locked by test/utils.test.js. Meta-declaration: not evidence-scannable by sync." },
         "managed block start/end marker format"
       ],
       "outOfScope": [
@@ -186,7 +186,7 @@
       "mustBeStable": [
         "compact profile output (backward compatible)",
         "professional profile section structure",
-        "prof-step-N- task ID namespace"
+        { "text": "prof-step-N- task ID namespace", "note": "Stable as of v0.5.1 — locked by exit criteria ID format and checked-state roundtrip tests in generator.test.js. Meta-declaration: not evidence-scannable by sync." }
       ],
       "outOfScope": [
         "Enterprise profile implementation",

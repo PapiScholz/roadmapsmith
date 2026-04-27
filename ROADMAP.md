@@ -201,7 +201,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [x] `[P1]` compact profile output (backward compatible) <!-- rs:task=prof-ms-v0-3-stable-compact-profile-output-backward-compatible -->
 - [x] `[P1]` professional profile section structure <!-- rs:task=prof-ms-v0-3-stable-professional-profile-section-structure -->
-- [ ] `[P1]` prof-step-N- task ID namespace <!-- rs:task=prof-ms-v0-3-stable-prof-step-n-task-id-namespace -->
+-   `[P1]` prof-step-N- task ID namespace <!-- rs:task=prof-ms-v0-3-stable-prof-step-n-task-id-namespace -->
 
 **Intentionally Out of Scope:**
 

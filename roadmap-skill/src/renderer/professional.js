@@ -176,8 +176,10 @@ function renderSection5Milestones(model, lines) {
       lines.push('**What Must Be Stable:**');
       lines.push('');
       for (const item of milestone.mustBeStable) {
-        const id = `prof-ms-${msSlug}-stable-${slugify(item)}`;
-        lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P1]\` ${item} <!-- rs:task=${id} -->`);
+        const text = typeof item === 'string' ? item : item.text;
+        const note = typeof item === 'object' && item.note ? ` — _${item.note}_` : '';
+        const id = `prof-ms-${msSlug}-stable-${slugify(text)}`;
+        lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P1]\` ${text}${note} <!-- rs:task=${id} -->`);
       }
       lines.push('');
     }
