@@ -263,7 +263,7 @@ Do not use it if:
 |---|---|
 | `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
 | `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
-| `roadmapsmith validate --json` | Validate roadmap structure |
+| `roadmapsmith validate --json` | Validate roadmap task evidence and emit JSON results |
 | `roadmapsmith sync --audit` | Check completed tasks against evidence |
 | `roadmapsmith doctor` | Check basic repository health: config loads and ROADMAP.md exists |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
