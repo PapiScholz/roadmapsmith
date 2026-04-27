@@ -265,6 +265,7 @@ Do not use it if:
 | `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
 | `roadmapsmith validate --json` | Validate roadmap structure |
 | `roadmapsmith sync --audit` | Check completed tasks against evidence |
+| `roadmapsmith doctor` | Check basic repository health: config loads and ROADMAP.md exists |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
 
 ## Install: Agent Skill (Primary)

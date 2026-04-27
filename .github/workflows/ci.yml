@@ -47,7 +47,7 @@ jobs:
         run: node bin/cli.js generate --project-root . --dry-run --audit
 
       - name: CLI validate JSON smoke test
-        run: node bin/cli.js validate --json --project-root ..
+        run: node bin/cli.js validate --json --project-root .. --task mkt-p1-add-roadmapsmith-doctor-command
 
       - name: CLI sync dry-run audit smoke test
         run: node bin/cli.js sync --dry-run --audit --project-root ..
