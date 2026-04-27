@@ -432,13 +432,13 @@ function renderSection11Risks(model, lines) {
   lines.push('');
 }
 
-function renderSection13MarketReadiness(model, lines) {
-  const phases = model.marketPhases || [];
+function renderSection13CustomPhases(model, lines) {
+  const phases = model.customPhases || [];
   if (phases.length === 0) {
     return;
   }
 
-  lines.push(sectionHeader(13, 'Market Readiness Roadmap'));
+  lines.push(sectionHeader(13, 'Extended Phases'));
   lines.push('');
 
   const sorted = [...phases].sort((a, b) => a.phaseNumber - b.phaseNumber);
@@ -528,7 +528,7 @@ function renderProfessional(model) {
   renderSection10Documentation(model, lines);
   renderSection11Risks(model, lines);
   renderSection12SuccessCriteria(model, lines);
-  renderSection13MarketReadiness(model, lines);
+  renderSection13CustomPhases(model, lines);
 
   return ensureTrailingNewline(lines.join('\n')).trimEnd();
 }

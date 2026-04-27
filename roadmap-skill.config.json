@@ -137,6 +137,92 @@
       }
     ]
   },
+  "customPhases": [
+    {
+      "phaseNumber": 4,
+      "title": "Launch Preparation",
+      "priority": "P1",
+      "objective": "Prepare repository for public release and initial adoption.",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "Repository Polish",
+          "priority": "P1",
+          "dependsOn": [3],
+          "objective": "Align metadata, improve discoverability, and add visual assets.",
+          "tasks": [
+            { "id": "mkt-p0-align-versions-package-skills-plugin", "text": "Align versions across package.json, skills.json, plugin.json", "priority": "P0" },
+            { "id": "mkt-p0-improve-package-json-keywords-description", "text": "Improve package.json keywords and description for discoverability", "priority": "P0" },
+            { "id": "mkt-p0-add-demo-gif-placeholder", "text": "Add demo.gif or placeholder to README", "priority": "P1" },
+            { "id": "mkt-p0-move-quick-start-to-top-readme", "text": "Move Quick Start section to top of README", "priority": "P1" },
+            { "id": "mkt-p0-add-badges-npm-ci-license", "text": "Add badges (npm version, CI status, license) to README", "priority": "P1" },
+            { "id": "mkt-p0-add-comparison-table", "text": "Add comparison table (vs TODO.md, GitHub Issues, etc.) to README", "priority": "P1" },
+            { "id": "mkt-p0-add-github-actions-audit-template", "text": "Add GitHub Actions audit template example", "priority": "P2" },
+            { "id": "mkt-p0-add-security-md", "text": "Add SECURITY.md", "priority": "P2" }
+          ],
+          "exitCriteria": [
+            { "id": "mkt-ph4-st1-exit-version-strings-aligned", "text": "All version strings match across package.json, skills.json, plugin.json", "priority": "P0" },
+            { "id": "mkt-ph4-st1-exit-quick-start-at-top", "text": "README Quick Start is the first user-facing section", "priority": "P1" }
+          ]
+        }
+      ]
+    },
+    {
+      "phaseNumber": 5,
+      "title": "Reliability Hardening",
+      "priority": "P0",
+      "objective": "Improve validation trust and operational robustness.",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "Validation Confidence",
+          "priority": "P0",
+          "dependsOn": [4],
+          "objective": "Design and expose confidence levels to reduce false-positive validation.",
+          "tasks": [
+            { "id": "mkt-p1-add-validation-confidence-levels", "text": "Add validation confidence levels (design or scaffold if not implemented)", "priority": "P0" },
+            { "id": "mkt-p1-add-config-validation-minimum-confidence", "text": "Add config option: validation.minimumConfidence", "priority": "P0" },
+            { "id": "mkt-p1-add-roadmapsmith-doctor-command", "text": "Add `roadmapsmith doctor` command (scaffold or planned)", "priority": "P1" },
+            { "id": "mkt-p1-add-docs-use-cases-ci-audit", "text": "Add docs/use-cases/ci-audit.md", "priority": "P1" },
+            { "id": "mkt-p1-add-docs-use-cases-claude-code", "text": "Add docs/use-cases/claude-code.md", "priority": "P1" },
+            { "id": "mkt-p1-add-docs-limitations", "text": "Add docs/limitations.md (consolidate existing known limitations)", "priority": "P2" }
+          ],
+          "exitCriteria": [
+            { "id": "mkt-ph5-st1-exit-minimum-confidence-config-accepted", "text": "validation.minimumConfidence config field accepted without errors", "priority": "P0" },
+            { "id": "mkt-ph5-st1-exit-doctor-exits-zero-healthy-repo", "text": "roadmapsmith doctor exits 0 on a healthy repo", "priority": "P1" }
+          ]
+        }
+      ]
+    },
+    {
+      "phaseNumber": 6,
+      "title": "Distribution",
+      "priority": "P1",
+      "objective": "Publish and distribute the tool across ecosystems.",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "Release and Channels",
+          "priority": "P0",
+          "dependsOn": [4, 5],
+          "objective": "Cut v0.6.0 release and publish to all relevant channels.",
+          "tasks": [
+            { "id": "mkt-p2-github-release-v060", "text": "Prepare and cut GitHub release v0.6.0", "priority": "P0" },
+            { "id": "mkt-p2-npm-release-v060", "text": "Publish npm release v0.6.0", "priority": "P0" },
+            { "id": "mkt-p2-publish-skills-sh-entry", "text": "Publish or update skills.sh entry", "priority": "P1" },
+            { "id": "mkt-p2-evaluate-mcp-market-skill-fish", "text": "Evaluate MCP Market and skill.fish publishing", "priority": "P1" },
+            { "id": "mkt-p2-create-launch-post-linkedin", "text": "Create launch post (LinkedIn)", "priority": "P2" },
+            { "id": "mkt-p2-add-issue-templates", "text": "Add GitHub issue templates (bug, feature, false-positive)", "priority": "P2" }
+          ],
+          "exitCriteria": [
+            { "id": "mkt-ph6-st1-exit-npm-install-v060-succeeds", "text": "npm install -g roadmapsmith@0.6.0 succeeds", "priority": "P0" },
+            { "id": "mkt-ph6-st1-exit-github-release-v060-published", "text": "GitHub release v0.6.0 published with release notes", "priority": "P0" },
+            { "id": "mkt-ph6-st1-exit-skills-sh-entry-updated", "text": "skills.sh entry updated or submitted", "priority": "P1" }
+          ]
+        }
+      ]
+    }
+  ],
   "milestones": [
     {
       "version": "v0.1",

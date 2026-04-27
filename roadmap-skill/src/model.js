@@ -22,6 +22,7 @@ function createRoadmapModel(input) {
     antiGoals: input.antiGoals,
     successCriteria: input.successCriteria || [],
     customSections: input.customSections || [],
+    customPhases: input.customPhases || [],
     checkedById: input.checkedById || {}
   };
 }

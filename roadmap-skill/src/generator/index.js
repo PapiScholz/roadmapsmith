@@ -495,6 +495,7 @@ function createModel(scan, tasks, config, customSections, checkedById) {
     antiGoals,
     successCriteria,
     customSections,
+    customPhases: config.customPhases || [],
     checkedById
   });
 }

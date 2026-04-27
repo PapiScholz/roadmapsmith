@@ -479,7 +479,7 @@ test('mustBeStable item with note is not auto-checked on first render', () => {
     antiGoals: [],
     successCriteria: [],
     customSections: [],
-    marketPhases: [],
+    customPhases: [],
     checkedById: {}
   });
 
