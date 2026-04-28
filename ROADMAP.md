@@ -305,8 +305,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 **Current state:** not yet implemented — required for Project Intelligence (v0.8).
 
-- [ ] `[P0]` Implement archetype detection from filesystem/package/config evidence <!-- rs:task=prof-mat-classifier-implement-archetype-detection -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): filesystem/package/config
+- [x] `[P0]` Implement archetype detection from filesystem, package.json, and config evidence <!-- rs:task=prof-mat-classifier-implement-archetype-detection -->
 - [x] `[P0]` Support initial archetypes: frontend-web, landing-site, docs-site, cli-tool, npm-package, python-package, monorepo, api-service, unknown-generic <!-- rs:task=prof-mat-classifier-support-initial-archetypes -->
 - [x] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=prof-mat-classifier-confidence-scoring -->
 - [x] `[P1]` Expose detected archetype in generated roadmap "Detected Project Profile" section <!-- rs:task=prof-mat-classifier-expose-archetype-in-roadmap -->
@@ -338,8 +337,8 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P1]` Regression fixtures for compact and professional profile output <!-- rs:task=prof-test-regression-fixtures-for-compact-and-professional-profile-output -->
 - [x] `[P1]` Edge case coverage: empty repo, no config, large monorepo scan <!-- rs:task=prof-test-edge-case-coverage-empty-repo-no-config-large-monorepo-scan -->
 - [x] `[P0]` Customer smoke tests: website/landing fixture → generate → validate --json → sync --audit <!-- rs:task=prof-test-customer-smoke-tests-website-fixture -->
-- [ ] `[P0]` Regression tests: conceptual slash-phrases (start/end, code/test/artifact, input/output, read/write, client/server, request/response, build/test/deploy) never produce missing-file warnings <!-- rs:task=prof-test-conceptual-phrase-regression-tests -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact
+- [ ] `[P0]` Regression tests: conceptual slash-phrases never produce missing-file warnings — covers start/end, code/test/artifact, input/output, read/write, client/server, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=prof-test-conceptual-phrase-regression-tests -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact, filesystem/package/config, main/exports/files
 - [x] `[P1]` Assertion: website fixture ROADMAP.md contains SEO, metadata, responsive/mobile, performance, contact, deployment terms <!-- rs:task=prof-test-website-fixture-contains-domain-terms -->
 
 ### Quality Gates
@@ -401,11 +400,15 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` Running on a website repo produces ≥5 project-specific web/landing tasks <!-- rs:task=prof-sc-website-repo-produces-web-specific-tasks -->
 - [ ] `[P0]` Validation never emits "missing referenced file(s): code/test/artifact" <!-- rs:task=prof-sc-no-code-test-artifact-false-positive -->
   - ⚠️ attempted but validation failed: missing referenced file(s): code/test/artifact
-- [ ] `[P0]` Validation never emits missing-file warnings for conceptual slash-phrases: start/end, input/output, read/write, client/server, request/response, build/test/deploy <!-- rs:task=prof-sc-no-conceptual-phrase-false-positives -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy
+- [ ] `[P0]` Validation never emits missing-file warnings for conceptual slash-phrases: start/end, input/output, read/write, client/server, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=prof-sc-no-conceptual-phrase-false-positives -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, filesystem/package/config, main/exports/files
 - [x] `[P1]` Generated ROADMAP.md for website repo contains: SEO, metadata, OpenGraph, responsive/mobile, performance, contact, deployment/hosting terms <!-- rs:task=prof-sc-website-roadmap-contains-domain-terms -->
 - [x] `[P1]` roadmapsmith validate --json produces explainable evidence results on all fixture types including website <!-- rs:task=prof-sc-validate-json-explainable-all-fixtures -->
 - [x] `[P1]` roadmapsmith sync --audit reports real mismatches only — no conceptual-phrase false positives <!-- rs:task=prof-sc-sync-audit-no-false-mismatches -->
+- [x] `[P0]` roadmapsmith sync --audit on this roadmap does not auto-complete classifier or domain-generation tasks until actual source code and tests exist <!-- rs:task=prof-sc-no-self-referential-autocomplete -->
+- [x] `[P0]` The classifier module is not considered complete unless source code and tests exist — ROADMAP.md text alone is not evidence <!-- rs:task=prof-sc-classifier-requires-code-evidence -->
+- [x] `[P0]` The web/landing domain profile is not considered complete unless generation code and fixture tests exist — documentation alone is not evidence <!-- rs:task=prof-sc-web-profile-requires-code-evidence -->
+- [x] `[P0]` ROADMAP.md text, README content, and documentation files alone never satisfy implementation evidence for any task <!-- rs:task=prof-sc-roadmap-text-not-evidence -->
 
 ## 13. Market Readiness Roadmap
 
@@ -508,8 +511,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
   - ⚠️ attempted but validation failed: missing test evidence
 - [x] `[P0]` Detect frontend-web signals: app/, pages/, components/, public/, assets/, next.config.*, vite.config.*, astro.config.*, CSS/Tailwind config, package.json deps (next, react, vue, svelte, astro) <!-- rs:task=cls-detect-frontend-web-signals -->
 - [x] `[P0]` Detect cli-tool signals: bin/ directory, shebang headers, package.json bin field <!-- rs:task=cls-detect-cli-tool-signals -->
-- [ ] `[P0]` Detect npm-package signals: package.json main/exports/files fields without bin <!-- rs:task=cls-detect-npm-package-signals -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): main/exports/files
+- [x] `[P0]` Detect npm-package signals: package.json main, exports, and files fields without bin field <!-- rs:task=cls-detect-npm-package-signals -->
 - [x] `[P0]` Detect python-package signals: setup.py, pyproject.toml, src/ layout <!-- rs:task=cls-detect-python-package-signals -->
 - [x] `[P0]` Detect docs-site signals: docs/, mkdocs.yml, docusaurus.config.*, _config.yml <!-- rs:task=cls-detect-docs-site-signals -->
 - [x] `[P0]` Detect monorepo signals: packages/, apps/, lerna.json, pnpm-workspace.yaml, workspace config <!-- rs:task=cls-detect-monorepo-signals -->
@@ -576,10 +578,12 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [x] `[P0]` Replace naive slash-path regex with a stricter explicit path parser <!-- rs:task=evh2-replace-naive-slash-path-regex -->
 - [x] `[P0]` Require at least one strong path signal: known extension (.ts .js .py .go .rs .md .json .yaml .yml .toml .sh .css .html), leading ./ ../ / or .github/ prefix, or known directory prefix (src/ app/ lib/ docs/ test/ tests/ components/ packages/ public/ assets/) <!-- rs:task=evh2-require-strong-path-signal -->
-- [ ] `[P0]` Add structural denylist for conceptual slash-phrases: start/end, code/test/artifact, input/output, read/write, client/server, on/off, yes/no, request/response, build/test/deploy <!-- rs:task=evh2-add-conceptual-phrase-denylist -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact
+- [ ] `[P0]` Add structural denylist for conceptual slash-phrases: start/end, code/test/artifact, input/output, read/write, client/server, on/off, yes/no, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=evh2-add-conceptual-phrase-denylist -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact, filesystem/package/config, main/exports/files
 - [x] `[P0]` Add regression tests covering all denylist phrases — none must produce missing-file warnings <!-- rs:task=evh2-add-denylist-regression-tests -->
 - [x] `[P0]` Add regression tests confirming valid paths still parse: src/index.ts, app/page.tsx, components/Navbar.tsx, .github/workflows/ci.yml <!-- rs:task=evh2-add-valid-path-regression-tests -->
+- [x] `[P0]` Block self-referential validation: ROADMAP.md, README, and documentation files must not be accepted as implementation evidence for any implementation task <!-- rs:task=evh2-block-self-referential-validation -->
+- [x] `[P0]` Documentation-only mentions must not complete implementation tasks — validator must require source code or test file evidence, not doc/roadmap text matches <!-- rs:task=evh2-docs-not-implementation-evidence -->
 - [x] `[P1]` Add backtick-quoted path detection as a positive signal <!-- rs:task=evh2-add-backtick-path-signal -->
 - [x] `[P1]` Log rejected conceptual phrases in debug/audit mode only — never in normal output <!-- rs:task=evh2-log-rejected-phrases-debug-only -->
 
@@ -587,9 +591,10 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [ ] `[P0]` `roadmapsmith validate --json` does not emit "missing referenced file(s): code/test/artifact" <!-- rs:task=evh2-ph9-st1-exit-no-code-test-artifact-warning -->
   - ⚠️ attempted but validation failed: missing referenced file(s): code/test/artifact
-- [ ] `[P0]` `roadmapsmith validate --json` does not emit missing-file warnings for start/end, input/output, read/write, client/server, request/response, build/test/deploy <!-- rs:task=evh2-ph9-st1-exit-no-conceptual-phrase-warnings -->
-  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy
+- [ ] `[P0]` `roadmapsmith validate --json` does not emit missing-file warnings for start/end, input/output, read/write, client/server, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=evh2-ph9-st1-exit-no-conceptual-phrase-warnings -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, filesystem/package/config, main/exports/files
 - [x] `[P0]` All explicit path regression tests pass <!-- rs:task=evh2-ph9-st1-exit-path-regression-tests-pass -->
+- [x] `[P0]` Validation does not auto-complete any task based solely on ROADMAP.md, README, or documentation content <!-- rs:task=evh2-ph9-st1-exit-no-self-referential-validation -->
 - [x] `[P1]` Existing validation tests on node, python, go, rust fixtures still pass <!-- rs:task=evh2-ph9-st1-exit-existing-fixtures-still-pass -->
 
 ### Phase 10: Customer Smoke Tests and UX
