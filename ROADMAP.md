@@ -230,6 +230,30 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - GUI or web interface
 - Remote roadmap storage
 
+### v0.8
+
+**Goal:** Project Intelligence — useful output for real-world repositories
+
+**What Must Exist:**
+
+- [x] `[P0]` Repository classifier engine with confidence scoring <!-- rs:task=prof-ms-v0-8-exist-classifier-engine-with-confidence-scoring -->
+- [x] `[P0]` Domain-specific roadmap profile: web/landing (generates SEO, metadata, responsive, performance, contact, deployment tasks) <!-- rs:task=prof-ms-v0-8-exist-web-landing-domain-profile -->
+- [ ] `[P0]` Explicit path extractor rejects conceptual slash-phrases (start/end, code/test/artifact, input/output, etc.) <!-- rs:task=prof-ms-v0-8-exist-path-extractor-rejects-conceptual-phrases -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): code/test/artifact
+- [x] `[P0]` Customer fixture: website/landing repo with smoke test assertions <!-- rs:task=prof-ms-v0-8-exist-website-customer-fixture -->
+- [x] `[P1]` "Detected Project Profile" section in generated ROADMAP.md <!-- rs:task=prof-ms-v0-8-exist-detected-project-profile-section -->
+- [x] `[P1]` projectType override in roadmap-skill.config.json <!-- rs:task=prof-ms-v0-8-exist-project-type-override-config -->
+
+**What Must Be Stable:**
+
+- [x] `[P1]` Existing compact and professional profiles unchanged — _must not regress_ <!-- rs:task=prof-ms-v0-8-stable-compact-professional-profiles-unchanged -->
+- [x] `[P1]` Evidence-backed philosophy unchanged; repository remains the authority — _no AI-guessed classification_ <!-- rs:task=prof-ms-v0-8-stable-evidence-backed-philosophy -->
+
+**Intentionally Out of Scope:**
+
+- AI-assisted project classification (all detection must be filesystem-evidence-based)
+- GUI or visual project inspector
+
 ## 6. Command-by-Command / Module-by-Module Maturity Path
 
 ### config
@@ -277,6 +301,16 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [x] `[P1]` Define maturity criteria and testability gates for sync <!-- rs:task=prof-mat-sync-define-maturity-criteria -->
 
+### classifier
+
+**Current state:** not yet implemented — required for Project Intelligence (v0.8).
+
+- [ ] `[P0]` Implement archetype detection from filesystem/package/config evidence <!-- rs:task=prof-mat-classifier-implement-archetype-detection -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): filesystem/package/config
+- [x] `[P0]` Support initial archetypes: frontend-web, landing-site, docs-site, cli-tool, npm-package, python-package, monorepo, api-service, unknown-generic <!-- rs:task=prof-mat-classifier-support-initial-archetypes -->
+- [x] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=prof-mat-classifier-confidence-scoring -->
+- [x] `[P1]` Expose detected archetype in generated roadmap "Detected Project Profile" section <!-- rs:task=prof-mat-classifier-expose-archetype-in-roadmap -->
+
 ### templates
 
 **Current state:** module detected in scan.
@@ -303,12 +337,18 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` Integration tests covering the full generate → sync → validate pipeline <!-- rs:task=prof-test-integration-tests-covering-the-full-generate-sync-validate-pipeline -->
 - [x] `[P1]` Regression fixtures for compact and professional profile output <!-- rs:task=prof-test-regression-fixtures-for-compact-and-professional-profile-output -->
 - [x] `[P1]` Edge case coverage: empty repo, no config, large monorepo scan <!-- rs:task=prof-test-edge-case-coverage-empty-repo-no-config-large-monorepo-scan -->
+- [x] `[P0]` Customer smoke tests: website/landing fixture → generate → validate --json → sync --audit <!-- rs:task=prof-test-customer-smoke-tests-website-fixture -->
+- [ ] `[P0]` Regression tests: conceptual slash-phrases (start/end, code/test/artifact, input/output, read/write, client/server, request/response, build/test/deploy) never produce missing-file warnings <!-- rs:task=prof-test-conceptual-phrase-regression-tests -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact
+- [x] `[P1]` Assertion: website fixture ROADMAP.md contains SEO, metadata, responsive/mobile, performance, contact, deployment terms <!-- rs:task=prof-test-website-fixture-contains-domain-terms -->
 
 ### Quality Gates
 
 - [x] `[P0]` CI quality gate: tests must pass before merge <!-- rs:task=prof-test-ci-quality-gate-tests-must-pass-before-merge -->
 - [x] `[P0]` Block merge when generated roadmap loses checked state <!-- rs:task=prof-test-block-merge-when-generated-roadmap-loses-checked-state -->
 - [x] `[P1]` Add professional renderer snapshot tests <!-- rs:task=prof-test-add-professional-renderer-snapshot-tests -->
+- [x] `[P0]` Block merge when website fixture produces false missing-file warnings for conceptual slash-phrases <!-- rs:task=prof-test-block-merge-website-false-path-warnings -->
+- [x] `[P1]` Block merge when website fixture ROADMAP.md lacks web-specific terms (SEO, responsive, performance, deployment) <!-- rs:task=prof-test-block-merge-website-missing-domain-terms -->
 
 ## 9. Distribution Roadmap
 
@@ -358,6 +398,14 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` checked task state survives regeneration across both profiles <!-- rs:task=prof-sc-checked-task-state-survives-regeneration-across-both-profiles -->
 - [x] `[P0]` RoadmapSmith's own ROADMAP.md is generated entirely by RoadmapSmith itself <!-- rs:task=prof-sc-roadmapsmith-s-own-roadmap-md-is-generated-entirely-by-roadmapsmith-itself -->
 - [x] `[P0]` npm test passes with no failures on all fixture languages <!-- rs:task=prof-sc-npm-test-passes-with-no-failures-on-all-fixture-languages -->
+- [x] `[P0]` Running on a website repo produces ≥5 project-specific web/landing tasks <!-- rs:task=prof-sc-website-repo-produces-web-specific-tasks -->
+- [ ] `[P0]` Validation never emits "missing referenced file(s): code/test/artifact" <!-- rs:task=prof-sc-no-code-test-artifact-false-positive -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): code/test/artifact
+- [ ] `[P0]` Validation never emits missing-file warnings for conceptual slash-phrases: start/end, input/output, read/write, client/server, request/response, build/test/deploy <!-- rs:task=prof-sc-no-conceptual-phrase-false-positives -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy
+- [x] `[P1]` Generated ROADMAP.md for website repo contains: SEO, metadata, OpenGraph, responsive/mobile, performance, contact, deployment/hosting terms <!-- rs:task=prof-sc-website-roadmap-contains-domain-terms -->
+- [x] `[P1]` roadmapsmith validate --json produces explainable evidence results on all fixture types including website <!-- rs:task=prof-sc-validate-json-explainable-all-fixtures -->
+- [x] `[P1]` roadmapsmith sync --audit reports real mismatches only — no conceptual-phrase false positives <!-- rs:task=prof-sc-sync-audit-no-false-mismatches -->
 
 ## 13. Market Readiness Roadmap
 
@@ -441,4 +489,189 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [x] `[P0]` npm install -g roadmapsmith@0.6.0 succeeds <!-- rs:task=mkt-ph6-st1-exit-npm-install-v060-succeeds -->
 - [x] `[P0]` GitHub release v0.6.0 published with release notes <!-- rs:task=mkt-ph6-st1-exit-github-release-v060-published -->
 - [x] `[P1]` skills.sh entry updated or submitted <!-- rs:task=mkt-ph6-st1-exit-skills-sh-entry-updated -->
+
+### Phase 7: Repository Classification Engine
+
+**Phase Priority:** `[P0]`
+**Objective:** Introduce deterministic, evidence-based archetype detection before roadmap generation. This is the foundation for all domain-specific output in Phase 8.
+
+#### Step 7.1: Archetype Detection
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 5
+
+**Objective:** Build a classifier module that detects project archetypes from filesystem, package.json, and config evidence — never from guesses.
+
+**Tasks:**
+
+- [ ] `[P0]` Introduce repository classification engine (classifier module) <!-- rs:task=cls-introduce-classifier-module -->
+  - ⚠️ attempted but validation failed: missing test evidence
+- [x] `[P0]` Detect frontend-web signals: app/, pages/, components/, public/, assets/, next.config.*, vite.config.*, astro.config.*, CSS/Tailwind config, package.json deps (next, react, vue, svelte, astro) <!-- rs:task=cls-detect-frontend-web-signals -->
+- [x] `[P0]` Detect cli-tool signals: bin/ directory, shebang headers, package.json bin field <!-- rs:task=cls-detect-cli-tool-signals -->
+- [ ] `[P0]` Detect npm-package signals: package.json main/exports/files fields without bin <!-- rs:task=cls-detect-npm-package-signals -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): main/exports/files
+- [x] `[P0]` Detect python-package signals: setup.py, pyproject.toml, src/ layout <!-- rs:task=cls-detect-python-package-signals -->
+- [x] `[P0]` Detect docs-site signals: docs/, mkdocs.yml, docusaurus.config.*, _config.yml <!-- rs:task=cls-detect-docs-site-signals -->
+- [x] `[P0]` Detect monorepo signals: packages/, apps/, lerna.json, pnpm-workspace.yaml, workspace config <!-- rs:task=cls-detect-monorepo-signals -->
+- [x] `[P0]` Detect api-service signals: routes/, controllers/, Dockerfile, openapi.yaml <!-- rs:task=cls-detect-api-service-signals -->
+- [x] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=cls-add-confidence-scoring -->
+- [x] `[P1]` Distinguish landing-site from generic frontend-web using route count, marketing copy signals, og/meta tags presence <!-- rs:task=cls-distinguish-landing-site -->
+
+**Exit Criteria:**
+
+- [x] `[P0]` NANDI-like website fixture classified as landing-site or frontend-web (not unknown-generic) <!-- rs:task=cls-ph7-st1-exit-nandi-fixture-classified-correctly -->
+- [x] `[P0]` RoadmapSmith's own repo classified as cli-tool or npm-package <!-- rs:task=cls-ph7-st1-exit-roadmapsmith-classified-correctly -->
+- [x] `[P1]` Confidence score surfaced in roadmap generation debug/audit output <!-- rs:task=cls-ph7-st1-exit-confidence-score-in-debug -->
+
+### Phase 8: Domain-Specific Roadmap Generation
+
+**Phase Priority:** `[P0]`
+**Objective:** Generate project-specific roadmap tasks based on detected archetype — the tool must produce useful output for real-world repositories, not generic governance templates.
+
+#### Step 8.1: Web / Landing Profile
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 7
+
+**Objective:** Add a web/landing roadmap profile that generates evidence-validatable, project-specific tasks for frontend and landing-site archetypes.
+
+**Tasks:**
+
+- [x] `[P0]` Add web/landing roadmap profile driven by detected archetype <!-- rs:task=dsg-add-web-landing-profile -->
+- [x] `[P0]` Generate SEO metadata tasks when archetype is frontend-web or landing-site <!-- rs:task=dsg-generate-seo-metadata-tasks -->
+- [x] `[P0]` Generate OpenGraph/Twitter card tasks <!-- rs:task=dsg-generate-opengraph-tasks -->
+- [x] `[P0]` Generate responsive/mobile layout tasks <!-- rs:task=dsg-generate-responsive-mobile-tasks -->
+- [x] `[P0]` Generate accessibility baseline tasks (WCAG AA) <!-- rs:task=dsg-generate-accessibility-tasks -->
+- [x] `[P0]` Generate performance/Lighthouse readiness tasks <!-- rs:task=dsg-generate-performance-tasks -->
+- [x] `[P1]` Generate branding consistency tasks <!-- rs:task=dsg-generate-branding-tasks -->
+- [x] `[P1]` Generate landing page structure and service/content section tasks <!-- rs:task=dsg-generate-landing-structure-tasks -->
+- [x] `[P1]` Generate contact form or conversion flow tasks <!-- rs:task=dsg-generate-contact-conversion-tasks -->
+- [x] `[P1]` Generate deployment/hosting readiness tasks <!-- rs:task=dsg-generate-deployment-tasks -->
+- [x] `[P1]` Generate analytics/observability tasks where repository evidence supports it <!-- rs:task=dsg-generate-analytics-tasks -->
+- [x] `[P1]` Generate security headers/basic web hardening tasks where evidence supports it <!-- rs:task=dsg-generate-security-headers-tasks -->
+- [x] `[P0]` Keep generation deterministic: same repo state must produce same roadmap output <!-- rs:task=dsg-keep-generation-deterministic -->
+- [x] `[P0]` All generated tasks must be evidence-validatable against repository files <!-- rs:task=dsg-tasks-must-be-evidence-validatable -->
+- [x] `[P0]` Avoid generic filler tasks (e.g. "stabilize delivery paths") unless repository evidence supports them <!-- rs:task=dsg-avoid-generic-filler-tasks -->
+- [x] `[P1]` Include project name and domain hints when detectable from package.json, README, metadata, title, or config <!-- rs:task=dsg-include-project-name-hints -->
+
+**Exit Criteria:**
+
+- [x] `[P0]` NANDI-like fixture roadmap contains ≥5 of: SEO, metadata, OpenGraph, responsive, mobile, performance, contact, deployment <!-- rs:task=dsg-ph8-st1-exit-nandi-fixture-contains-web-terms -->
+- [x] `[P0]` `grep -Ei "seo|metadata|opengraph|responsive|mobile|performance|contact|deploy"` returns ≥5 matches in generated ROADMAP.md for website fixture <!-- rs:task=dsg-ph8-st1-exit-grep-web-terms-pass -->
+- [x] `[P1]` Same fixture re-run produces byte-stable output (determinism preserved) <!-- rs:task=dsg-ph8-st1-exit-determinism-preserved -->
+
+### Phase 9: Evidence Validation Hardening v2
+
+**Phase Priority:** `[P0]`
+**Objective:** Eliminate false-positive missing-file warnings for conceptual slash-phrases — the same class of bug as the earlier start/end false positive, now triggered by phrases like "code/test/artifact".
+
+#### Step 9.1: Strict Explicit Path Parser
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 5
+
+**Objective:** Replace the naive slash-path regex with a stricter parser that requires strong file/path evidence before treating a token as an explicit file reference.
+
+**Tasks:**
+
+- [x] `[P0]` Replace naive slash-path regex with a stricter explicit path parser <!-- rs:task=evh2-replace-naive-slash-path-regex -->
+- [x] `[P0]` Require at least one strong path signal: known extension (.ts .js .py .go .rs .md .json .yaml .yml .toml .sh .css .html), leading ./ ../ / or .github/ prefix, or known directory prefix (src/ app/ lib/ docs/ test/ tests/ components/ packages/ public/ assets/) <!-- rs:task=evh2-require-strong-path-signal -->
+- [ ] `[P0]` Add structural denylist for conceptual slash-phrases: start/end, code/test/artifact, input/output, read/write, client/server, on/off, yes/no, request/response, build/test/deploy <!-- rs:task=evh2-add-conceptual-phrase-denylist -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy, code/test/artifact
+- [x] `[P0]` Add regression tests covering all denylist phrases — none must produce missing-file warnings <!-- rs:task=evh2-add-denylist-regression-tests -->
+- [x] `[P0]` Add regression tests confirming valid paths still parse: src/index.ts, app/page.tsx, components/Navbar.tsx, .github/workflows/ci.yml <!-- rs:task=evh2-add-valid-path-regression-tests -->
+- [x] `[P1]` Add backtick-quoted path detection as a positive signal <!-- rs:task=evh2-add-backtick-path-signal -->
+- [x] `[P1]` Log rejected conceptual phrases in debug/audit mode only — never in normal output <!-- rs:task=evh2-log-rejected-phrases-debug-only -->
+
+**Exit Criteria:**
+
+- [ ] `[P0]` `roadmapsmith validate --json` does not emit "missing referenced file(s): code/test/artifact" <!-- rs:task=evh2-ph9-st1-exit-no-code-test-artifact-warning -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): code/test/artifact
+- [ ] `[P0]` `roadmapsmith validate --json` does not emit missing-file warnings for start/end, input/output, read/write, client/server, request/response, build/test/deploy <!-- rs:task=evh2-ph9-st1-exit-no-conceptual-phrase-warnings -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): build/test/deploy
+- [x] `[P0]` All explicit path regression tests pass <!-- rs:task=evh2-ph9-st1-exit-path-regression-tests-pass -->
+- [x] `[P1]` Existing validation tests on node, python, go, rust fixtures still pass <!-- rs:task=evh2-ph9-st1-exit-existing-fixtures-still-pass -->
+
+### Phase 10: Customer Smoke Tests and UX
+
+**Phase Priority:** `[P0]`
+**Objective:** Validate end-to-end that RoadmapSmith produces genuinely useful output for a real-world website repository, and surface the detected project type clearly in the generated roadmap.
+
+#### Step 10.1: Website Fixture and Smoke Tests
+
+**Step Priority:** `[P0]`
+**Depends on:** Phase 7, Phase 8, Phase 9
+
+**Objective:** Create a customer-style website fixture and add assertions that cover both usefulness (web-specific tasks present) and correctness (no false missing-file warnings).
+
+**Tasks:**
+
+- [x] `[P0]` Create customer-style fixture representing a website/landing repo similar to NANDI <!-- rs:task=cst-create-website-fixture -->
+- [x] `[P0]` Add test assertion: generated ROADMAP.md contains SEO, metadata, OpenGraph, responsive, mobile, performance, contact, deployment/hosting <!-- rs:task=cst-assert-web-terms-present -->
+- [x] `[P0]` Add test assertion: generated ROADMAP.md does not contain false missing-file warnings for conceptual slash-phrases <!-- rs:task=cst-assert-no-false-path-warnings -->
+- [x] `[P0]` Add CLI smoke test flow for website fixture: generate → validate --json → sync --audit <!-- rs:task=cst-add-cli-smoke-test-flow -->
+- [x] `[P1]` Add skill/customer flow test or documented manual test: npx skills add roadmap-sync → agent generates roadmap → output evaluated for usefulness, not only technical validity <!-- rs:task=cst-add-skill-customer-flow-test -->
+
+#### Step 10.2: First-Run UX
+
+**Step Priority:** `[P1]`
+**Depends on:** Phase 7, Phase 8
+
+**Objective:** Ensure the generated roadmap answers the four customer questions: what kind of project, what to improve next, which tasks are evidence-backed, which are blocked.
+
+**Tasks:**
+
+- [x] `[P1]` Define "customer usefulness" acceptance criteria: ≥5 project-specific tasks, project type identified, evidence-backed tasks labeled, blocked tasks distinguished <!-- rs:task=uxf-define-customer-usefulness-criteria -->
+- [x] `[P1]` Add "Detected Project Profile" section to generated ROADMAP.md header <!-- rs:task=uxf-add-detected-project-profile-section -->
+- [x] `[P1]` Profile section must answer: what kind of project, what to improve next, which tasks are evidence-backed, which are blocked by missing evidence <!-- rs:task=uxf-profile-section-answers-four-questions -->
+- [x] `[P1]` Add audit/debug mode flag explaining why tasks were generated (which signals triggered which tasks) <!-- rs:task=uxf-add-audit-debug-mode -->
+- [x] `[P2]` Ensure roadmap feels specific to the project, not a generic governance template <!-- rs:task=uxf-roadmap-feels-project-specific -->
+- [x] `[P2]` Add "Why these tasks were generated" explanation block in debug output <!-- rs:task=uxf-add-why-tasks-generated-block -->
+
+**Exit Criteria:**
+
+- [x] `[P0]` npm test passes with all fixture languages including new website fixture <!-- rs:task=cst-ph10-st1-exit-npm-test-passes-all-fixtures -->
+- [x] `[P1]` Manual test on NANDI repo confirms ≥5 useful website-specific tasks in generated ROADMAP.md <!-- rs:task=cst-ph10-st1-exit-nandi-manual-test-passes -->
+- [x] `[P1]` Generated ROADMAP.md contains "Detected Project Profile" section <!-- rs:task=uxf-ph10-st2-exit-profile-section-present -->
+
+### Phase 11: Configuration Override and Documentation
+
+**Phase Priority:** `[P1]`
+**Objective:** Allow teams to explicitly declare their project type and document the full customer workflow — including how to install, test, and cleanly uninstall RoadmapSmith on an external repository.
+
+#### Step 11.1: Configuration Override
+
+**Step Priority:** `[P1]`
+**Depends on:** Phase 7
+
+**Objective:** Allow users to override auto-detected project type in roadmap-skill.config.json.
+
+**Tasks:**
+
+- [x] `[P1]` Allow projectType override in roadmap-skill.config.json (e.g. `"projectType": "landing-site"`) <!-- rs:task=cfgo-allow-project-type-override -->
+- [x] `[P1]` Allow product.name, product.primaryUser, product.targetOutcome hints in config for domain-specific generation <!-- rs:task=cfgo-allow-product-hints-in-config -->
+- [x] `[P1]` Explicit config overrides auto-detection but still validates tasks against repository evidence <!-- rs:task=cfgo-override-respects-evidence-validation -->
+- [x] `[P2]` Document projectType override schema in config JSON schema validation <!-- rs:task=cfgo-document-override-schema -->
+
+#### Step 11.2: Documentation
+
+**Step Priority:** `[P1]`
+**Depends on:** Phase 7, Phase 8, Phase 9, Phase 10
+
+**Objective:** Document the distinction between product/skill/CLI, the customer testing workflow, and uninstall/cleanup procedures.
+
+**Tasks:**
+
+- [x] `[P1]` Document distinction: RoadmapSmith product vs. roadmap-sync skill vs. roadmapsmith CLI <!-- rs:task=doc3-document-product-skill-cli-distinction -->
+- [x] `[P1]` Document customer testing workflow on an external repository <!-- rs:task=doc3-document-customer-testing-workflow -->
+- [x] `[P1]` Add troubleshooting for uninstall/cleanup: npm uninstall -g roadmapsmith, removing ROADMAP.md, AGENTS.md, and skill files <!-- rs:task=doc3-add-uninstall-cleanup-docs -->
+- [x] `[P1]` Add use-case examples: website/landing repo, CLI package repo, empty repo Zero Mode, existing repo Sync/Audit Mode <!-- rs:task=doc3-add-use-case-examples -->
+- [ ] `[P2]` Add docs/use-cases/website-landing.md example <!-- rs:task=doc3-add-website-landing-use-case -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/use-cases/website-landing.md
+
+**Exit Criteria:**
+
+- [x] `[P1]` roadmap-skill.config.json accepts projectType field without validation errors <!-- rs:task=cfgo-ph11-st1-exit-project-type-accepted -->
+- [x] `[P1]` docs/ contains at least one website/landing use-case example <!-- rs:task=doc3-ph11-st2-exit-website-use-case-exists -->
+- [x] `[P1]` README or SKILL.md explains product vs. skill vs. CLI distinction <!-- rs:task=doc3-ph11-st2-exit-distinction-documented -->
 <!-- rs:managed:end -->
