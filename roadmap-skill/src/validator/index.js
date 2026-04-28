@@ -12,23 +12,29 @@ const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
 ]);
 
-const DOC_HINTS = ['readme', 'changelog', 'docs', 'documentation', 'spec', 'diagram', 'runbook'];
+// "docs" omitted from DOC_HINTS — it is a path prefix in scan tasks, not a doc-authoring keyword.
+const DOC_HINTS = ['readme', 'changelog', 'documentation', 'spec', 'diagram', 'runbook'];
 const CODE_HINTS = ['implement', 'add', 'create', 'build', 'refactor', 'fix', 'module', 'function', 'api', 'endpoint', 'command'];
 const GENERIC_TASK_TOKENS = new Set([
-  'implement',
-  'implementation',
-  'module',
-  'function',
-  'class',
-  'method',
-  'command',
-  'create',
-  'add',
-  'build',
-  'refactor',
-  'fix',
-  'test',
-  'tests'
+  // Action verbs too broad to be evidence signals
+  'implement', 'implementation', 'create', 'add', 'build', 'refactor', 'fix',
+  'detect', 'detection', 'support', 'handle', 'handler', 'update', 'check', 'run',
+  'process', 'processing', 'generate', 'generation', 'format', 'report',
+  // Structural concepts shared by every codebase
+  'module', 'function', 'class', 'method', 'command', 'type', 'value', 'values',
+  'output', 'input', 'data',
+  // Test vocabulary
+  'test', 'tests',
+  // Infrastructure names present in nearly every Node/JS project
+  'config', 'configuration', 'package', 'json', 'project', 'roadmap',
+  // Domain words specific to this tool that appear in non-feature source files
+  'confidence', 'profile', 'validation', 'evidence',
+  // Package/module field names that appear naturally in any Node.js generator or config file
+  'main', 'exports', 'files', 'fields', 'without', 'field',
+  // Terminology used in architecture/detection task descriptions that overlaps with source identifiers
+  'signals', 'directory', 'directories', 'headers', 'site', 'shebang',
+  // Common directory names that appear in import paths ('src', 'lib', 'bin') — too generic for evidence
+  'src', 'lib',
 ]);
 
 const CANONICAL_FILES = {
@@ -38,9 +44,16 @@ const CANONICAL_FILES = {
   license: 'LICENSE'
 };
 
+// The roadmap file must never be included in the evidence pool: its task descriptions
+// contain the exact vocabulary of the tasks being validated, which would cause every
+// task to validate itself.
+const SELF_REFERENTIAL_FILES = new Set(['ROADMAP.md']);
+
 function readFileIndex(projectRoot, files) {
   const index = [];
   for (const relativePath of files) {
+    if (SELF_REFERENTIAL_FILES.has(relativePath)) continue;
+
     const absolutePath = path.resolve(projectRoot, relativePath);
     const ext = path.extname(relativePath).toLowerCase();
     let content = '';
@@ -79,7 +92,9 @@ function isLikelyPath(token) {
   if (/^\.{1,2}\/|^\//.test(token)) return true;
   if (hasFileExtension(token)) return true;
   if (KNOWN_PATH_ROOTS.some((root) => token.startsWith(root))) return true;
-  if ((token.match(/\//g) || []).length >= 2) return true;
+  // The ">= 2 slashes" rule was intentionally removed: it caused conceptual slash phrases
+  // like "code/test/artifact" or "build/test/deploy" to be treated as file paths.
+  // Real multi-segment paths are caught by the extension or known-root rules above.
   return false;
 }
 
@@ -128,7 +143,12 @@ function isCodeTask(taskText) {
 
 function isDocTask(taskText) {
   const normalized = String(taskText).toLowerCase();
-  return DOC_HINTS.some((hint) => normalized.includes(hint));
+  // Use word-boundary matching to avoid substring false positives (e.g. "specific" ≠ "spec").
+  const hasDocKeyword = DOC_HINTS.some((hint) => new RegExp(`(?<![a-z])${hint}(?![a-z])`).test(normalized));
+  if (!hasDocKeyword) return false;
+  // Also require a creation/update verb so that policy tasks mentioning doc files
+  // ("README must not be used as evidence") don't trigger doc-artifact evidence.
+  return /\b(add|create|write|update|init|initialize|introduce|setup|document)\b/.test(normalized);
 }
 
 function findFilesByPathHints(pathHints, fileIndex) {
@@ -168,7 +188,7 @@ function findFilesBySymbols(symbolHints, fileIndex) {
 
 function findCodeEvidence(taskText, fileIndex) {
   const tokens = tokenize(taskText)
-    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token))
+    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/'))
     .slice(0, 8);
   if (tokens.length === 0) {
     return [];
@@ -191,7 +211,9 @@ function findCodeEvidence(taskText, fileIndex) {
       }
     }
 
-    const threshold = tokens.length === 1 ? 1 : 2;
+    // Require more matches proportional to how many specific tokens the task has.
+    // Tasks with 4+ meaningful tokens need 3 files to match to prevent vocabulary overlap.
+    const threshold = tokens.length >= 4 ? 3 : tokens.length >= 2 ? 2 : 1;
     if (score >= threshold) {
       matches.push(file.relativePath);
     }
@@ -202,18 +224,46 @@ function findCodeEvidence(taskText, fileIndex) {
 
 function findTestEvidence(taskText, fileIndex) {
   const tokens = tokenize(taskText)
-    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token))
+    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/'))
     .slice(0, 8);
+
+  if (tokens.length === 0) return [];
+
+  // Only tokens of length >= 4 are used for import-reference matching.
+  // Very short tokens (e.g. "app", "web") are too generic: they appear as substrings in
+  // many import paths that have nothing to do with the feature being validated.
+  // The single-short-token fallback below handles the narrow case of one-word module names.
+  const importTokens = tokens.filter((token) => token.length >= 4);
+
   const matches = [];
 
   for (const file of fileIndex) {
-    if (!file.isTestFile) {
+    if (!file.isTestFile) continue;
+
+    // A test file counts as evidence only when it imports a module whose path contains
+    // one of the task's meaningful tokens. Content-keyword matching is intentionally absent:
+    // test content (descriptions, literals) can contain future-task vocabulary,
+    // producing self-referential false positives.
+    //
+    // Trailing slashes are NOT stripped: "app/" is a directory reference, not a module name.
+    // "../src/app" (a real import) does not contain the string "app/" so it won't match.
+    const importRefs = (
+      file.content.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)|from\s+['"`]([^'"`]+)['"`]/g) || []
+    ).join(' ').toLowerCase();
+
+    if (importTokens.length > 0 && importTokens.some((token) => importRefs.includes(token))) {
+      matches.push(file.relativePath);
       continue;
     }
-    const lowered = file.content.toLowerCase();
-    const hasMatch = tokens.some((token) => lowered.includes(token));
-    if (hasMatch) {
-      matches.push(file.relativePath);
+
+    // Narrow fallback: single very-short token (e.g. "app", "cli").
+    // Import paths for these are too short to distinguish reliably, so fall back to a
+    // content match — but only when there is exactly one such token (no multi-token dilution).
+    if (tokens.length === 1 && tokens[0].length < 4) {
+      const lowered = file.content.toLowerCase();
+      if (lowered.includes(tokens[0])) {
+        matches.push(file.relativePath);
+      }
     }
   }
 
@@ -225,19 +275,26 @@ function findArtifactEvidence(taskText, fileIndex) {
   const files = [];
   const heuristicArtifacts = [];
 
-  for (const [keyword, filename] of Object.entries(CANONICAL_FILES)) {
-    if (normalized.includes(keyword)) {
-      const hit = fileIndex.find(
-        (f) => f.relativePath === filename || f.relativePath.endsWith('/' + filename)
-      );
-      if (hit) {
-        files.push(hit.relativePath);
-        heuristicArtifacts.push(hit.relativePath);
+  // Canonical file detection only applies to short tasks (≤8 words) that are about
+  // creating or referencing that specific file. Long sentences that merely MENTION
+  // "readme" or "security" in a policy/constraint context are excluded.
+  const wordCount = normalized.trim().split(/\s+/).length;
+  if (wordCount <= 8) {
+    for (const [keyword, filename] of Object.entries(CANONICAL_FILES)) {
+      // Use hyphen-aware word boundaries: "security-headers" must not match "security".
+      if (new RegExp(`(?<![a-z-])${keyword}(?![a-z-])`).test(normalized)) {
+        const hit = fileIndex.find(
+          (f) => f.relativePath === filename || f.relativePath.endsWith('/' + filename)
+        );
+        if (hit) {
+          files.push(hit.relativePath);
+          heuristicArtifacts.push(hit.relativePath);
+        }
       }
     }
   }
 
-  if (!isDocTask(taskText) && !normalized.includes('artifact') && !normalized.includes('release')) {
+  if (!isDocTask(taskText)) {
     return { files, heuristicArtifacts };
   }
 
@@ -395,12 +452,17 @@ function validateTask(task, context, config, plugins) {
   const evidenceCount = [evidence.code, evidence.test, evidence.artifact].filter(Boolean).length;
   const confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : 'low';
 
+  // True when the only passing evidence is artifact/doc files and the task is not a doc task.
+  // Used by auditValidation to flag implementation tasks that pass solely via documentation.
+  const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
+
   return {
     taskId: task.id,
     passed: uniqueReasons.length === 0,
     confidence,
     reasons: uniqueReasons,
     evidence,
+    evidenceIsDocOnly,
     requiresTest,
     hasEvidence,
     attempted
@@ -418,12 +480,12 @@ function validateTasks(tasks, context, config, plugins) {
 function auditValidation(tasks, results) {
   const checkedWithoutEvidence = [];
   const readyButUnchecked = [];
+  const checkedWithWeakEvidence = [];
+  const documentationOnlyEvidenceForImplementation = [];
 
   for (const task of tasks) {
     const result = results[task.id];
-    if (!result) {
-      continue;
-    }
+    if (!result) continue;
 
     if (task.checked && !result.passed) {
       checkedWithoutEvidence.push({ task, result });
@@ -432,11 +494,23 @@ function auditValidation(tasks, results) {
     if (!task.checked && result.passed) {
       readyButUnchecked.push({ task, result });
     }
+
+    // Checked and passing, but only via low-confidence evidence (e.g. token overlap only).
+    if (task.checked && result.passed && result.confidence === 'low') {
+      checkedWithWeakEvidence.push({ task, result });
+    }
+
+    // Implementation task passing only because documentation files exist — not because source code does.
+    if (task.checked && result.passed && result.evidenceIsDocOnly) {
+      documentationOnlyEvidenceForImplementation.push({ task, result });
+    }
   }
 
   return {
     checkedWithoutEvidence,
-    readyButUnchecked
+    readyButUnchecked,
+    checkedWithWeakEvidence,
+    documentationOnlyEvidenceForImplementation,
   };
 }
 

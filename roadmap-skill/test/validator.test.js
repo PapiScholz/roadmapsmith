@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildValidationContext, validateTask, applyMinimumConfidence, CONFIDENCE_RANK } = require('../src/validator');
+const { buildValidationContext, validateTask, auditValidation, applyMinimumConfidence, CONFIDENCE_RANK } = require('../src/validator');
 const { loadConfig } = require('../src/config');
 const { walkFiles, detectWorkspaces } = require('../src/io');
 
@@ -203,4 +203,152 @@ test('canonical artifact heuristic: "Add billing module" does not false-positive
     [],
     `billing module must not trigger canonical heuristic, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
   );
+});
+
+// ── Regression: three-segment slash phrases must NOT become path hints ──────
+
+test('three-segment slash phrases do not produce missing-file failures', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const phrases = [
+    { id: 'code-test-artifact',       text: 'support code/test/artifact pipeline stages' },
+    { id: 'build-test-deploy',        text: 'validate build/test/deploy workflow' },
+    { id: 'filesystem-package-config',text: 'scan filesystem/package/config locations' },
+    { id: 'main-exports-files',       text: 'inspect main/exports/files fields' },
+    { id: 'client-server',            text: 'abstract client/server communication' },
+    { id: 'request-response',         text: 'model request/response cycle' },
+  ];
+
+  for (const task of phrases) {
+    const result = validateTask(task, context, config, []);
+    const reasons = result.reasons.join('; ');
+    assert.ok(
+      !reasons.includes('missing referenced file'),
+      `"${task.text}" must not produce a missing-file failure, got: ${reasons}`
+    );
+  }
+});
+
+// ── Regression: paths with file extensions still detected after rule removal ─
+
+test('unquoted paths with file extensions are still treated as path hints after isLikelyPath fix', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const missingPaths = [
+    { id: 'app-page',      text: 'Add page component at app/page.tsx' },
+    { id: 'navbar',        text: 'Create Navbar at components/Navbar.tsx' },
+    { id: 'ci-workflow',   text: 'Configure .github/workflows/ci.yml' },
+    { id: 'docs-limits',   text: 'Document limits in docs/limitations.md' },
+    { id: 'validator-src', text: 'Fix validator in roadmap-skill/src/validator/index.js' },
+  ];
+
+  for (const task of missingPaths) {
+    const result = validateTask(task, context, config, []);
+    const reasons = result.reasons.join('; ');
+    assert.ok(
+      reasons.includes('missing referenced file'),
+      `"${task.text}" must produce a missing-file failure (path with extension or known root), got: ${reasons}`
+    );
+  }
+});
+
+// ── Regression: classifier/domain tasks must not pass via generic token overlap ─
+
+test('implementation tasks with classifier/domain vocabulary do not pass via generic token overlap', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // These features do not exist in the node fixture — only src/app.js and its test exist
+  const unimplementedTasks = [
+    { id: 'cls-1', text: 'Implement archetype detection from filesystem, package.json, and config evidence' },
+    { id: 'cls-2', text: 'Repository classifier engine with confidence scoring' },
+    { id: 'cls-3', text: 'Domain-specific roadmap profile driven by detected archetype' },
+    { id: 'cls-4', text: 'Detect frontend-web signals from app pages and components directories' },
+  ];
+
+  for (const task of unimplementedTasks) {
+    const result = validateTask(task, context, config, []);
+    assert.ok(
+      !result.passed,
+      `"${task.text}" must not pass via generic token overlap — feature does not exist in fixture`
+    );
+  }
+});
+
+// ── Regression: test evidence requires import reference, not single-token overlap ─
+
+test('test file counts as evidence only when it imports the relevant module', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // app.test.js imports '../src/app' — should find test evidence for "app" tasks
+  const appResult = validateTask(
+    { id: 'app-impl', text: 'Implement app module' },
+    context, config, []
+  );
+  assert.equal(
+    appResult.evidence.test,
+    true,
+    'app.test.js imports src/app — must count as test evidence for app module task'
+  );
+
+  // app.test.js does NOT import a "billing" module — must not count as billing test evidence
+  fs.writeFileSync(path.join(projectRoot, 'src', 'billing.js'), 'function billingEngine() {}\nmodule.exports = { billingEngine };\n', 'utf8');
+  const contextAfter = buildValidationContext(projectRoot, config, []);
+  const billingResult = validateTask(
+    { id: 'billing-impl', text: 'Implement billing engine' },
+    contextAfter, config, []
+  );
+  assert.equal(
+    billingResult.evidence.test,
+    false,
+    'app.test.js does not import billing — must NOT count as test evidence for billing task'
+  );
+});
+
+// ── Regression: auditValidation surfaces new evidence-quality categories ──────
+
+test('auditValidation reports checkedWithWeakEvidence for low-confidence passed tasks', () => {
+  const fakeResults = {
+    'task-weak': { passed: true, confidence: 'low',  reasons: [], evidence: { code: false, test: false, artifact: true }, evidenceIsDocOnly: false },
+    'task-ok':   { passed: true, confidence: 'high', reasons: [], evidence: { code: true,  test: true,  artifact: false }, evidenceIsDocOnly: false },
+  };
+  const fakeTasks = [
+    { id: 'task-weak', text: 'Implement classifier', checked: true },
+    { id: 'task-ok',   text: 'Implement app module', checked: true },
+  ];
+
+  const audit = auditValidation(fakeTasks, fakeResults);
+  assert.equal(audit.checkedWithWeakEvidence.length, 1, 'must flag the low-confidence checked task');
+  assert.equal(audit.checkedWithWeakEvidence[0].task.id, 'task-weak');
+  assert.equal(audit.readyButUnchecked.length, 0);
+});
+
+test('auditValidation reports documentationOnlyEvidenceForImplementation', () => {
+  const fakeResults = {
+    'task-doconly': {
+      passed: true, confidence: 'medium', reasons: [],
+      evidence: { code: false, test: false, artifact: true },
+      evidenceIsDocOnly: true,
+    },
+    'task-legit': {
+      passed: true, confidence: 'high', reasons: [],
+      evidence: { code: true, test: true, artifact: false },
+      evidenceIsDocOnly: false,
+    },
+  };
+  const fakeTasks = [
+    { id: 'task-doconly', text: 'Implement classifier module', checked: true },
+    { id: 'task-legit',   text: 'Implement app module',        checked: true },
+  ];
+
+  const audit = auditValidation(fakeTasks, fakeResults);
+  assert.equal(audit.documentationOnlyEvidenceForImplementation.length, 1);
+  assert.equal(audit.documentationOnlyEvidenceForImplementation[0].task.id, 'task-doconly');
 });
