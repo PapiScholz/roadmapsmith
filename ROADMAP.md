@@ -242,7 +242,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 **What Must Exist:**
 
-- [ ] `[P0]` Repository classifier engine with confidence scoring <!-- rs:task=prof-ms-v0-8-exist-classifier-engine-with-confidence-scoring -->
+- [x] `[P0]` Repository classifier engine with confidence scoring <!-- rs:task=prof-ms-v0-8-exist-classifier-engine-with-confidence-scoring -->
 - [ ] `[P0]` Domain-specific roadmap profile: web/landing (generates SEO, metadata, responsive, performance, contact, deployment tasks) <!-- rs:task=prof-ms-v0-8-exist-web-landing-domain-profile -->
 - [x] `[P0]` Explicit path extractor rejects conceptual slash-phrases (start/end, code/test/artifact, input/output, etc.) <!-- rs:task=prof-ms-v0-8-exist-path-extractor-rejects-conceptual-phrases -->
 - [ ] `[P0]` Customer fixture: website/landing repo with smoke test assertions <!-- rs:task=prof-ms-v0-8-exist-website-customer-fixture -->
@@ -317,6 +317,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [ ] `[P0]` Implement archetype detection from filesystem, package.json, and config evidence <!-- rs:task=prof-mat-classifier-implement-archetype-detection -->
 - [ ] `[P0]` Support initial archetypes: frontend-web, landing-site, docs-site, cli-tool, npm-package, python-package, monorepo, api-service, unknown-generic <!-- rs:task=prof-mat-classifier-support-initial-archetypes -->
+  - ⚠️ attempted but validation failed: missing test evidence
 - [ ] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=prof-mat-classifier-confidence-scoring -->
   - ⚠️ attempted but validation failed: missing test evidence
 - [ ] `[P1]` Expose detected archetype in generated roadmap "Detected Project Profile" section <!-- rs:task=prof-mat-classifier-expose-archetype-in-roadmap -->
@@ -424,8 +425,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
   - ⚠️ attempted but validation failed: missing test evidence
 - [x] `[P1]` roadmapsmith sync --audit reports real mismatches only — no conceptual-phrase false positives <!-- rs:task=prof-sc-sync-audit-no-false-mismatches -->
 - [x] `[P0]` roadmapsmith sync --audit on this roadmap does not auto-complete classifier or domain-generation tasks until actual source code and tests exist <!-- rs:task=prof-sc-no-self-referential-autocomplete -->
-- [ ] `[P0]` The classifier module is not considered complete unless source code and tests exist — ROADMAP.md text alone is not evidence <!-- rs:task=prof-sc-classifier-requires-code-evidence -->
-  - ⚠️ attempted but validation failed: missing test evidence
+- [x] `[P0]` The classifier module is not considered complete unless source code and tests exist — ROADMAP.md text alone is not evidence <!-- rs:task=prof-sc-classifier-requires-code-evidence -->
 - [ ] `[P0]` The web/landing domain profile is not considered complete unless generation code and fixture tests exist — documentation alone is not evidence <!-- rs:task=prof-sc-web-profile-requires-code-evidence -->
   - ⚠️ attempted but validation failed: missing test evidence
 - [ ] `[P0]` ROADMAP.md text, README content, and documentation files alone never satisfy implementation evidence for any task <!-- rs:task=prof-sc-roadmap-text-not-evidence -->
@@ -535,24 +535,25 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **Tasks:**
 
 - [ ] `[P0]` Introduce repository classification engine (classifier module) <!-- rs:task=cls-introduce-classifier-module -->
-- [ ] `[P0]` Detect frontend-web signals: app/, pages/, components/, public/, assets/, next.config.*, vite.config.*, astro.config.*, CSS/Tailwind config, package.json deps (next, react, vue, svelte, astro) <!-- rs:task=cls-detect-frontend-web-signals -->
-  - ⚠️ attempted but validation failed: namespace "cls" has no implementation files
-- [ ] `[P0]` Detect cli-tool signals: bin/ directory, shebang headers, package.json bin field <!-- rs:task=cls-detect-cli-tool-signals -->
-- [ ] `[P0]` Detect npm-package signals: package.json main, exports, and files fields without bin field <!-- rs:task=cls-detect-npm-package-signals -->
+  - ⚠️ attempted but validation failed: structural token score 1/3 in "cls" files — token overlap insufficient
+- [x] `[P0]` Detect frontend-web signals: app/, pages/, components/, public/, assets/, next.config.*, vite.config.*, astro.config.*, CSS/Tailwind config, package.json deps (next, react, vue, svelte, astro) <!-- rs:task=cls-detect-frontend-web-signals -->
+- [x] `[P0]` Detect cli-tool signals: bin/ directory, shebang headers, package.json bin field <!-- rs:task=cls-detect-cli-tool-signals -->
+- [x] `[P0]` Detect npm-package signals: package.json main, exports, and files fields without bin field <!-- rs:task=cls-detect-npm-package-signals -->
 - [ ] `[P0]` Detect python-package signals: setup.py, pyproject.toml, src/ layout <!-- rs:task=cls-detect-python-package-signals -->
 - [ ] `[P0]` Detect docs-site signals: docs/, mkdocs.yml, docusaurus.config.*, _config.yml <!-- rs:task=cls-detect-docs-site-signals -->
 - [ ] `[P0]` Detect monorepo signals: packages/, apps/, lerna.json, pnpm-workspace.yaml, workspace config <!-- rs:task=cls-detect-monorepo-signals -->
-  - ⚠️ attempted but validation failed: namespace "cls" has no implementation files
+  - ⚠️ attempted but validation failed: structural token score 2/3 in "cls" files — token overlap insufficient
 - [ ] `[P0]` Detect api-service signals: routes/, controllers/, Dockerfile, openapi.yaml <!-- rs:task=cls-detect-api-service-signals -->
 - [ ] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=cls-add-confidence-scoring -->
-  - ⚠️ attempted but validation failed: namespace "cls" has no implementation files; missing test evidence
+  - ⚠️ attempted but validation failed: structural token score 1/3 in "cls" files — token overlap insufficient; missing test evidence
 - [ ] `[P1]` Distinguish landing-site from generic frontend-web using route count, marketing copy signals, og/meta tags presence <!-- rs:task=cls-distinguish-landing-site -->
+  - ⚠️ attempted but validation failed: structural token score 3/4 in "cls" files — token overlap insufficient
 
 **Exit Criteria:**
 
 - [ ] `[P0]` NANDI-like website fixture classified as landing-site or frontend-web (not unknown-generic) <!-- rs:task=cls-ph7-st1-exit-nandi-fixture-classified-correctly -->
-- [ ] `[P0]` RoadmapSmith's own repo classified as cli-tool or npm-package <!-- rs:task=cls-ph7-st1-exit-roadmapsmith-classified-correctly -->
-  - ⚠️ attempted but validation failed: namespace "cls" has no implementation files
+  - ⚠️ attempted but validation failed: missing test evidence
+- [x] `[P0]` RoadmapSmith's own repo classified as cli-tool or npm-package <!-- rs:task=cls-ph7-st1-exit-roadmapsmith-classified-correctly -->
 - [ ] `[P1]` Confidence score surfaced in roadmap generation debug/audit output <!-- rs:task=cls-ph7-st1-exit-confidence-score-in-debug -->
 
 ### Phase 8: Domain-Specific Roadmap Generation
