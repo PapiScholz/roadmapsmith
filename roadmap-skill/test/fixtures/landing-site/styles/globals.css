@@ -1,0 +1,4 @@
+* { box-sizing: border-box; }
+body { font-family: sans-serif; }
+.hero { padding: 4rem 2rem; }
+.cta { margin-top: 2rem; }
