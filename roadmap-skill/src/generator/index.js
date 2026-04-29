@@ -553,10 +553,22 @@ function generateRoadmapDocument(options) {
     items: section.items || []
   }));
 
+  const evidenceLine = scan.classifierSignals.length > 0
+    ? scan.classifierSignals.slice(0, 5).join(', ')
+    : 'general file scan';
+  const profileSection = {
+    title: 'Detected Project Profile',
+    items: [
+      `- **Type:** ${scan.projectType}`,
+      `- **Confidence:** ${scan.classifierConfidence}`,
+      `- **Evidence:** ${evidenceLine}`
+    ]
+  };
+
   const baseCandidates = buildDefaultCandidates(scan, config);
   const matcherCandidates = applyTaskMatchers(scan, config);
   const merged = mergeWithExisting([...baseCandidates, ...matcherCandidates, ...pluginTaskCandidates], existingPhaseTasks);
-  const model = createModel(scan, merged, config, [...configSections, ...pluginSections], existingCheckedById);
+  const model = createModel(scan, merged, config, [profileSection, ...configSections, ...pluginSections], existingCheckedById);
   const profile = config.roadmapProfile || 'compact';
   const managedBody = renderBody(model, profile);
 

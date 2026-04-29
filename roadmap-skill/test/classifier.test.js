@@ -73,3 +73,32 @@ test('scanProject includes projectType for node fixture (non-web)', () => {
   assert.ok(typeof result.classifierConfidence === 'string');
   assert.ok(Array.isArray(result.classifierSignals));
 });
+
+const { generateRoadmapDocument } = require('../src/generator');
+const { loadConfig } = require('../src/config');
+
+test('compact: landing-site fixture includes Detected Project Profile section', () => {
+  const projectRoot = setupFixture('landing-site');
+  const config = loadConfig({ projectRoot });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  assert.match(output, /## Detected Project Profile/);
+  assert.match(output, /landing-site/);
+  assert.match(output, /\*\*Confidence:\*\*/);
+  assert.match(output, /\*\*Evidence:\*\*/);
+});
+
+test('professional: landing-site fixture includes Detected Project Profile section', () => {
+  const projectRoot = setupFixture('landing-site');
+  const config = Object.assign({}, loadConfig({ projectRoot }), { roadmapProfile: 'professional' });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  assert.match(output, /## Detected Project Profile/);
+  assert.match(output, /landing-site/);
+});
+
+test('compact: node fixture includes Detected Project Profile section', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  assert.match(output, /## Detected Project Profile/);
+  assert.match(output, /\*\*Type:\*\*/);
+});

@@ -530,6 +530,14 @@ function renderProfessional(model) {
   renderSection12SuccessCriteria(model, lines);
   renderSection13CustomPhases(model, lines);
 
+  for (const section of (model.customSections || [])) {
+    lines.push(`## ${section.title}`);
+    for (const line of section.items) {
+      lines.push(line);
+    }
+    lines.push('');
+  }
+
   return ensureTrailingNewline(lines.join('\n')).trimEnd();
 }
 
