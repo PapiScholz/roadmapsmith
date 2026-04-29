@@ -9,6 +9,7 @@ const { parseRoadmap, upsertManagedBlock } = require('../parser');
 const { findBestTaskMatch, dedupeTasks } = require('../match');
 const { collectPluginContributions } = require('../config');
 const { renderBody } = require('../renderer');
+const { classifyProject } = require('../classifier');
 
 const IMPL_PATTERN_RE = /[/|]TODO|TODO[|/]|[/|]FIXME|FIXME[|/]/;
 const COMMENT_TODO_RE = /(?:\/\/|#|\*\s*).*\b(?:TODO|FIXME)\b/;
@@ -149,6 +150,8 @@ function scanProject(projectRoot) {
   const implementedFiles = files.filter((file) => /\.(js|ts|tsx|py|go|rs|java|kt|cs)$/.test(file));
   const testFiles = files.filter((file) => /(^|\/)(__tests__|tests)\//.test(file) || /\.test\.|\.spec\.|_test\.go$/.test(file));
 
+  const classifier = classifyProject({ projectRoot, files });
+
   return {
     projectRoot,
     files,
@@ -160,7 +163,10 @@ function scanProject(projectRoot) {
     codeTodos,
     workspaces,
     implementedCount: implementedFiles.length,
-    testCount: testFiles.length
+    testCount: testFiles.length,
+    projectType: classifier.type,
+    classifierConfidence: classifier.confidence,
+    classifierSignals: classifier.signals
   };
 }
 

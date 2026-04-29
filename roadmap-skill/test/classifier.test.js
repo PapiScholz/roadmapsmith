@@ -52,3 +52,24 @@ test('classifier result always has required shape', () => {
   assert.ok('confidence' in result, 'must have confidence');
   assert.ok(Array.isArray(result.signals), 'signals must be array');
 });
+
+const { scanProject } = require('../src/generator');
+
+test('scanProject includes projectType for landing-site fixture', () => {
+  const projectRoot = setupFixture('landing-site');
+  const result = scanProject(projectRoot);
+  assert.equal(result.projectType, 'landing-site');
+  assert.ok(['high', 'medium'].includes(result.classifierConfidence), `confidence="${result.classifierConfidence}"`);
+  assert.ok(Array.isArray(result.classifierSignals));
+  assert.ok(result.classifierSignals.length > 0);
+});
+
+test('scanProject includes projectType for node fixture (non-web)', () => {
+  const projectRoot = setupFixture('node');
+  const result = scanProject(projectRoot);
+  assert.ok(typeof result.projectType === 'string', 'projectType must be a string');
+  assert.notEqual(result.projectType, 'landing-site');
+  assert.notEqual(result.projectType, 'frontend-web');
+  assert.ok(typeof result.classifierConfidence === 'string');
+  assert.ok(Array.isArray(result.classifierSignals));
+});
