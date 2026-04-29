@@ -102,3 +102,32 @@ test('compact: node fixture includes Detected Project Profile section', () => {
   assert.match(output, /## Detected Project Profile/);
   assert.match(output, /\*\*Type:\*\*/);
 });
+
+test('generator with landing-site fixture includes web-specific tasks', () => {
+  const projectRoot = setupFixture('landing-site');
+  const config = loadConfig({ projectRoot });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  const webTerms = ['SEO', 'metadata', 'OpenGraph', 'responsive', 'mobile', 'performance',
+    'contact', 'deployment', 'hosting', 'branding', 'services'];
+  const found = webTerms.filter((term) => output.toLowerCase().includes(term.toLowerCase()));
+  assert.ok(found.length >= 5, `Expected ≥5 web terms, found ${found.length}: [${found.join(', ')}]`);
+});
+
+test('generator with node fixture does NOT emit web-specific tasks', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  assert.doesNotMatch(output, /OpenGraph/i, 'node fixture should not have OpenGraph task');
+  assert.doesNotMatch(output, /Lighthouse/i, 'node fixture should not have Lighthouse task');
+});
+
+test('generated web/landing tasks are all unchecked in generateRoadmapDocument output', () => {
+  const projectRoot = setupFixture('landing-site');
+  const config = loadConfig({ projectRoot });
+  const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
+  const taskLines = output.split('\n').filter((line) => /^- \[[x ]\]/.test(line));
+  const checkedTasks = taskLines.filter((line) => /^- \[x\]/.test(line));
+  assert.equal(checkedTasks.length, 0,
+    `Expected 0 checked tasks on fresh generate, found ${checkedTasks.length}:\n${checkedTasks.join('\n')}`
+  );
+});

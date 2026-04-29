@@ -181,6 +181,35 @@ function toCandidate(text, phase, priority, source = 'default') {
   };
 }
 
+const WEB_CANDIDATES_COMMON = [
+  { text: 'Add SEO metadata: title, description, and canonical URL for all pages', phase: 'P0' },
+  { text: 'Implement responsive and mobile-first layout across all breakpoints', phase: 'P0' },
+  { text: 'Establish accessibility baseline (semantic HTML, ARIA labels, keyboard navigation)', phase: 'P0' },
+  { text: 'Add OpenGraph and Twitter card metadata for social sharing', phase: 'P1' },
+  { text: 'Achieve Lighthouse performance score ≥ 90 and resolve critical findings', phase: 'P1' },
+  { text: 'Validate branding consistency: typography, color tokens, and logo usage', phase: 'P1' },
+  { text: 'Configure deployment and hosting pipeline (CI/CD to production)', phase: 'P2' },
+  { text: 'Add web security headers: Content-Security-Policy, X-Frame-Options, HSTS', phase: 'P2' }
+];
+
+const LANDING_CANDIDATES = [
+  { text: 'Complete services and content sections with clear value proposition', phase: 'P1' },
+  { text: 'Implement contact form and conversion flow with input validation', phase: 'P1' },
+  { text: 'Set up analytics and conversion event tracking', phase: 'P2' }
+];
+
+function buildWebCandidates(scan) {
+  const candidates = WEB_CANDIDATES_COMMON.map(({ text, phase }) =>
+    toCandidate(text, phase, phase, 'classifier')
+  );
+  if (scan.projectType === 'landing-site') {
+    for (const { text, phase } of LANDING_CANDIDATES) {
+      candidates.push(toCandidate(text, phase, phase, 'classifier'));
+    }
+  }
+  return candidates;
+}
+
 function buildDefaultCandidates(scan, config) {
   const languageLabel = scan.languages.length > 0 ? scan.languages.join(', ') : 'current stack';
   const candidates = [];
@@ -227,6 +256,10 @@ function buildDefaultCandidates(scan, config) {
 
   for (const hint of scan.todos.slice(0, 5)) {
     candidates.push(toCandidate(`Resolve backlog note in ${hint.file}`, 'P0', 'P0', 'todo-hint'));
+  }
+
+  if (scan.projectType === 'frontend-web' || scan.projectType === 'landing-site') {
+    candidates.push(...buildWebCandidates(scan));
   }
 
   return candidates;

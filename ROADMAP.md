@@ -243,7 +243,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **What Must Exist:**
 
 - [x] `[P0]` Repository classifier engine with confidence scoring <!-- rs:task=prof-ms-v0-8-exist-classifier-engine-with-confidence-scoring -->
-- [ ] `[P0]` Domain-specific roadmap profile: web/landing (generates SEO, metadata, responsive, performance, contact, deployment tasks) <!-- rs:task=prof-ms-v0-8-exist-web-landing-domain-profile -->
+- [x] `[P0]` Domain-specific roadmap profile: web/landing (generates SEO, metadata, responsive, performance, contact, deployment tasks) <!-- rs:task=prof-ms-v0-8-exist-web-landing-domain-profile -->
 - [x] `[P0]` Explicit path extractor rejects conceptual slash-phrases (start/end, code/test/artifact, input/output, etc.) <!-- rs:task=prof-ms-v0-8-exist-path-extractor-rejects-conceptual-phrases -->
 - [ ] `[P0]` Customer fixture: website/landing repo with smoke test assertions <!-- rs:task=prof-ms-v0-8-exist-website-customer-fixture -->
   - ⚠️ attempted but validation failed: missing test evidence
@@ -420,7 +420,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [ ] `[P0]` Running on a website repo produces ≥5 project-specific web/landing tasks <!-- rs:task=prof-sc-website-repo-produces-web-specific-tasks -->
 - [x] `[P0]` Validation never emits "missing referenced file(s): code/test/artifact" <!-- rs:task=prof-sc-no-code-test-artifact-false-positive -->
 - [ ] `[P0]` Validation never emits missing-file warnings for conceptual slash-phrases: start/end, input/output, read/write, client/server, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=prof-sc-no-conceptual-phrase-false-positives -->
-- [ ] `[P1]` Generated ROADMAP.md for website repo contains: SEO, metadata, OpenGraph, responsive/mobile, performance, contact, deployment/hosting terms <!-- rs:task=prof-sc-website-roadmap-contains-domain-terms -->
+- [x] `[P1]` Generated ROADMAP.md for website repo contains: SEO, metadata, OpenGraph, responsive/mobile, performance, contact, deployment/hosting terms <!-- rs:task=prof-sc-website-roadmap-contains-domain-terms -->
 - [ ] `[P1]` roadmapsmith validate --json produces explainable evidence results on all fixture types including website <!-- rs:task=prof-sc-validate-json-explainable-all-fixtures -->
   - ⚠️ attempted but validation failed: missing test evidence
 - [x] `[P1]` roadmapsmith sync --audit reports real mismatches only — no conceptual-phrase false positives <!-- rs:task=prof-sc-sync-audit-no-false-mismatches -->
@@ -572,13 +572,17 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [ ] `[P0]` Add web/landing roadmap profile driven by detected archetype <!-- rs:task=dsg-add-web-landing-profile -->
 - [ ] `[P0]` Generate SEO metadata tasks when archetype is frontend-web or landing-site <!-- rs:task=dsg-generate-seo-metadata-tasks -->
+  - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files
 - [ ] `[P0]` Generate OpenGraph/Twitter card tasks <!-- rs:task=dsg-generate-opengraph-tasks -->
 - [ ] `[P0]` Generate responsive/mobile layout tasks <!-- rs:task=dsg-generate-responsive-mobile-tasks -->
 - [ ] `[P0]` Generate accessibility baseline tasks (WCAG AA) <!-- rs:task=dsg-generate-accessibility-tasks -->
+  - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files
 - [ ] `[P0]` Generate performance/Lighthouse readiness tasks <!-- rs:task=dsg-generate-performance-tasks -->
 - [ ] `[P1]` Generate branding consistency tasks <!-- rs:task=dsg-generate-branding-tasks -->
+  - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files
 - [ ] `[P1]` Generate landing page structure and service/content section tasks <!-- rs:task=dsg-generate-landing-structure-tasks -->
 - [ ] `[P1]` Generate contact form or conversion flow tasks <!-- rs:task=dsg-generate-contact-conversion-tasks -->
+  - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files
 - [ ] `[P1]` Generate deployment/hosting readiness tasks <!-- rs:task=dsg-generate-deployment-tasks -->
 - [ ] `[P1]` Generate analytics/observability tasks where repository evidence supports it <!-- rs:task=dsg-generate-analytics-tasks -->
 - [ ] `[P1]` Generate security headers/basic web hardening tasks where evidence supports it <!-- rs:task=dsg-generate-security-headers-tasks -->
@@ -594,6 +598,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **Exit Criteria:**
 
 - [ ] `[P0]` NANDI-like fixture roadmap contains ≥5 of: SEO, metadata, OpenGraph, responsive, mobile, performance, contact, deployment <!-- rs:task=dsg-ph8-st1-exit-nandi-fixture-contains-web-terms -->
+  - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files; missing test evidence
 - [ ] `[P0]` `grep -Ei "seo|metadata|opengraph|responsive|mobile|performance|contact|deploy"` returns ≥5 matches in generated ROADMAP.md for website fixture <!-- rs:task=dsg-ph8-st1-exit-grep-web-terms-pass -->
   - ⚠️ attempted but validation failed: namespace "dsg" has no implementation files; missing test evidence
 - [ ] `[P1]` Same fixture re-run produces byte-stable output (determinism preserved) <!-- rs:task=dsg-ph8-st1-exit-determinism-preserved -->
@@ -652,6 +657,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [ ] `[P0]` Create customer-style fixture representing a website/landing repo similar to NANDI <!-- rs:task=cst-create-website-fixture -->
   - ⚠️ attempted but validation failed: namespace "cst" has no implementation files; missing test evidence
 - [ ] `[P0]` Add test assertion: generated ROADMAP.md contains SEO, metadata, OpenGraph, responsive, mobile, performance, contact, deployment/hosting <!-- rs:task=cst-assert-web-terms-present -->
+  - ⚠️ attempted but validation failed: namespace "cst" has no implementation files; missing test evidence
 - [ ] `[P0]` Add test assertion: generated ROADMAP.md does not contain false missing-file warnings for conceptual slash-phrases <!-- rs:task=cst-assert-no-false-path-warnings -->
   - ⚠️ attempted but validation failed: namespace "cst" has no implementation files; missing test evidence
 - [ ] `[P0]` Add CLI smoke test flow for website fixture: generate → validate --json → sync --audit <!-- rs:task=cst-add-cli-smoke-test-flow -->
@@ -700,6 +706,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 **Tasks:**
 
 - [ ] `[P1]` Allow projectType override in roadmap-skill.config.json (e.g. `"projectType": "landing-site"`) <!-- rs:task=cfgo-allow-project-type-override -->
+  - ⚠️ attempted but validation failed: structural token score 2/3 in "cfgo" files — token overlap insufficient
 - [x] `[P1]` Allow product.name, product.primaryUser, product.targetOutcome hints in config for domain-specific generation <!-- rs:task=cfgo-allow-product-hints-in-config -->
 - [ ] `[P1]` Explicit config overrides auto-detection but still validates tasks against repository evidence <!-- rs:task=cfgo-override-respects-evidence-validation -->
   - ⚠️ attempted but validation failed: structural token score 1/4 in "cfgo" files — token overlap insufficient
