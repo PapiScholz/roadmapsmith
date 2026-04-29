@@ -33,8 +33,19 @@ const GENERIC_TASK_TOKENS = new Set([
   'main', 'exports', 'files', 'fields', 'without', 'field',
   // Terminology used in architecture/detection task descriptions that overlaps with source identifiers
   'signals', 'directory', 'directories', 'headers', 'site', 'shebang',
-  // Common directory names that appear in import paths ('src', 'lib', 'bin') — too generic for evidence
+  // Common directory names that appear in import paths — too generic for evidence
   'src', 'lib',
+  // Broad task-description verbs and nouns that pollute evidence matching across every codebase
+  'task', 'tasks', 'file', 'source', 'code', 'artifact', 'artifacts',
+  'generic', 'feature', 'features', 'section', 'sections',
+  'user', 'users', 'workflow', 'workflows', 'mode', 'modes', 'replace',
+  // Tool-internal vocabulary that appears in non-feature implementation files
+  'audit', 'debug', 'signal', 'signals', 'log',
+  // English stopwords and function words that appear everywhere — not useful as evidence signals
+  'only', 'must', 'what', 'which', 'kind', 'never', 'also', 'each',
+  'detected', 'generated', 'existing', 'available',
+  // Tool-commentary vocabulary that appears in source comments but describes past/intended behavior
+  'phrases', 'conceptual',
 ]);
 
 const CANONICAL_FILES = {
@@ -49,10 +60,31 @@ const CANONICAL_FILES = {
 // task to validate itself.
 const SELF_REFERENTIAL_FILES = new Set(['ROADMAP.md']);
 
+// Maps task-ID namespace prefix to a predicate on (normalized) file paths.
+// When a task ID has a known namespace, at least one evidence file must satisfy
+// the predicate — otherwise generic token overlap alone cannot pass the task.
+const NAMESPACE_STRUCTURAL_PATTERNS = {
+  cls:  (p) => /classif(?:ier|y)|archetype/.test(p),
+  dsg:  (p) => /generator[/\\](?:domain|web|landing|profiles?)|(?:domain|web|landing)[/\\](?:profile|generator)/.test(p),
+  evh2: (p) => p.includes('/validator/') || p.includes('\\validator\\'),
+  cst:  (p) => /smoke|integration[-_]test|e2e/.test(p),
+  uxf:  (p) => p.includes('/renderer/') || p.includes('\\renderer\\') || /renderer\.[jt]sx?$/.test(p),
+  cfgo: (p) => /config[/\\]|schema[/\\]|config\.[jt]s$|schema\.[jt]s$/.test(p),
+  doc3: (p) => /(?:^|[/\\])docs[/\\]|readme\.md$/i.test(p),
+};
+
+// Test fixture directories contain synthetic code created to drive test scenarios,
+// not real implementations. Including them pollutes the evidence pool with vocabulary
+// that was deliberately seeded for testing purposes (e.g. namespace-vocab fixtures).
+function isFixturePath(relativePath) {
+  return /(?:^|[/\\])fixtures[/\\]/.test(relativePath);
+}
+
 function readFileIndex(projectRoot, files) {
   const index = [];
   for (const relativePath of files) {
     if (SELF_REFERENTIAL_FILES.has(relativePath)) continue;
+    if (isFixturePath(relativePath)) continue;
 
     const absolutePath = path.resolve(projectRoot, relativePath);
     const ext = path.extname(relativePath).toLowerCase();
@@ -98,6 +130,25 @@ function isLikelyPath(token) {
   return false;
 }
 
+// Matches standalone filenames without a slash — e.g. "roadmap-skill.config.json",
+// "package.json", "vite.config.ts". These are path references whose component tokens
+// (e.g. "roadmap", "skill") must be excluded from code evidence scoring to prevent
+// circular vocabulary: a task mentioning a filename would otherwise score hits in any
+// source file that happens to reference the same filename for unrelated reasons.
+// Numeric-only tokens like "1.0.0" or "v0.8" are excluded via the leading-digit guard.
+const STANDALONE_FILE_RE = /\b([A-Za-z][A-Za-z0-9_.+-]*\.[A-Za-z0-9]{2,10})\b/g;
+const KNOWN_FILE_EXTENSIONS = new Set([
+  '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs',
+  '.java', '.kt', '.swift', '.rb', '.php', '.cs', '.json', '.yaml', '.yml',
+  '.toml', '.md', '.txt', '.sh', '.bash', '.env', '.html', '.css', '.scss', '.lock'
+]);
+
+function hasKnownFileExtension(token) {
+  const lastDot = token.lastIndexOf('.');
+  if (lastDot < 0) return false;
+  return KNOWN_FILE_EXTENSIONS.has(token.slice(lastDot).toLowerCase());
+}
+
 function extractExplicitPaths(text) {
   const results = new Set();
   const quoted = String(text).match(/`([^`]+)`/g) || [];
@@ -115,6 +166,25 @@ function extractExplicitPaths(text) {
   }
 
   return Array.from(results).sort((left, right) => left.localeCompare(right));
+}
+
+// Standalone filenames (no slash) mentioned in task prose — e.g. "roadmap-skill.config.json",
+// "package.json". These are filename *references*, NOT path-existence assertions: the author
+// is describing which file contains a feature, not asserting that the file must exist.
+// Used only for pathDerivedToken extraction (to prevent circular vocabulary), never for
+// findFilesByPathHints (which would pass any task whose config file already exists).
+function extractStandaloneFilenames(text) {
+  const results = new Set();
+  STANDALONE_FILE_RE.lastIndex = 0;
+  let m = STANDALONE_FILE_RE.exec(String(text));
+  while (m) {
+    const token = m[1].replace(/[.,;:!?)]+$/, '');
+    if (hasKnownFileExtension(token) && !token.startsWith('.')) {
+      results.add(token);
+    }
+    m = STANDALONE_FILE_RE.exec(String(text));
+  }
+  return Array.from(results);
 }
 
 function extractSymbolHints(text) {
@@ -186,9 +256,31 @@ function findFilesBySymbols(symbolHints, fileIndex) {
   return Array.from(matches).sort((left, right) => left.localeCompare(right));
 }
 
-function findCodeEvidence(taskText, fileIndex) {
+// Tokens extracted from a referenced file path (e.g. "roadmap-skill" from
+// "roadmap-skill.config.json") must not be reused as code evidence signals.
+// Those tokens appear in any file that mentions the same path — creating circular
+// vocabulary where a task about "X in path/to/file" passes because the source
+// code references the same path for unrelated reasons.
+function extractPathDerivedTokens(pathHints) {
+  const tokens = new Set();
+  for (const hint of pathHints) {
+    // Char-split: "roadmap-skill.config.json" → ["roadmap", "skill", "config", "json"]
+    const parts = hint.replace(/[.\-_/\\]/g, ' ').toLowerCase().split(/\s+/).filter(Boolean);
+    for (const part of parts) {
+      if (part.length >= 3) tokens.add(part);
+    }
+    // Tokenizer-split: also adds compound tokens the char-split misses, e.g. "roadmap-skill"
+    // (the tokenizer preserves hyphens in identifiers; the char-split strips them).
+    for (const token of tokenize(hint)) {
+      if (token.length >= 3) tokens.add(token);
+    }
+  }
+  return tokens;
+}
+
+function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
   const tokens = tokenize(taskText)
-    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/'))
+    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/') && !pathDerivedTokens.has(token))
     .slice(0, 8);
   if (tokens.length === 0) {
     return [];
@@ -316,6 +408,82 @@ function findArtifactEvidence(taskText, fileIndex) {
   return { files: files.slice(0, 20), heuristicArtifacts };
 }
 
+function extractTaskNamespace(taskId) {
+  if (!taskId) return null;
+  const match = String(taskId).match(/^([a-z][a-z0-9]*)-/);
+  return match ? match[1] : null;
+}
+
+function isAcceptanceCriteria(taskId) {
+  return /ph\d+[_-]st\d+[_-]exit/.test(String(taskId || ''));
+}
+
+// Gate: returns { applicable, passed, structuralFiles, reason }.
+// For namespaces with a defined structural pattern:
+//   1. If no files in fileIndex match the pattern → immediate fail.
+//   2. For acceptance-criteria tasks (phN-stN-exit IDs): path match alone is enough.
+//   3. For implementation tasks: feature tokens from task text must score ≥ ceil(n/2)
+//      against namespace-matched files, preventing vocabulary overlap from generic
+//      infrastructure code (io.js, generator/index.js) from serving as evidence.
+function checkNamespaceStructuralEvidence(taskId, taskText, fileIndex) {
+  const namespace = extractTaskNamespace(taskId);
+  if (!namespace || !NAMESPACE_STRUCTURAL_PATTERNS[namespace]) {
+    return { applicable: false, passed: true, structuralFiles: [], reason: null };
+  }
+
+  const predicate = NAMESPACE_STRUCTURAL_PATTERNS[namespace];
+  const namespaceFiles = fileIndex.filter((f) => predicate(f.relativePath));
+
+  if (namespaceFiles.length === 0) {
+    return {
+      applicable: true,
+      passed: false,
+      structuralFiles: [],
+      reason: `namespace "${namespace}" has no implementation files`,
+    };
+  }
+
+  const featureTokens = tokenize(taskText)
+    .filter((t) => t.length >= 4 && !GENERIC_TASK_TOKENS.has(t) && !t.endsWith('/'))
+    .slice(0, 8);
+
+  if (featureTokens.length === 0) {
+    return {
+      applicable: true,
+      passed: true,
+      structuralFiles: namespaceFiles.map((f) => f.relativePath),
+      reason: null,
+    };
+  }
+
+  let bestScore = 0;
+  for (const nsFile of namespaceFiles) {
+    const lowered = nsFile.content.toLowerCase();
+    let score = 0;
+    for (const token of featureTokens) {
+      if (lowered.includes(token)) score++;
+    }
+    if (score > bestScore) bestScore = score;
+  }
+
+  const threshold = Math.max(1, Math.ceil(featureTokens.length / 2));
+  if (bestScore >= threshold) {
+    return {
+      applicable: true,
+      passed: true,
+      structuralFiles: namespaceFiles.map((f) => f.relativePath),
+      reason: null,
+    };
+  }
+
+  return {
+    applicable: true,
+    passed: false,
+    structuralFiles: namespaceFiles.map((f) => f.relativePath),
+    reason: `structural token score ${bestScore}/${threshold} in "${namespace}" files — token overlap insufficient`,
+  };
+}
+
 function evaluateRule(rule, task, context) {
   if (!rule) {
     return { passed: true, reasons: [], evidence: {} };
@@ -399,13 +567,20 @@ function buildValidationContext(projectRoot, config, plugins) {
 
 function validateTask(task, context, config, plugins) {
   const pathHints = extractExplicitPaths(task.text);
+  const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
 
   const filesFromPaths = findFilesByPathHints(pathHints, context.fileIndex);
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
-  const filesFromCode = findCodeEvidence(task.text, context.fileIndex);
+  // Combine path hints AND standalone filenames for token exclusion so that tokens
+  // derived from any referenced filename (e.g. "roadmap-skill" from
+  // "roadmap-skill.config.json") are excluded from code evidence scoring.
+  const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...standaloneFilenames]);
+  const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
   const filesFromTests = findTestEvidence(task.text, context.fileIndex);
   const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
+
+  const structuralCheck = checkNamespaceStructuralEvidence(task.id, task.text, context.fileIndex);
 
   const evidence = {
     code: filesFromCode.length > 0 || filesFromSymbols.length > 0,
@@ -416,7 +591,9 @@ function validateTask(task, context, config, plugins) {
     codeFiles: filesFromCode,
     testFiles: filesFromTests,
     artifactFiles: filesFromArtifacts,
-    heuristicArtifacts
+    heuristicArtifacts,
+    structuralEvidence: structuralCheck.applicable ? structuralCheck.passed : null,
+    structuralFiles: structuralCheck.structuralFiles,
   };
 
   const reasons = [];
@@ -427,8 +604,16 @@ function validateTask(task, context, config, plugins) {
     reasons.push(`missing symbol(s): ${symbolHints.join(', ')}`);
   }
 
+  // Namespace-structural gate: for known namespaces, token overlap alone is insufficient.
+  // The task must have evidence files whose paths match the namespace pattern.
+  if (structuralCheck.applicable && !structuralCheck.passed) {
+    reasons.push(structuralCheck.reason || `no structural evidence for namespace "${extractTaskNamespace(task.id)}"`);
+  }
+
   const hasEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
-  if (!hasEvidence) {
+  if (!hasEvidence && !structuralCheck.applicable) {
+    reasons.push('no code, test, or artifact evidence found');
+  } else if (!hasEvidence && structuralCheck.applicable && structuralCheck.passed) {
     reasons.push('no code, test, or artifact evidence found');
   }
 
@@ -482,6 +667,7 @@ function auditValidation(tasks, results) {
   const readyButUnchecked = [];
   const checkedWithWeakEvidence = [];
   const documentationOnlyEvidenceForImplementation = [];
+  const checkedWithNoStructuralEvidence = [];
 
   for (const task of tasks) {
     const result = results[task.id];
@@ -495,14 +681,17 @@ function auditValidation(tasks, results) {
       readyButUnchecked.push({ task, result });
     }
 
-    // Checked and passing, but only via low-confidence evidence (e.g. token overlap only).
     if (task.checked && result.passed && result.confidence === 'low') {
       checkedWithWeakEvidence.push({ task, result });
     }
 
-    // Implementation task passing only because documentation files exist — not because source code does.
     if (task.checked && result.passed && result.evidenceIsDocOnly) {
       documentationOnlyEvidenceForImplementation.push({ task, result });
+    }
+
+    // Checked task that failed specifically because structural evidence is missing.
+    if (task.checked && !result.passed && result.evidence.structuralEvidence === false) {
+      checkedWithNoStructuralEvidence.push({ task, result });
     }
   }
 
@@ -511,6 +700,7 @@ function auditValidation(tasks, results) {
     readyButUnchecked,
     checkedWithWeakEvidence,
     documentationOnlyEvidenceForImplementation,
+    checkedWithNoStructuralEvidence,
   };
 }
 
@@ -534,5 +724,7 @@ module.exports = {
   validateTask,
   validateTasks,
   CONFIDENCE_RANK,
-  applyMinimumConfidence
+  applyMinimumConfidence,
+  extractTaskNamespace,
+  isAcceptanceCriteria,
 };

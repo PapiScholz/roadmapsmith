@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildValidationContext, validateTask, auditValidation, applyMinimumConfidence, CONFIDENCE_RANK } = require('../src/validator');
+const { buildValidationContext, validateTask, auditValidation, applyMinimumConfidence, CONFIDENCE_RANK, extractTaskNamespace, isAcceptanceCriteria } = require('../src/validator');
 const { loadConfig } = require('../src/config');
 const { walkFiles, detectWorkspaces } = require('../src/io');
 
@@ -351,4 +351,224 @@ test('auditValidation reports documentationOnlyEvidenceForImplementation', () =>
   const audit = auditValidation(fakeTasks, fakeResults);
   assert.equal(audit.documentationOnlyEvidenceForImplementation.length, 1);
   assert.equal(audit.documentationOnlyEvidenceForImplementation[0].task.id, 'task-doconly');
+});
+
+// ── Structural evidence: namespace-vocab fixture ──────────────────────────────
+
+test('extractTaskNamespace extracts known namespace prefixes', () => {
+  assert.equal(extractTaskNamespace('cls-detect-frontend-web-signals'), 'cls');
+  assert.equal(extractTaskNamespace('evh2-replace-naive-slash-path-regex'), 'evh2');
+  assert.equal(extractTaskNamespace('dsg-add-web-landing-profile'), 'dsg');
+  assert.equal(extractTaskNamespace('implement-app-module'), 'implement');
+  assert.equal(extractTaskNamespace(null), null);
+});
+
+test('isAcceptanceCriteria detects phN-stN-exit task IDs', () => {
+  assert.equal(isAcceptanceCriteria('cls-ph7-st1-exit-nandi-fixture-classified'), true);
+  assert.equal(isAcceptanceCriteria('evh2-ph9-st1-exit-no-code-test-artifact-warning'), true);
+  assert.equal(isAcceptanceCriteria('cls-detect-frontend-web-signals'), false);
+  assert.equal(isAcceptanceCriteria('implement-app-module'), false);
+});
+
+test('cls-* tasks fail in namespace-vocab fixture: no classifier/ directory', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const clsTasks = [
+    { id: 'cls-detect-frontend-web-signals', text: 'Detect frontend-web signals: app/, pages/, components/, next.config.*, vite.config.*, package.json deps (next, react, vue, svelte, astro)' },
+    { id: 'cls-distinguish-landing-site',    text: 'Distinguish landing-site from generic frontend-web using route count and marketing copy signals' },
+    { id: 'cls-add-confidence-scoring',      text: 'Add confidence scoring; fall back to unknown-generic when confidence is low' },
+  ];
+
+  for (const task of clsTasks) {
+    const result = validateTask(task, context, config, []);
+    assert.ok(
+      !result.passed,
+      `"${task.id}" must fail — no classifier implementation in namespace-vocab fixture, got reasons: ${result.reasons.join('; ')}`
+    );
+    assert.ok(
+      result.reasons.some((r) => r.includes('namespace "cls"')),
+      `"${task.id}" failure reason must mention namespace, got: ${result.reasons.join('; ')}`
+    );
+  }
+});
+
+test('dsg-* tasks fail in namespace-vocab fixture: no generator/domain/ directory', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const dsgTasks = [
+    { id: 'dsg-add-web-landing-profile',      text: 'Add web/landing roadmap profile driven by detected archetype' },
+    { id: 'dsg-generate-seo-metadata-tasks',   text: 'Generate SEO metadata tasks when archetype is frontend-web or landing-site' },
+  ];
+
+  for (const task of dsgTasks) {
+    const result = validateTask(task, context, config, []);
+    assert.ok(
+      !result.passed,
+      `"${task.id}" must fail — no domain-specific generator in namespace-vocab fixture`
+    );
+  }
+});
+
+test('evh2-* tasks fail in namespace-vocab fixture: no validator/ directory', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const evh2Task = { id: 'evh2-replace-naive-slash-path-regex', text: 'Replace naive slash-path regex with a stricter explicit path parser' };
+  const result = validateTask(evh2Task, context, config, []);
+  assert.ok(!result.passed, 'evh2 task must fail in namespace-vocab fixture — no validator/ directory');
+});
+
+test('cls-* task passes after classifier/index.js is added to namespace-vocab fixture', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  fs.mkdirSync(path.join(projectRoot, 'classifier'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'classifier', 'index.js'),
+    `'use strict';
+function classifyRepository(signals) {
+  if (signals.next || signals.react) return { archetype: 'frontend-web', confidence: 0.9 };
+  return { archetype: 'unknown-generic', confidence: 0.3 };
+}
+module.exports = { classifyRepository };
+`,
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'cls-detect-frontend-web-signals', text: 'Detect frontend-web signals: app/, pages/, components/, next.config.*, vite.config.*, react deps' },
+    context, config, []
+  );
+  assert.ok(
+    result.evidence.structuralEvidence === true,
+    `structural evidence must be true after classifier/index.js added, got: ${JSON.stringify(result.evidence.structuralEvidence)}`
+  );
+});
+
+test('dsg-* task passes after generator/profiles/web.js is added to namespace-vocab fixture', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  fs.mkdirSync(path.join(projectRoot, 'generator', 'profiles'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'generator', 'profiles', 'web.js'),
+    `'use strict';
+// Generates web/landing roadmap tasks driven by the detected archetype.
+function generateWebLandingProfile(archetype, hints) {
+  return { profile: 'web-landing', archetype, tasks: [] };
+}
+module.exports = { generateWebLandingProfile };
+`,
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'dsg-add-web-landing-profile', text: 'Add web/landing roadmap profile driven by detected archetype' },
+    context, config, []
+  );
+  assert.ok(
+    result.evidence.structuralEvidence === true,
+    `structural evidence must be true after generator/profiles/web.js added`
+  );
+});
+
+test('auditValidation reports checkedWithNoStructuralEvidence for namespace-failed tasks', () => {
+  const fakeResults = {
+    'cls-missing': {
+      passed: false, confidence: 'low', reasons: ['namespace "cls" has no implementation files'],
+      evidence: { code: false, test: false, artifact: false, structuralEvidence: false },
+      evidenceIsDocOnly: false,
+    },
+    'implement-ok': {
+      passed: true, confidence: 'high', reasons: [],
+      evidence: { code: true, test: true, artifact: false, structuralEvidence: null },
+      evidenceIsDocOnly: false,
+    },
+  };
+  const fakeTasks = [
+    { id: 'cls-missing',   text: 'Detect classifier signals', checked: true },
+    { id: 'implement-ok',  text: 'Implement app module',      checked: true },
+  ];
+
+  const audit = auditValidation(fakeTasks, fakeResults);
+  assert.equal(audit.checkedWithNoStructuralEvidence.length, 1, 'must flag the structural-mismatch checked task');
+  assert.equal(audit.checkedWithNoStructuralEvidence[0].task.id, 'cls-missing');
+});
+
+// ── Fix: fixture files must not count as implementation evidence ──────────────
+
+test('fixture files are excluded from the evidence pool', () => {
+  // The namespace-vocab fixture contains vocabulary seeded specifically for testing
+  // (web, landing, domain, profile, archetype). When validating against the real
+  // project root those fixture files must NOT count as implementation evidence.
+  const projectRoot = setupFixture('namespace-vocab');
+  // Add an extra sub-fixtures dir to simulate a fixtures/ dir inside a project root
+  const fixturesDir = path.join(projectRoot, 'fixtures', 'sub');
+  fs.mkdirSync(fixturesDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(fixturesDir, 'fake-impl.js'),
+    `'use strict';\nfunction classifyRepository() { return 'frontend-web'; }\nmodule.exports = { classifyRepository };`,
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // The fake-impl.js lives under fixtures/ — it must be excluded from fileIndex
+  const fixtureInIndex = context.fileIndex.some((f) => f.relativePath.includes('fixtures/'));
+  assert.equal(fixtureInIndex, false, 'files under fixtures/ must not appear in the evidence fileIndex');
+});
+
+// ── Fix: path-derived tokens must not be reused as code evidence signals ─────
+
+test('tokens derived from referenced path hints do not score as code evidence', () => {
+  // The bug: task text "projectType override in roadmap-skill.config.json" produces
+  // path-derived tokens "roadmap" and "skill" from the standalone filename.
+  // Those same tokens appear in source files that reference the same filename
+  // (e.g. `const p = 'roadmap-skill.config.json'`), creating circular vocabulary.
+  // Without filtering: "override" + "roadmap" + "skill" → score 3 ≥ threshold 3 → code evidence true.
+  // After the fix: path-derived tokens excluded → only "projecttype" + "override" remain;
+  // "override" appears once in loader.js → score 1 < threshold 2 → code evidence false.
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+
+  // Source file with path-derived vocab ("roadmap-skill", "override") but NOT "projecttype".
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'loader.js'),
+    `'use strict';\n// Loads the roadmap-skill.config.json configuration override.\nfunction loadOverride(p) { return p; }\nmodule.exports = { loadOverride };\n`,
+    'utf8'
+  );
+
+  // Config file exists so the path hint is satisfied — the test is specifically about
+  // whether code evidence is false (not about the overall pass/fail of the task).
+  fs.writeFileSync(
+    path.join(projectRoot, 'roadmap-skill.config.json'),
+    JSON.stringify({ roadmapProfile: 'compact' }),
+    'utf8'
+  );
+
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // "roadmap-skill.config.json" is now detected as a standalone-file path hint.
+  // pathDerivedTokens = {roadmap, skill, config, json}
+  // code tokens after filtering = ["projecttype", "override"]
+  // loader.js: "override" (score 1) < threshold 2 → no code evidence.
+  const result = validateTask(
+    { id: 'prof-ms-v0-8-config', text: 'projectType override in roadmap-skill.config.json' },
+    context, config, []
+  );
+
+  assert.equal(
+    result.evidence.code, false,
+    '"roadmap" and "skill" are path-derived tokens — must not contribute to code evidence scoring'
+  );
+  // Confidence must be low: only file-presence evidence (no code/test/artifact).
+  assert.equal(result.confidence, 'low', 'confidence must be low when only path hint evidence is present');
 });
