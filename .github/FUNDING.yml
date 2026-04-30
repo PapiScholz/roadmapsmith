@@ -1,0 +1,43 @@
+# =============================================================
+# FUNDING.yml - Opciones de patrocinio para roadmapsmith
+# Docs: https://docs.github.com/articles/displaying-a-sponsor-button-in-your-repository
+# =============================================================
+
+# ACTIVO: GitHub Sponsors
+github: [PapiScholz]
+
+# ACTIVO: PayPal (donacion directa)
+custom: ["https://www.paypal.me/EzequielScholz"]
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# patreon: tu-username-patreon
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# ko_fi: tu-username-kofi
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# buy_me_a_coffee: tu-username-buymeacoffee
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# open_collective: tu-username-opencollective
+
+# PENDIENTE: Descomentar plataforma/nombre-paquete cuando aplique
+# tidelift: plataforma/nombre-paquete
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# liberapay: tu-username-liberapay
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# issuehunt: tu-username-issuehunt
+
+# PENDIENTE: Descomentar nombre-proyecto cuando aplique
+# community_bridge: nombre-proyecto
+
+# PENDIENTE: Descomentar nombre-proyecto cuando aplique
+# lfx_crowdfunding: nombre-proyecto
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# polar: tu-username-polar
+
+# PENDIENTE: Descomentar y agregar username cuando crees la cuenta
+# thanks_dev: tu-username-thanksdev
