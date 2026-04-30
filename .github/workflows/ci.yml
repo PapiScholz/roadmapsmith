@@ -69,6 +69,7 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write   # requerido para Trusted Publishing (OIDC)
 
     defaults:
       run:
@@ -104,9 +105,7 @@ jobs:
 
       - name: Publicar en npm
         if: steps.version_check.outputs.is_new == 'true'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
 
       - name: Extraer notas del release desde CHANGELOG.md
         if: steps.version_check.outputs.is_new == 'true'
