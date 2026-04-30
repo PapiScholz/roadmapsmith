@@ -57,3 +57,72 @@ jobs:
 
       - name: npm pack dry-run
         run: npm pack --dry-run
+
+      - name: CLI --version smoke test
+        run: node bin/cli.js --version
+
+  release:
+    name: Release
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: roadmap-skill
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: roadmap-skill/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Detectar si la versión es nueva
+        id: version_check
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view roadmapsmith version 2>/dev/null || echo "none")
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" != "$PUBLISHED" ]; then
+            echo "is_new=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_new=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publicar en npm
+        if: steps.version_check.outputs.is_new == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Extraer notas del release desde CHANGELOG.md
+        if: steps.version_check.outputs.is_new == 'true'
+        id: changelog
+        run: |
+          VERSION=${{ steps.version_check.outputs.current }}
+          NOTES=$(awk "/^## v$VERSION/{found=1; next} /^## v/{if(found) exit} found{print}" CHANGELOG.md)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Crear GitHub Release
+        if: steps.version_check.outputs.is_new == 'true'
+        run: |
+          gh release create "v${{ steps.version_check.outputs.current }}" \
+            --title "v${{ steps.version_check.outputs.current }}" \
+            --notes "${{ steps.changelog.outputs.notes }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
