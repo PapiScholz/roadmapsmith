@@ -107,7 +107,7 @@ jobs:
         if: steps.version_check.outputs.is_new == 'true'
         run: npm publish --access public --provenance
         env:
-          NODE_AUTH_TOKEN: ''
+          NPM_CONFIG_USERCONFIG: /dev/null
 
       - name: Extraer notas del release desde CHANGELOG.md
         if: steps.version_check.outputs.is_new == 'true'
