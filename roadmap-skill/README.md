@@ -1,4 +1,8 @@
-# roadmap-skill
+<p align="center">
+  <img src="https://raw.githubusercontent.com/PapiScholz/roadmapsmith/main/assets/roadmapsmith-logo.png" alt="RoadmapSmith logo" width="180">
+</p>
+
+<h1 align="center">RoadmapSmith</h1>
 
 Production-grade roadmap generator and sync tool for agent-driven projects.
 
