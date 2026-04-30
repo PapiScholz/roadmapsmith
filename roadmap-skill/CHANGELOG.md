@@ -1,7 +1,11 @@
 # Changelog
 
-## v0.9.1 - 2026-04-29
-- New secret token
+## v0.9.2 - 2026-04-29
+
+### CI / Release
+- Switched npm publish auth from OIDC Trusted Publishing to Granular Access Token with "Bypass two-factor authentication" enabled.
+- Changed package Publishing access setting on npmjs.com to allow bypass-2FA tokens (required for static token CI workflows).
+- Fixed empty GitHub Release notes: awk extraction now correctly picks up CHANGELOG sections.
 
 ## v0.9.1 - 2026-04-29
 
