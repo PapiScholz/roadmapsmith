@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.1 - 2026-04-29
+
+### CI / Release
+- Workflow de GitHub Actions autopublica en npm y crea GitHub Release al detectar versión nueva en `package.json`.
+
 ## v0.9.0 - 2026-04-29
 
 ### Added
