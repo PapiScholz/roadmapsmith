@@ -1,4 +1,12 @@
-# RoadmapSmith
+<p align="center">
+  <img src="assets/roadmapsmith-logo.png" alt="RoadmapSmith logo" width="180">
+</p>
+
+<h1 align="center">RoadmapSmith</h1>
+
+<p align="center">
+  Evidence-backed ROADMAP.md generator and sync tool for AI coding agents.
+</p>
 
 Turn vague software ideas into deterministic, evidence-trackable roadmaps for AI coding agents — then keep them honest with repository-backed validation.
 
