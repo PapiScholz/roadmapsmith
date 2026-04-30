@@ -152,3 +152,20 @@ test('cli generate respects config roadmapFile override', () => {
   assert.match(legacyContent, /<!-- rs:managed:start -->/);
   assert.equal(canonicalContent, '# Canonical should remain untouched\n');
 });
+
+test('--version prints the package version', () => {
+  const pkg = require('../package.json');
+  const out = run(['--version'], process.cwd());
+  assert.equal(out.trim(), pkg.version);
+});
+
+test('-v prints the package version', () => {
+  const pkg = require('../package.json');
+  const out = run(['-v'], process.cwd());
+  assert.equal(out.trim(), pkg.version);
+});
+
+test('no args prints usage', () => {
+  const out = run([], process.cwd());
+  assert.match(out, /Usage:/);
+});

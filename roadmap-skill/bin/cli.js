@@ -65,6 +65,12 @@ async function run() {
   const command = parsed.command;
   const flags = parsed.flags;
 
+  if (isEnabled(flags.version) || isEnabled(flags.v)) {
+    const pkg = require(path.join(__dirname, '..', 'package.json'));
+    process.stdout.write(pkg.version + '\n');
+    process.exit(0);
+  }
+
   if (!command || isEnabled(flags.help) || isEnabled(flags.h)) {
     printHelp();
     return;
