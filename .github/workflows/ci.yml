@@ -83,6 +83,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
           cache: npm
           cache-dependency-path: roadmap-skill/package-lock.json
 
@@ -105,6 +106,8 @@ jobs:
       - name: Publicar en npm
         if: steps.version_check.outputs.is_new == 'true'
         run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ''
 
       - name: Extraer notas del release desde CHANGELOG.md
         if: steps.version_check.outputs.is_new == 'true'
