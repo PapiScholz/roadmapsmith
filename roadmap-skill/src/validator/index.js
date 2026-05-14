@@ -333,6 +333,38 @@ function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new 
   return Array.from(matches).sort((left, right) => left.localeCompare(right));
 }
 
+function extractTaskEvidenceTokens(taskText, pathDerivedTokens = new Set()) {
+  return tokenize(taskText)
+    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/') && !pathDerivedTokens.has(token))
+    .slice(0, 8);
+}
+
+function findWeakPathContentSpecificTokens(taskText, fileIndex, weakPathFiles, pathDerivedTokens = new Set()) {
+  const tokens = extractTaskEvidenceTokens(taskText, pathDerivedTokens);
+  if (tokens.length === 0 || weakPathFiles.length === 0) return [];
+
+  const weakFiles = new Set(weakPathFiles);
+  const matches = new Set();
+  for (const file of fileIndex) {
+    if (!weakFiles.has(file.relativePath) || !CODE_EXTENSIONS.has(file.ext) || file.isTestFile) {
+      continue;
+    }
+
+    const normalizedPath = normalizePathForMatch(file.relativePath);
+    const lowered = file.content.toLowerCase();
+    for (const token of tokens) {
+      if (normalizedPath.includes(token)) {
+        continue;
+      }
+      if (lowered.includes(token)) {
+        matches.add(token);
+      }
+    }
+  }
+
+  return Array.from(matches).sort((left, right) => left.localeCompare(right));
+}
+
 function mergeRuleEvidence(baseEvidence, ruleEvidence) {
   if (!ruleEvidence || typeof ruleEvidence !== 'object') return baseEvidence;
   const merged = { ...baseEvidence };
@@ -376,9 +408,7 @@ function extractPathDerivedTokens(pathHints) {
 }
 
 function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
-  const tokens = tokenize(taskText)
-    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/') && !pathDerivedTokens.has(token))
-    .slice(0, 8);
+  const tokens = extractTaskEvidenceTokens(taskText, pathDerivedTokens);
   if (tokens.length === 0) {
     return [];
   }
@@ -750,6 +780,7 @@ function validateTask(task, context, config, plugins) {
   const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...standaloneFilenames]);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
   const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens);
+  const weakPathContentTokens = findWeakPathContentSpecificTokens(task.text, context.fileIndex, filesFromWeakPathTokens, pathDerivedTokens);
   const filesFromTests = findTestEvidence(task.text, context.fileIndex, [...pathHints, ...standaloneFilenames]);
   const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
 
@@ -763,6 +794,7 @@ function validateTask(task, context, config, plugins) {
     symbols: filesFromSymbols,
     codeFiles: filesFromCode,
     weakPathFiles: filesFromWeakPathTokens,
+    weakPathContentTokens,
     testFiles: filesFromTests,
     artifactFiles: filesFromArtifacts,
     heuristicArtifacts,
@@ -790,6 +822,12 @@ function validateTask(task, context, config, plugins) {
     reasons.push('no code, test, or artifact evidence found');
   } else if (!hasEvidence && !hasWeakEvidence && structuralCheck.applicable && structuralCheck.passed) {
     reasons.push('no code, test, or artifact evidence found');
+  } else if (!hasEvidence && hasWeakEvidence) {
+    if (weakPathContentTokens.length === 0) {
+      reasons.push('weak path-only evidence lacks content-specific token match');
+    } else {
+      reasons.push('weak path-token evidence lacks strong code, test, or artifact evidence');
+    }
   }
 
   const requiresTest = !task.noTest && context.testFrameworks.length > 0 && isCodeTask(task.text) && !isDocTask(task.text);

@@ -59,6 +59,41 @@ test('sync writes one warning line when validation fails', () => {
   assert.match(second, /missing test evidence/);
 });
 
+test('sync leaves weak path-only Mercado Pago Point task unchecked with warning', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference', 'route.ts'),
+    [
+      "export async function POST() {",
+      "  return fetch('https://api.mercadopago.com/checkout/preferences');",
+      "}",
+      ""
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P2',
+    '- [ ] Integración Mercado Pago Point (posnet) via SDK local <!-- rs:task=p2-mp-point-integration -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+
+  const first = applySync(content, parsed.tasks, results);
+  const secondParsed = parseRoadmap(first);
+  const second = applySync(first, secondParsed.tasks, results);
+
+  const warningMatches = second.match(/⚠️ attempted but validation failed/g) || [];
+  assert.equal(warningMatches.length, 1);
+  assert.match(second, /- \[ \] Integración Mercado Pago Point/);
+  assert.match(second, /weak path-only evidence lacks content-specific token match/);
+});
+
 test('sync pipeline: low-confidence task stays unchecked when minimumConfidence is medium', () => {
   const content = '## Phase 1\n- [ ] implement xyzzy module\n';
   const tasks = [{ id: 'implement-xyzzy-module', text: 'implement xyzzy module', lineIndex: 1, checked: false }];

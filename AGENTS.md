@@ -23,13 +23,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-05-14 1:39am GMT-3
+# [roadmapsmith] recent context, 2026-05-14 3:23am GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 27 obs (10,225t read) | 667,083t work | 98% savings
+Stats: 29 obs (11,104t read) | 687,003t work | 98% savings
 
 ### May 13, 2026
 400 11:09p ⚖️ Validator API design: dual override modes for custom validators
@@ -61,6 +61,8 @@ S98 Configure automated npm publishing from GitHub Actions using OIDC trusted pu
 425 " 🟣 Validator enhancements: grant-evidence, test evidence recognition, and whenId matching
 426 " ✅ CI workflow updated to validate against real repository task
 427 " ✅ npm publishing switched to OIDC Trusted Publishing
+428 1:40a ✅ Release v0.9.4 moved to dedicated branch for PR-based merge workflow
+429 3:22a 🔵 False-positive validation confirmed: path-only token match marks task complete despite semantic mismatch
 
-Access 667k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 687k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
