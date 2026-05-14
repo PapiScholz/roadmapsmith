@@ -687,9 +687,42 @@ test('weak path-token evidence finds files even without explicit path hints', ()
   const context = buildValidationContext(projectRoot, config, []);
   const result = validateTask({ id: 'electron-main', text: 'Configurar Electron con Next.js como servidor embebido' }, context, config, []);
 
-  assert.equal(result.passed, true);
+  assert.equal(result.passed, false);
+  assert.equal(result.attempted, true);
   assert.equal(result.confidence, 'low');
   assert.ok(result.evidence.weakPathFiles.some((p) => p.includes('electron/main.ts')));
+  assert.ok(result.reasons.includes('weak path-only evidence lacks content-specific token match'));
+});
+
+test('weak path-only evidence does not complete Mercado Pago Point integration task', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference', 'route.ts'),
+    [
+      "export async function POST() {",
+      "  return fetch('https://api.mercadopago.com/checkout/preferences');",
+      "}",
+      ""
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    { id: 'p2-mp-point-integration', text: 'Integración Mercado Pago Point (posnet) via SDK local' },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, false);
+  assert.equal(result.attempted, true);
+  assert.equal(result.confidence, 'low');
+  assert.ok(result.evidence.weakPathFiles.includes('src/app/api/mercadopago/preference/route.ts'));
+  assert.deepEqual(result.evidence.weakPathContentTokens, []);
+  assert.ok(result.reasons.includes('weak path-only evidence lacks content-specific token match'));
 });
 
 test('rs:no-test disables test requirement for task', () => {

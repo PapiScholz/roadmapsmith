@@ -23,13 +23,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-05-14 1:39am GMT-3
+# [roadmapsmith] recent context, 2026-05-14 3:48am GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 27 obs (10,225t read) | 667,083t work | 98% savings
+Stats: 45 obs (16,826t read) | 775,932t work | 98% savings
 
 ### May 13, 2026
 400 11:09p ⚖️ Validator API design: dual override modes for custom validators
@@ -61,6 +61,24 @@ S98 Configure automated npm publishing from GitHub Actions using OIDC trusted pu
 425 " 🟣 Validator enhancements: grant-evidence, test evidence recognition, and whenId matching
 426 " ✅ CI workflow updated to validate against real repository task
 427 " ✅ npm publishing switched to OIDC Trusted Publishing
+428 1:40a ✅ Release v0.9.4 moved to dedicated branch for PR-based merge workflow
+429 3:22a 🔵 False-positive validation confirmed: path-only token match marks task complete despite semantic mismatch
+430 3:25a 🔴 Fixed false-positive validation: weak path-only evidence now requires content-specific token match
+431 3:26a ✅ Added end-to-end sync test for Mercado Pago Point false-positive regression
+432 " 🔵 Fix validation complete: all 121 tests pass, Mercado Pago Point false-positive now correctly blocked
+433 3:33a 🔴 Fixed validator false positives from weak path-only token matches
+434 " 🔵 release-v0.9.4 branch and v0.9.4 tag DO exist on remote despite initial git pull error
+435 3:36a ✅ Pushed release-v0.9.4 branch with validation logic enhancements to remote
+436 3:37a ⚖️ Release branch versioning: v0.9.5 for post-release bugfix
+437 " 🔵 Git reflog permission constraint on Windows branch rename
+438 3:38a ✅ Bumped version from 0.9.4 to 0.9.5 and renamed release branch
+439 " 🔵 Permission error on git index lock prevents staging version bump changes
+440 3:41a ✅ Committed and pushed release-v0.9.5 branch to GitHub; cleaned up v0.9.4 remote branch
+441 3:46a ✅ Version 0.9.5 release branch created and pushed to origin
+442 " 🔵 Merge conflicts detected between release-v0.9.5 and main branches
+443 " 🔵 Git permission error on Windows with .git/index.lock file
+444 " 🔵 Git index.lock permission denied on Windows during stash operation
+445 3:47a 🔵 Windows git lock file permission issues requiring escalated permissions during merge workflow
 
-Access 667k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 776k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
