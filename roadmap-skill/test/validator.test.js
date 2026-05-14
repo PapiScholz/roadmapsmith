@@ -312,6 +312,51 @@ test('test file counts as evidence only when it imports the relevant module', ()
   );
 });
 
+test('test file readFileSync counts as test evidence for referenced task file', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(path.join(projectRoot, 'electron-builder.json'), JSON.stringify({ appId: 'com.example.app', build: { files: ['dist'] } }), 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, 'tests', 'electron-builder.test.js'),
+    [
+      "'use strict';",
+      "const fs = require('fs');",
+      "const path = require('path');",
+      "const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'electron-builder.json'), 'utf8'));",
+      "module.exports = config;"
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'electron-builder-config', text: 'Add build config in electron-builder.json' }, context, config, []);
+  assert.equal(result.evidence.test, true);
+  assert.ok(result.evidence.testFiles.some((file) => file.endsWith('electron-builder.test.js')));
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('test file readFileSync does not count for unrelated referenced file', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(
+    path.join(projectRoot, 'tests', 'package-config.test.js'),
+    [
+      "'use strict';",
+      "const fs = require('fs');",
+      "const path = require('path');",
+      "const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));",
+      "module.exports = pkg;"
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'electron-builder-config', text: 'Add build config in electron-builder.json' }, context, config, []);
+  assert.equal(result.evidence.test, false);
+});
+
 // ── Regression: auditValidation surfaces new evidence-quality categories ──────
 
 test('auditValidation reports checkedWithWeakEvidence for low-confidence passed tasks', () => {
@@ -584,6 +629,37 @@ test('validator grant-evidence can satisfy missing evidence checks', () => {
   assert.equal(result.passed, true);
   assert.equal(result.evidence.code, true);
   assert.ok(result.evidence.codeFiles.includes('virtual/electron.js'));
+});
+
+test('validator grant-evidence can satisfy missing test evidence without overrideResult', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'billing.js'), 'function billingModule() { return true; }\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  config.validators = [
+    { when: 'billing', type: 'grant-evidence', evidence: ['test'], testFiles: ['virtual/billing.test.js'] }
+  ];
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'billing-task', text: 'Implement billing module' }, context, config, []);
+  assert.equal(result.passed, true);
+  assert.equal(result.evidence.test, true);
+  assert.ok(result.evidence.testFiles.includes('virtual/billing.test.js'));
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('validator whenId matches stable task id independently from task text', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  config.validators = [
+    { whenId: '^p0-electron-builder-windows$', type: 'grant-evidence', evidence: ['code'], codeFiles: ['virtual/electron-builder.js'] }
+  ];
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({ id: 'p0-electron-builder-windows', text: 'Windows packaging support' }, context, config, []);
+  assert.equal(result.passed, true);
+  assert.equal(result.evidence.code, true);
+  assert.ok(result.evidence.codeFiles.includes('virtual/electron-builder.js'));
 });
 
 test('validator overrideResult can replace automatic failures', () => {

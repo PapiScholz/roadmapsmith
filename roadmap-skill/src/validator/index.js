@@ -411,12 +411,45 @@ function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
   return matches.slice(0, 20);
 }
 
-function findTestEvidence(taskText, fileIndex) {
+function normalizeReferencedPath(rawPath) {
+  return String(rawPath || '').replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+}
+
+function referencedPathMatches(readRef, referencedPath) {
+  const normalizedRef = normalizeReferencedPath(readRef);
+  const normalizedHint = normalizeReferencedPath(referencedPath);
+  if (!normalizedRef || !normalizedHint) return false;
+  if (normalizedRef === normalizedHint || normalizedRef.endsWith('/' + normalizedHint)) {
+    return true;
+  }
+  return path.basename(normalizedRef) === normalizedHint || normalizedRef === path.basename(normalizedHint);
+}
+
+function extractTestReadReferences(content) {
+  const refs = [];
+  const lines = String(content || '').split(/\r?\n/);
+  for (const line of lines) {
+    if (!/\b(?:fs\.)?readFile(?:Sync)?\s*\(/.test(line)) {
+      continue;
+    }
+    const stringLiterals = line.match(/['"`]([^'"`]+)['"`]/g) || [];
+    for (const literal of stringLiterals) {
+      const value = literal.slice(1, -1);
+      if (hasKnownFileExtension(value) || value.includes('/') || value.includes('\\')) {
+        refs.push(value);
+      }
+    }
+  }
+  return refs;
+}
+
+function findTestEvidence(taskText, fileIndex, referencedPaths = []) {
   const tokens = tokenize(taskText)
     .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/'))
     .slice(0, 8);
 
-  if (tokens.length === 0) return [];
+  const pathRefs = Array.from(new Set(referencedPaths)).filter(Boolean);
+  if (tokens.length === 0 && pathRefs.length === 0) return [];
 
   // Only tokens of length >= 4 are used for import-reference matching.
   // Very short tokens (e.g. "app", "web") are too generic: they appear as substrings in
@@ -451,6 +484,14 @@ function findTestEvidence(taskText, fileIndex) {
     if (tokens.length === 1 && tokens[0].length < 4) {
       const lowered = file.content.toLowerCase();
       if (lowered.includes(tokens[0])) {
+        matches.push(file.relativePath);
+        continue;
+      }
+    }
+
+    if (pathRefs.length > 0) {
+      const readRefs = extractTestReadReferences(file.content);
+      if (readRefs.some((readRef) => pathRefs.some((pathRef) => referencedPathMatches(readRef, pathRef)))) {
         matches.push(file.relativePath);
       }
     }
@@ -593,6 +634,13 @@ function evaluateRule(rule, task, context) {
     }
   }
 
+  if (rule.whenId) {
+    const regexp = new RegExp(rule.whenId, 'i');
+    if (!regexp.test(task.id)) {
+      return { passed: true, reasons: [], evidence: {}, overrideResult: false };
+    }
+  }
+
   if (typeof rule.check === 'function') {
     const custom = rule.check(task, context);
     if (!custom) {
@@ -702,7 +750,7 @@ function validateTask(task, context, config, plugins) {
   const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...standaloneFilenames]);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
   const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens);
-  const filesFromTests = findTestEvidence(task.text, context.fileIndex);
+  const filesFromTests = findTestEvidence(task.text, context.fileIndex, [...pathHints, ...standaloneFilenames]);
   const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
 
   const structuralCheck = checkNamespaceStructuralEvidence(task.id, task.text, context.fileIndex);
@@ -745,10 +793,6 @@ function validateTask(task, context, config, plugins) {
   }
 
   const requiresTest = !task.noTest && context.testFrameworks.length > 0 && isCodeTask(task.text) && !isDocTask(task.text);
-  if (requiresTest && !evidence.test) {
-    reasons.push('missing test evidence');
-  }
-
   const configuredRules = Array.isArray(config.validators) ? config.validators : [];
   const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
   let overrideResult = null;
@@ -772,6 +816,10 @@ function validateTask(task, context, config, plugins) {
     if (idx >= 0) {
       reasons.splice(idx, 1);
     }
+  }
+
+  if (requiresTest && !evidence.test) {
+    reasons.push('missing test evidence');
   }
 
   let uniqueReasons = Array.from(new Set(reasons));

@@ -241,11 +241,17 @@ Validator rules are backward compatible and support optional overrides:
 ```json
 {
   "validators": [
-    { "when": "electron", "type": "grant-evidence", "evidence": ["code"] },
+    { "when": "electron", "type": "grant-evidence", "evidence": ["code", "test"] },
+    { "whenId": "^p0-electron-builder-windows$", "type": "grant-evidence", "evidence": ["test"], "testFiles": ["test/electron-builder.test.js"] },
     { "when": "legacy", "type": "file-exists", "path": "docs/legacy-notes.md", "overrideResult": true }
   ]
 }
 ```
+
+- `when` matches task text.
+- `whenId` matches the stable `rs:task` ID.
+- `grant-evidence` can grant `code`, `test`, or `artifact` evidence without `overrideResult`.
+- Tests that read a referenced file with `fs.readFileSync`, `fs.readFile`, `readFileSync`, or `readFile` can count as test evidence for tasks that explicitly mention that file.
 
 ### Professional profile output example
 

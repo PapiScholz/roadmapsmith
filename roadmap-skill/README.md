@@ -124,6 +124,12 @@ Create `roadmap-skill.config.json`:
       "type": "file-exists",
       "when": "migration",
       "path": "db/migrations"
+    },
+    {
+      "type": "grant-evidence",
+      "whenId": "^p0-electron-builder-windows$",
+      "evidence": ["test"],
+      "testFiles": ["test/electron-builder.test.js"]
     }
   ],
   "customSections": [
@@ -150,6 +156,20 @@ Create `roadmap-skill.config.json`:
   }
 }
 ```
+
+Task markers can include `rs:no-test` to disable the test-evidence requirement for one task:
+
+```markdown
+- [ ] Add Windows autostart script <!-- rs:task=p0-windows-autostart rs:no-test -->
+```
+
+Validator rules are backward compatible:
+
+- `when` matches task text.
+- `whenId` matches the stable `rs:task` ID.
+- `grant-evidence` can grant `code`, `test`, or `artifact` evidence without `overrideResult`.
+- `overrideResult: true` is only needed when a rule should replace automatic failures.
+- Tests that read a referenced file with `fs.readFileSync`, `fs.readFile`, `readFileSync`, or `readFile` can count as test evidence for tasks that explicitly mention that file.
 
 ## Plugin API
 
