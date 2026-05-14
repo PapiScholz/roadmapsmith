@@ -23,13 +23,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-05-14 1:18am GMT-3
+# [roadmapsmith] recent context, 2026-05-14 1:34am GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 15 obs (6,124t read) | 526,596t work | 99% savings
+Stats: 18 obs (7,247t read) | 550,418t work | 99% savings
 
 ### May 13, 2026
 400 11:09p ⚖️ Validator API design: dual override modes for custom validators
@@ -48,6 +48,18 @@ Stats: 15 obs (6,124t read) | 526,596t work | 99% savings
 412 " 🟣 Added whenId validator rule support for stable task ID matching
 413 " ✅ Updated validator documentation with new features and clarifications
 414 " 🔵 All 120 validator tests pass after implementation; 3 of 4 bugs fixed
+416 1:27a 🔵 Validator incorrectly reports renderer/compact.js as missing despite file existing
+417 " ✅ CI workflow smoke test switched to passing validation target
+418 1:33a ✅ GitHub branch protection rules activated for primary repository
+S98 Configure automated npm publishing from GitHub Actions using OIDC trusted publishers for the roadmapsmith package (May 14, 1:33 AM)
+**Investigated**: GitHub branch protection rules for the primary repository; npm OIDC trusted publisher authentication flow; CI/CD workflow requirements for auto-publishing on version changes
 
-Access 527k tokens of past work via get_observations([IDs]) or mem-search skill.
+**Learned**: GitHub branch protection settings (PR requirements, approval thresholds, status checks, linear history) are now properly configured for code quality gates. The roadmapsmith package requires npm OIDC trusted publisher setup to enable passwordless publishing from GitHub Actions CI pipeline when versions are bumped on main branch.
+
+**Completed**: GitHub branch protection rules activated across repository including: pull request requirements, minimum 1 approver (ideal 2), stale approval dismissal, Node 18/20 CI status checks, conversation resolution, linear history, and disabled force pushes/deletions. These settings enable safe auto-publishing workflow from main branch.
+
+**Next Steps**: Configure npm OIDC trusted publisher for roadmapsmith package: (1) Navigate to npmjs.com package settings for roadmapsmith, (2) Add trusted publisher: GitHub Actions, (3) Configure owner/org as PapiScholz, repository as roadmapsmith, workflow filename as ci.yml, environment field empty (unless environment variable added to release job later). After setup, merging to main with version bump in roadmap-skill/package.json will trigger automatic npm publish without credentials.
+
+
+Access 550k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
