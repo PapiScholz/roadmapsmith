@@ -572,3 +572,96 @@ test('tokens derived from referenced path hints do not score as code evidence', 
   // Confidence must be low: only file-presence evidence (no code/test/artifact).
   assert.equal(result.confidence, 'low', 'confidence must be low when only path hint evidence is present');
 });
+
+test('validator grant-evidence can satisfy missing evidence checks', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  config.validators = [
+    { when: 'electron', type: 'grant-evidence', evidence: ['code'], codeFiles: ['virtual/electron.js'] }
+  ];
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask({ id: 'electron-task', text: 'Configurar Electron con Next.js como servidor embebido' }, context, config, []);
+  assert.equal(result.passed, true);
+  assert.equal(result.evidence.code, true);
+  assert.ok(result.evidence.codeFiles.includes('virtual/electron.js'));
+});
+
+test('validator overrideResult can replace automatic failures', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  config.validators = [
+    {
+      when: 'billing',
+      overrideResult: true,
+      check: () => ({ passed: true, reasons: [], evidence: { code: true, codeFiles: ['virtual/billing.js'] } })
+    }
+  ];
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask({ id: 'billing-task', text: 'Implement billing module' }, context, config, []);
+  assert.equal(result.passed, true);
+  assert.equal(result.evidence.code, true);
+});
+
+test('weak path-token evidence finds files even without explicit path hints', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export function bootstrapElectron() {}\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask({ id: 'electron-main', text: 'Configurar Electron con Next.js como servidor embebido' }, context, config, []);
+
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'low');
+  assert.ok(result.evidence.weakPathFiles.some((p) => p.includes('electron/main.ts')));
+});
+
+test('rs:no-test disables test requirement for task', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'billing.js'), 'function billingModule() { return true; }\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'billing-no-test', text: 'Implement billing module', noTest: true },
+    context, config, []
+  );
+  assert.equal(result.requiresTest, false);
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('i18n and translation files are excluded from evidence file index', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'i18n'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib', 'locale'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'i18n', 'es.json'), JSON.stringify({ inventory: 'Inventario', products: 'Productos' }), 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'locale', 'locales.ts'), "export const labels = { inventory: 'Inventario' };\n", 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const indexedPaths = context.fileIndex.map((f) => f.relativePath);
+  assert.ok(!indexedPaths.some((p) => p.includes('/i18n/') || p.includes('/locale/')));
+  assert.ok(!indexedPaths.some((p) => p.endsWith('es.json')));
+});
+
+test('default excluded template directories and configured skillsDir are skipped by validator index', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, '.claude', 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, '.agent', 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'roadmap-skill', 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'custom-skills', 'team'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, '.claude', 'skills', 'prompt.md'), 'sync roadmap prompt', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, '.agent', 'skills', 'prompt.md'), 'sync roadmap prompt', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'roadmap-skill', 'src', 'index.js'), 'module.exports = {};', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'custom-skills', 'team', 'SKILL.md'), '# Skill', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  config.skillsDir = 'custom-skills';
+  const context = buildValidationContext(projectRoot, config, []);
+  const indexedPaths = context.fileIndex.map((f) => f.relativePath);
+
+  assert.ok(!indexedPaths.some((p) => p.startsWith('.claude/')));
+  assert.ok(!indexedPaths.some((p) => p.startsWith('.agent/')));
+  assert.ok(!indexedPaths.some((p) => p.startsWith('roadmap-skill/')));
+  assert.ok(!indexedPaths.some((p) => p.startsWith('custom-skills/')));
+});

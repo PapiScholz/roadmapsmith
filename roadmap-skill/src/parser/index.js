@@ -2,7 +2,7 @@
 
 const { slugify } = require('../utils');
 
-const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*?)(?:\s*<!--\s*rs:task=([a-z0-9-]+)\s*-->)?\s*$/;
+const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*?)(?:\s*<!--\s*rs:task=([a-z0-9-]+)([^>]*)-->)?\s*$/;
 const WARNING_RE = /^\s*-\s+⚠️ attempted but validation failed:\s*(.+?)\s*$/;
 const HEADING_RE = /^#{2,3}\s+(.*)$/;
 
@@ -30,6 +30,8 @@ function parseRoadmap(content) {
     const checked = taskMatch[2].toLowerCase() === 'x';
     const text = taskMatch[3].trim();
     const markerId = taskMatch[4] || null;
+    const markerFlags = taskMatch[5] || '';
+    const noTest = /\brs:no-test\b/i.test(markerFlags);
 
     let warningLineIndex = null;
     let warningText = null;
@@ -51,6 +53,7 @@ function parseRoadmap(content) {
       warningLineIndex,
       warningText,
       markerId,
+      noTest,
       indent,
       section
     });

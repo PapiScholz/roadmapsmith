@@ -230,6 +230,23 @@ Set `validation.minimumConfidence` to suppress low-confidence results in CI:
 }
 ```
 
+Task markers can include `rs:no-test` to disable the test-evidence requirement for one task:
+
+```markdown
+- [ ] Add Windows autostart script <!-- rs:task=p0-windows-autostart rs:no-test -->
+```
+
+Validator rules are backward compatible and support optional overrides:
+
+```json
+{
+  "validators": [
+    { "when": "electron", "type": "grant-evidence", "evidence": ["code"] },
+    { "when": "legacy", "type": "file-exists", "path": "docs/legacy-notes.md", "overrideResult": true }
+  ]
+}
+```
+
 ### Professional profile output example
 
 This repository's own `ROADMAP.md` is generated with RoadmapSmith using the `professional` profile. Here is an excerpt from Section 4:

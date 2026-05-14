@@ -18,3 +18,21 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 - Ignore generic implementation words (for example: `implement`, `module`, `function`) in evidence matching; prioritize explicit paths/symbols and domain-specific tokens to reduce validation false positives.
 - When a long chained command sequence produces inconsistent test/process errors (for example transient `spawn EPERM`), rerun critical checks (`npm test`, CLI smoke) as direct commands from `roadmap-skill/` before treating it as a product regression.
 - For filename case-compat behavior (`ROADMAP.md` vs `roadmap.md`), keep one integration test with runtime skip on case-insensitive filesystems (Windows) and enforce precedence logic through unit tests that mock directory entries.
+
+
+<claude-mem-context>
+# Memory Context
+
+# claude-mem status
+
+This project has no memory yet. The current session will seed it; subsequent sessions will receive auto-injected context for relevant past work.
+
+Memory injection starts on your second session in a project.
+
+`/learn-codebase` is available if the user wants to front-load the entire repo into memory in a single pass (~5 minutes on a typical repo, optional). Otherwise memory builds passively as work happens.
+
+Live activity: http://localhost:37777
+How it works: `/how-it-works`
+
+This message disappears once the first observation lands.
+</claude-mem-context>

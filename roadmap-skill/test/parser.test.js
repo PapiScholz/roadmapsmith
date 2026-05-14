@@ -18,6 +18,14 @@ test('parseRoadmap extracts tasks and warning lines', () => {
   assert.equal(parsed.tasks[0].warningText, 'missing tests');
 });
 
+test('parseRoadmap extracts rs:no-test marker flag', () => {
+  const content = '- [ ] Implement windows autostart <!-- rs:task=p0-windows-autostart rs:no-test -->';
+  const parsed = parseRoadmap(content);
+  assert.equal(parsed.tasks.length, 1);
+  assert.equal(parsed.tasks[0].id, 'p0-windows-autostart');
+  assert.equal(parsed.tasks[0].noTest, true);
+});
+
 test('upsertManagedBlock preserves unmanaged content', () => {
   const existing = [
     '# Notes',

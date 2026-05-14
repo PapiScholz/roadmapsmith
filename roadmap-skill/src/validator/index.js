@@ -11,6 +11,8 @@ const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
 const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
 ]);
+const TRANSLATION_DIR_SEGMENTS = ['locale', 'locales', 'i18n', 'translations'];
+const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/', 'roadmap-skill/'];
 
 // "docs" omitted from DOC_HINTS — it is a path prefix in scan tasks, not a doc-authoring keyword.
 const DOC_HINTS = ['readme', 'changelog', 'documentation', 'spec', 'diagram', 'runbook'];
@@ -80,11 +82,62 @@ function isFixturePath(relativePath) {
   return /(?:^|[/\\])fixtures[/\\]/.test(relativePath);
 }
 
-function readFileIndex(projectRoot, files) {
+function normalizePathForMatch(rawPath) {
+  return String(rawPath || '').replace(/\\/g, '/').toLowerCase();
+}
+
+function shouldExcludeByDefaultPath(relativePath, config) {
+  const normalized = normalizePathForMatch(relativePath);
+  if (DEFAULT_EXCLUDED_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+    return true;
+  }
+
+  const configuredSkillsDir = config && typeof config.skillsDir === 'string'
+    ? normalizePathForMatch(config.skillsDir).replace(/^\.?\//, '')
+    : '';
+  if (configuredSkillsDir && (normalized === configuredSkillsDir || normalized.startsWith(configuredSkillsDir + '/'))) {
+    return true;
+  }
+  return false;
+}
+
+function isTranslationPath(relativePath) {
+  const normalized = normalizePathForMatch(relativePath);
+  const segments = normalized.split('/').filter(Boolean);
+  return segments.some((segment) => TRANSLATION_DIR_SEGMENTS.includes(segment));
+}
+
+function looksLikeTranslationJson(content) {
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return false;
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return false;
+  }
+
+  const values = Object.values(parsed);
+  if (values.length === 0) return false;
+  const stringValues = values.filter((value) => typeof value === 'string').length;
+  return stringValues / values.length >= 0.8;
+}
+
+function isMostlyUiStrings(content) {
+  const lines = String(content).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 5) return false;
+  const stringLikeLines = lines.filter((line) => /^['"`][^'"`]{1,200}['"`],?$/.test(line) || /^[A-Za-z0-9_.-]+\s*:\s*['"`][^'"`]{1,200}['"`],?$/.test(line)).length;
+  return stringLikeLines / lines.length > 0.8;
+}
+
+function readFileIndex(projectRoot, files, config) {
   const index = [];
   for (const relativePath of files) {
     if (SELF_REFERENTIAL_FILES.has(relativePath)) continue;
     if (isFixturePath(relativePath)) continue;
+    if (shouldExcludeByDefaultPath(relativePath, config)) continue;
 
     const absolutePath = path.resolve(projectRoot, relativePath);
     const ext = path.extname(relativePath).toLowerCase();
@@ -98,6 +151,10 @@ function readFileIndex(projectRoot, files) {
     } catch {
       continue;
     }
+
+    if (isTranslationPath(relativePath)) continue;
+    if (ext === '.json' && looksLikeTranslationJson(content)) continue;
+    if (isMostlyUiStrings(content)) continue;
 
     index.push({
       relativePath,
@@ -254,6 +311,46 @@ function findFilesBySymbols(symbolHints, fileIndex) {
     }
   }
   return Array.from(matches).sort((left, right) => left.localeCompare(right));
+}
+
+function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new Set()) {
+  const tokens = tokenize(taskText)
+    .filter((token) => token.length >= 6 && !GENERIC_TASK_TOKENS.has(token) && !pathDerivedTokens.has(token))
+    .slice(0, 10);
+  if (tokens.length === 0) return [];
+
+  const matches = new Set();
+  for (const file of fileIndex) {
+    const pathSegments = normalizePathForMatch(file.relativePath).split('/').filter(Boolean);
+    for (const token of tokens) {
+      if (pathSegments.some((segment) => segment === token || segment.includes(token))) {
+        matches.add(file.relativePath);
+        break;
+      }
+    }
+    if (matches.size >= 20) break;
+  }
+  return Array.from(matches).sort((left, right) => left.localeCompare(right));
+}
+
+function mergeRuleEvidence(baseEvidence, ruleEvidence) {
+  if (!ruleEvidence || typeof ruleEvidence !== 'object') return baseEvidence;
+  const merged = { ...baseEvidence };
+
+  for (const [key, value] of Object.entries(ruleEvidence)) {
+    if (Array.isArray(value)) {
+      const existing = Array.isArray(merged[key]) ? merged[key] : [];
+      merged[key] = Array.from(new Set([...existing, ...value]));
+      continue;
+    }
+    if (typeof value === 'boolean') {
+      merged[key] = Boolean(merged[key]) || value;
+      continue;
+    }
+    merged[key] = value;
+  }
+
+  return merged;
 }
 
 // Tokens extracted from a referenced file path (e.g. "roadmap-skill" from
@@ -486,25 +583,26 @@ function checkNamespaceStructuralEvidence(taskId, taskText, fileIndex) {
 
 function evaluateRule(rule, task, context) {
   if (!rule) {
-    return { passed: true, reasons: [], evidence: {} };
+    return { passed: true, reasons: [], evidence: {}, overrideResult: false };
   }
 
   if (rule.when) {
     const regexp = new RegExp(rule.when, 'i');
     if (!regexp.test(task.text)) {
-      return { passed: true, reasons: [], evidence: {} };
+      return { passed: true, reasons: [], evidence: {}, overrideResult: false };
     }
   }
 
   if (typeof rule.check === 'function') {
     const custom = rule.check(task, context);
     if (!custom) {
-      return { passed: true, reasons: [], evidence: {} };
+      return { passed: true, reasons: [], evidence: {}, overrideResult: false };
     }
     return {
       passed: custom.passed !== false,
       reasons: Array.isArray(custom.reasons) ? custom.reasons : [],
-      evidence: custom.evidence || {}
+      evidence: custom.evidence || {},
+      overrideResult: rule.overrideResult === true || custom.overrideResult === true
     };
   }
 
@@ -543,16 +641,42 @@ function evaluateRule(rule, task, context) {
     reasons.push(rule.message || 'test framework not detected');
   }
 
+  if (rule.type === 'grant-evidence') {
+    const evidenceTargets = Array.isArray(rule.evidence) ? rule.evidence : [rule.evidence].filter(Boolean);
+    for (const key of evidenceTargets) {
+      evidence[key] = true;
+    }
+    if (Array.isArray(rule.files) && rule.files.length > 0) {
+      evidence.files = rule.files;
+    }
+    if (Array.isArray(rule.symbols) && rule.symbols.length > 0) {
+      evidence.symbols = rule.symbols;
+    }
+    if (Array.isArray(rule.codeFiles) && rule.codeFiles.length > 0) {
+      evidence.codeFiles = rule.codeFiles;
+      evidence.code = true;
+    }
+    if (Array.isArray(rule.testFiles) && rule.testFiles.length > 0) {
+      evidence.testFiles = rule.testFiles;
+      evidence.test = true;
+    }
+    if (Array.isArray(rule.artifactFiles) && rule.artifactFiles.length > 0) {
+      evidence.artifactFiles = rule.artifactFiles;
+      evidence.artifact = true;
+    }
+  }
+
   return {
     passed: reasons.length === 0,
     reasons,
-    evidence
+    evidence,
+    overrideResult: rule.overrideResult === true
   };
 }
 
 function buildValidationContext(projectRoot, config, plugins) {
   const files = walkFiles(projectRoot);
-  const fileIndex = readFileIndex(projectRoot, files);
+  const fileIndex = readFileIndex(projectRoot, files, config);
   const testFrameworks = detectTestFrameworks(projectRoot, files);
 
   return {
@@ -577,6 +701,7 @@ function validateTask(task, context, config, plugins) {
   // "roadmap-skill.config.json") are excluded from code evidence scoring.
   const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...standaloneFilenames]);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
+  const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens);
   const filesFromTests = findTestEvidence(task.text, context.fileIndex);
   const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
 
@@ -589,6 +714,7 @@ function validateTask(task, context, config, plugins) {
     files: filesFromPaths,
     symbols: filesFromSymbols,
     codeFiles: filesFromCode,
+    weakPathFiles: filesFromWeakPathTokens,
     testFiles: filesFromTests,
     artifactFiles: filesFromArtifacts,
     heuristicArtifacts,
@@ -611,31 +737,56 @@ function validateTask(task, context, config, plugins) {
   }
 
   const hasEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
-  if (!hasEvidence && !structuralCheck.applicable) {
+  const hasWeakEvidence = filesFromWeakPathTokens.length > 0;
+  if (!hasEvidence && !hasWeakEvidence && !structuralCheck.applicable) {
     reasons.push('no code, test, or artifact evidence found');
-  } else if (!hasEvidence && structuralCheck.applicable && structuralCheck.passed) {
+  } else if (!hasEvidence && !hasWeakEvidence && structuralCheck.applicable && structuralCheck.passed) {
     reasons.push('no code, test, or artifact evidence found');
   }
 
-  const requiresTest = context.testFrameworks.length > 0 && isCodeTask(task.text) && !isDocTask(task.text);
+  const requiresTest = !task.noTest && context.testFrameworks.length > 0 && isCodeTask(task.text) && !isDocTask(task.text);
   if (requiresTest && !evidence.test) {
     reasons.push('missing test evidence');
   }
 
   const configuredRules = Array.isArray(config.validators) ? config.validators : [];
   const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
+  let overrideResult = null;
   for (const rule of [...configuredRules, ...pluginRules]) {
     const ruleResult = evaluateRule(rule, task, context);
+    if (ruleResult.evidence && Object.keys(ruleResult.evidence).length > 0) {
+      Object.assign(evidence, mergeRuleEvidence(evidence, ruleResult.evidence));
+    }
     if (!ruleResult.passed) {
       reasons.push(...ruleResult.reasons);
     }
+    if (ruleResult.overrideResult) {
+      overrideResult = ruleResult;
+    }
   }
 
-  const uniqueReasons = Array.from(new Set(reasons));
-  const attempted = hasEvidence || pathHints.length > 0 || symbolHints.length > 0;
+  const hasStrongEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
+  if (hasStrongEvidence) {
+    const noEvidenceReason = 'no code, test, or artifact evidence found';
+    const idx = reasons.indexOf(noEvidenceReason);
+    if (idx >= 0) {
+      reasons.splice(idx, 1);
+    }
+  }
+
+  let uniqueReasons = Array.from(new Set(reasons));
+
+  if (overrideResult) {
+    uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
+  }
+
+  const attempted = hasStrongEvidence || hasWeakEvidence || pathHints.length > 0 || symbolHints.length > 0;
 
   const evidenceCount = [evidence.code, evidence.test, evidence.artifact].filter(Boolean).length;
-  const confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : 'low';
+  let confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : 'low';
+  if (confidence === 'low' && hasWeakEvidence) {
+    confidence = 'low';
+  }
 
   // True when the only passing evidence is artifact/doc files and the task is not a doc task.
   // Used by auditValidation to flag implementation tasks that pass solely via documentation.
@@ -643,13 +794,13 @@ function validateTask(task, context, config, plugins) {
 
   return {
     taskId: task.id,
-    passed: uniqueReasons.length === 0,
+    passed: overrideResult ? overrideResult.passed !== false : uniqueReasons.length === 0,
     confidence,
     reasons: uniqueReasons,
     evidence,
     evidenceIsDocOnly,
     requiresTest,
-    hasEvidence,
+    hasEvidence: hasStrongEvidence || hasWeakEvidence,
     attempted
   };
 }
