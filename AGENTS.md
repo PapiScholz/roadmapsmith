@@ -23,13 +23,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-05-14 3:47am GMT-3
+# [roadmapsmith] recent context, 2026-05-14 3:48am GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 44 obs (16,423t read) | 773,857t work | 98% savings
+Stats: 45 obs (16,826t read) | 775,932t work | 98% savings
 
 ### May 13, 2026
 400 11:09p ⚖️ Validator API design: dual override modes for custom validators
@@ -78,6 +78,7 @@ S98 Configure automated npm publishing from GitHub Actions using OIDC trusted pu
 442 " 🔵 Merge conflicts detected between release-v0.9.5 and main branches
 443 " 🔵 Git permission error on Windows with .git/index.lock file
 444 " 🔵 Git index.lock permission denied on Windows during stash operation
+445 3:47a 🔵 Windows git lock file permission issues requiring escalated permissions during merge workflow
 
-Access 774k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 776k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
