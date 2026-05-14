@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.4 - 2026-05-14
+
+### Fixed
+- `grant-evidence` can now satisfy required test evidence without `overrideResult: true`.
+- Validator test evidence now recognizes tests that read explicitly referenced files with `readFile` / `readFileSync`.
+- Validator rules can target stable task IDs with `whenId`.
+- CI validate smoke test now targets a roadmap task with current repository evidence.
+
+### CI / Release
+- Switched npm publishing back to Trusted Publishing/OIDC by using `id-token: write` and removing the static `NPM_TOKEN` publish path.
+
 ## v0.9.2 - 2026-04-29
 
 ### CI / Release
