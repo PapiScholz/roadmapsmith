@@ -50,6 +50,177 @@ test('validator checks explicit file existence hints', () => {
   assert.match(fail.reasons.join('; '), /missing referenced file/);
 });
 
+test('Evidence line with existing test file passes with medium confidence', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'thermal-printer.test.ts'),
+    'test("prints ticket", () => {});\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'thermal-printer',
+      text: 'Implement thermal printer support',
+      evidenceLines: [{ text: 'src/__tests__/thermal-printer.test.ts' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'medium');
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('Evidence line with code and test files passes and satisfies test requirement', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'thermal-printer.ts'), 'export function printTicket() {}\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'thermal-printer.test.ts'),
+    'import { printTicket } from "../lib/thermal-printer";\ntest("prints ticket", () => printTicket());\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'thermal-printer',
+      text: 'Implement thermal printer support',
+      evidenceLines: [{ text: 'src/lib/thermal-printer.ts, src/__tests__/thermal-printer.test.ts' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'high');
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('Evidence line ignores glob-like text and validates real file paths', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'orders'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'app', 'api', 'orders', 'route.ts'), 'export function requireAuth() {}\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'prod-api-auth-middleware',
+      text: 'Implement API auth middleware',
+      evidenceLines: [{ text: 'requireAuth() across /api/* plus src/app/api/orders/route.ts' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.ok(!result.reasons.some((reason) => reason.includes('/api/*')));
+});
+
+test('Evidence line with missing file fails with evidence file(s) not found', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'missing-evidence',
+      text: 'Implement inventory sync',
+      evidenceLines: [{ text: 'src/lib/foo.ts' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, false);
+  assert.match(result.reasons.join('; '), /evidence file\(s\) not found: src\/lib\/foo\.ts/);
+});
+
+test('Pathless Evidence test summary passes with medium confidence', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'reliability-checks',
+      text: 'Implement reliability regression checks',
+      evidenceLines: [{ text: '28/28 tests passing (vitest run 2026-05-14)' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'medium');
+  assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('Partial implementation helper alone does not complete feature task', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'customer-history.js'),
+    'export function getCustomerHistory() { return { customerHistory: [] }; }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    { id: 'p2-customer-history', text: 'Implement customer history feature' },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.evidence.code, true);
+  assert.equal(result.passed, false);
+});
+
+test('Negative implementation signals block authoritative Evidence completion', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'pos'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'pos', 'page.tsx'),
+    [
+      'export default function PosPage() {',
+      '  const mixedPayment = false;',
+      '  return <button disabled>{mixedPayment ? "Split payment" : "CARD"}</button>;',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'p2-mixed-payment',
+      text: 'Implement mixed payment flow',
+      evidenceLines: [{ text: 'src/app/pos/page.tsx' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, false);
+  assert.match(result.reasons.join('; '), /negative implementation signal found in matched evidence/);
+});
+
 test('natural-language slash pairs do not produce missing-file failures', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });

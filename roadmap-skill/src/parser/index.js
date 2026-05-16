@@ -4,10 +4,15 @@ const { slugify } = require('../utils');
 
 const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*?)(?:\s*<!--\s*rs:task=([a-z0-9-]+)([^>]*)-->)?\s*$/;
 const WARNING_RE = /^\s*-\s+⚠️ attempted but validation failed:\s*(.+?)\s*$/;
+const EVIDENCE_RE = /^\s*-\s+Evidence:\s*(.+?)\s*$/i;
 const HEADING_RE = /^#{2,3}\s+(.*)$/;
 
 const MANAGED_START = '<!-- rs:managed:start -->';
 const MANAGED_END = '<!-- rs:managed:end -->';
+
+function getIndentWidth(text) {
+  return String(text || '').replace(/\t/g, '    ').length;
+}
 
 function parseRoadmap(content) {
   const lines = String(content || '').split(/\r?\n/);
@@ -33,14 +38,43 @@ function parseRoadmap(content) {
     const markerId = taskMatch[4] || null;
     const markerFlags = taskMatch[5] || '';
     const noTest = /\brs:no-test\b/i.test(markerFlags);
+    const taskIndentWidth = getIndentWidth(indent);
 
     let warningLineIndex = null;
     let warningText = null;
-    if (index + 1 < lines.length) {
-      const nextLine = lines[index + 1];
-      const warningMatch = nextLine.match(WARNING_RE);
+    const evidenceLines = [];
+    let lastChildLineIndex = index;
+    for (let childIndex = index + 1; childIndex < lines.length; childIndex += 1) {
+      const childLine = lines[childIndex];
+      if (!childLine.trim()) {
+        break;
+      }
+      if (HEADING_RE.test(childLine) || TASK_LINE_RE.test(childLine)) {
+        break;
+      }
+
+      const childBulletMatch = childLine.match(/^(\s*)-\s+(.*)$/);
+      if (!childBulletMatch) {
+        break;
+      }
+      if (getIndentWidth(childBulletMatch[1] || '') <= taskIndentWidth) {
+        break;
+      }
+
+      lastChildLineIndex = childIndex;
+
+      const evidenceMatch = childLine.match(EVIDENCE_RE);
+      if (evidenceMatch) {
+        evidenceLines.push({
+          lineIndex: childIndex,
+          text: evidenceMatch[1].trim(),
+          raw: childLine
+        });
+      }
+
+      const warningMatch = childLine.match(WARNING_RE);
       if (warningMatch) {
-        warningLineIndex = index + 1;
+        warningLineIndex = childIndex;
         warningText = warningMatch[1].trim();
       }
     }
@@ -51,8 +85,10 @@ function parseRoadmap(content) {
       text,
       checked,
       lineIndex: index,
+      lastChildLineIndex,
       warningLineIndex,
       warningText,
+      evidenceLines,
       markerId,
       noTest,
       indent,

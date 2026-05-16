@@ -59,6 +59,25 @@ test('sync writes one warning line when validation fails', () => {
   assert.match(second, /missing test evidence/);
 });
 
+test('sync inserts warning after Evidence lines when validation fails', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P0',
+    '- [ ] Implement inventory sync <!-- rs:task=inventory-sync -->',
+    '  - Evidence: src/lib/inventory-sync.ts',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[ \] Implement inventory sync/);
+  assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/lib\/inventory-sync\.ts/);
+});
+
 test('sync leaves weak path-only Mercado Pago Point task unchecked with warning', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
@@ -115,4 +134,35 @@ test('sync pipeline: high-confidence task gets checked when minimumConfidence is
   const next = applySync(content, tasks, results);
 
   assert.ok(next.includes('- [x] implement xyzzy module'), 'Task should be checked');
+});
+
+test('sync does not overwrite an existing warning with checked state on weak evidence', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference', 'route.ts'),
+    [
+      "export async function POST() {",
+      "  return fetch('https://api.mercadopago.com/checkout/preferences');",
+      "}",
+      ""
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P2',
+    '- [ ] Integración Mercado Pago Point (posnet) via SDK local <!-- rs:task=p2-mp-point-integration -->',
+    '  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[ \] Integración Mercado Pago Point/);
+  assert.match(next, /⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match/);
 });

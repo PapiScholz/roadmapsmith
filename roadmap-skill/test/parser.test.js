@@ -18,6 +18,23 @@ test('parseRoadmap extracts tasks and warning lines', () => {
   assert.equal(parsed.tasks[0].warningText, 'missing tests');
 });
 
+test('parseRoadmap associates Evidence lines and delayed warning with the same task', () => {
+  const content = [
+    '## Phase P0',
+    '- [ ] Implement thermal printer support <!-- rs:task=thermal-printer -->',
+    '  - Evidence: src/lib/thermal-printer.ts, src/__tests__/thermal-printer.test.ts',
+    '  - ⚠️ attempted but validation failed: missing test evidence',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.equal(parsed.tasks.length, 1);
+  assert.equal(parsed.tasks[0].evidenceLines.length, 1);
+  assert.equal(parsed.tasks[0].evidenceLines[0].text, 'src/lib/thermal-printer.ts, src/__tests__/thermal-printer.test.ts');
+  assert.equal(parsed.tasks[0].warningText, 'missing test evidence');
+  assert.equal(parsed.tasks[0].lastChildLineIndex, 3);
+});
+
 test('parseRoadmap extracts rs:no-test marker flag', () => {
   const content = '- [ ] Implement windows autostart <!-- rs:task=p0-windows-autostart rs:no-test -->';
   const parsed = parseRoadmap(content);
