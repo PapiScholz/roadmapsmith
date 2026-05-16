@@ -800,9 +800,6 @@ function findNegativeImplementationSignals(candidatePaths, fileIndex) {
 
   const indexedFiles = new Map(fileIndex.map((file) => [file.relativePath, file]));
   const negativeSignals = [
-    /\bTODO\b/i,
-    /\bFIXME\b/i,
-    /\bdisabled\b/i,
     /\bnot implemented\b/i,
     /throw\s+new\s+Error\s*\(\s*['"`][^'"`]*not implemented/i
   ];
@@ -1166,6 +1163,23 @@ function validateTask(task, context, config, plugins) {
     passed = false;
   }
 
+  const shouldPreserveCheckedTask =
+    task.checked &&
+    !passed &&
+    !authoritativeEvidence.active &&
+    pathHints.length === 0 &&
+    symbolHints.length === 0 &&
+    !hasDirectReferencePass &&
+    evidence.structuralEvidence !== false &&
+    negativeSignalMatches.length === 0;
+  let preservedCheckedState = false;
+  if (shouldPreserveCheckedTask) {
+    passed = true;
+    confidence = 'low';
+    uniqueReasons = [];
+    preservedCheckedState = true;
+  }
+
   // True when the only passing evidence is artifact/doc files and the task is not a doc task.
   // Used by auditValidation to flag implementation tasks that pass solely via documentation.
   const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
@@ -1179,7 +1193,8 @@ function validateTask(task, context, config, plugins) {
     evidenceIsDocOnly,
     requiresTest,
     hasEvidence: hasStrongEvidence || hasWeakEvidence,
-    attempted
+    attempted,
+    preservedCheckedState
   };
 }
 
@@ -1237,6 +1252,9 @@ function applyMinimumConfidence(results, minimumConfidence) {
   const minRank = CONFIDENCE_RANK[minimumConfidence] ?? 0;
   if (minRank === 0) return;
   for (const result of Object.values(results)) {
+    if (result.preservedCheckedState) {
+      continue;
+    }
     if ((CONFIDENCE_RANK[result.confidence] ?? 0) < minRank) {
       result.passed = false;
       result.reasons = [

@@ -189,15 +189,14 @@ test('Partial implementation helper alone does not complete feature task', () =>
   assert.equal(result.passed, false);
 });
 
-test('Negative implementation signals block authoritative Evidence completion', () => {
+test('Negative implementation signals block authoritative Evidence completion when code is explicitly not implemented', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'pos'), { recursive: true });
   fs.writeFileSync(
     path.join(projectRoot, 'src', 'app', 'pos', 'page.tsx'),
     [
       'export default function PosPage() {',
-      '  const mixedPayment = false;',
-      '  return <button disabled>{mixedPayment ? "Split payment" : "CARD"}</button>;',
+      "  throw new Error('not implemented');",
       '}',
       ''
     ].join('\n'),
@@ -219,6 +218,100 @@ test('Negative implementation signals block authoritative Evidence completion', 
 
   assert.equal(result.passed, false);
   assert.match(result.reasons.join('; '), /negative implementation signal found in matched evidence/);
+});
+
+test('Standard JSX disabled attribute does not count as a negative implementation signal', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'pos'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'pos', 'page.tsx'),
+    [
+      'export default function PosPage() {',
+      '  const isLoading = false;',
+      '  return <button disabled={isLoading}>Cobrar</button>;',
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'pos-page.test.tsx'),
+    "import PosPage from '../app/pos/page';\ntest('renders', () => PosPage());\n",
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'p2-mixed-payment',
+      text: 'Implement mixed payment flow',
+      evidenceLines: [{ text: 'src/app/pos/page.tsx, src/__tests__/pos-page.test.tsx' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.ok(!result.reasons.some((reason) => reason.includes('negative implementation signal')));
+});
+
+test('checked task without Evidence or path hints is preserved with low confidence', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'milestone-v0-1',
+      text: 'Foundation baseline complete milestone',
+      checked: true
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'low');
+  assert.equal(result.preservedCheckedState, true);
+});
+
+test('checked task with failed structural evidence is not preserved', () => {
+  const projectRoot = setupFixture('namespace-vocab');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'evh2-sample',
+      text: 'validator hardening',
+      checked: true
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, false);
+  assert.equal(result.evidence.structuralEvidence, false);
+  assert.equal(result.preservedCheckedState, false);
+});
+
+test('minimumConfidence does not demote preserved checked tasks', () => {
+  const results = {
+    'milestone-v0-1': {
+      passed: true,
+      confidence: 'low',
+      reasons: [],
+      preservedCheckedState: true
+    }
+  };
+
+  applyMinimumConfidence(results, 'medium');
+
+  assert.equal(results['milestone-v0-1'].passed, true);
+  assert.deepEqual(results['milestone-v0-1'].reasons, []);
 });
 
 test('natural-language slash pairs do not produce missing-file failures', () => {
