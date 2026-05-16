@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.6 - 2026-05-16
+
+### Fixed
+- `roadmapsmith sync` now scopes validation and updates to existing `rs:managed` blocks instead of allowing managed content to be structurally replaced.
+- Existing managed roadmap blocks preserve custom headings, business context, task order, and task presence; sync only updates checkbox state and validation warning lines.
+- Added regression coverage for weak path-only evidence so failed tasks receive a single warning without regenerating generic roadmap content.
+
+### CI / Release
+- Fixed GitHub Release note extraction to support `vX.Y.Z`, `[X.Y.Z]`, and `[vX.Y.Z]` changelog headings.
+- Bumped the npm package to `0.9.6` so the release workflow publishes a new package and GitHub Release.
+
 ## v0.9.4 - 2026-05-14
 
 ### Fixed
