@@ -110,7 +110,14 @@ jobs:
         id: changelog
         run: |
           VERSION=${{ steps.version_check.outputs.current }}
-          NOTES=$(awk "/^## v$VERSION/{found=1; next} /^## v/{if(found) exit} found{print}" CHANGELOG.md)
+          NOTES=$(awk -v version="$VERSION" '
+            $0 ~ "^##[[:space:]]+([[]?v?" version "[]]?)([[:space:]]|$)" { found=1; next }
+            found && $0 ~ "^##[[:space:]]+" { exit }
+            found { print }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release v$VERSION"
+          fi
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
