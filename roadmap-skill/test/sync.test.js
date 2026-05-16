@@ -166,3 +166,47 @@ test('sync does not overwrite an existing warning with checked state on weak evi
   assert.match(next, /- \[ \] Integración Mercado Pago Point/);
   assert.match(next, /⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match/);
 });
+
+test('sync preserves an already checked task with no evidence or path hints', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Milestones',
+    '- [x] Foundation baseline complete milestone <!-- rs:task=milestone-v0-1 -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.equal(results['milestone-v0-1'].passed, true);
+  assert.equal(results['milestone-v0-1'].confidence, 'low');
+  assert.equal(results['milestone-v0-1'].preservedCheckedState, true);
+  assert.match(next, /- \[x\] Foundation baseline complete milestone/);
+});
+
+test('sync preserves checked task when minimumConfidence is medium and state was preserved', () => {
+  const content = '## Milestones\n- [x] Foundation baseline complete milestone <!-- rs:task=milestone-v0-1 -->\n';
+  const tasks = [{
+    id: 'milestone-v0-1',
+    text: 'Foundation baseline complete milestone',
+    lineIndex: 1,
+    checked: true
+  }];
+  const results = {
+    'milestone-v0-1': {
+      passed: true,
+      confidence: 'low',
+      reasons: [],
+      preservedCheckedState: true
+    }
+  };
+
+  applyMinimumConfidence(results, 'medium');
+  const next = applySync(content, tasks, results);
+
+  assert.equal(results['milestone-v0-1'].passed, true);
+  assert.match(next, /- \[x\] Foundation baseline complete milestone/);
+});

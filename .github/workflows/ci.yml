@@ -88,25 +88,41 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Detectar si la versión es nueva
+      - name: Detectar estado de publicación
         id: version_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view roadmapsmith version 2>/dev/null || echo "none")
+          NPM_VIEW_ERROR=$(mktemp)
+          if PUBLISHED=$(npm view roadmapsmith version 2>"$NPM_VIEW_ERROR"); then
+            :
+          elif grep -q 'E404' "$NPM_VIEW_ERROR"; then
+            PUBLISHED="none"
+          else
+            echo "::error::Failed to query npm for the published roadmapsmith version."
+            cat "$NPM_VIEW_ERROR"
+            exit 1
+          fi
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
           if [ "$CURRENT" != "$PUBLISHED" ]; then
-            echo "is_new=true" >> $GITHUB_OUTPUT
+            echo "publish_needed=true" >> $GITHUB_OUTPUT
           else
-            echo "is_new=false" >> $GITHUB_OUTPUT
+            echo "publish_needed=false" >> $GITHUB_OUTPUT
+          fi
+          if gh release view "v$CURRENT" >/dev/null 2>&1; then
+            echo "github_release_needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "github_release_needed=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Publicar en npm
-        if: steps.version_check.outputs.is_new == 'true'
+        if: steps.version_check.outputs.publish_needed == 'true'
         run: npm publish --access public
 
       - name: Extraer notas del release desde CHANGELOG.md
-        if: steps.version_check.outputs.is_new == 'true'
+        if: steps.version_check.outputs.publish_needed == 'true' || steps.version_check.outputs.github_release_needed == 'true'
         id: changelog
         run: |
           VERSION=${{ steps.version_check.outputs.current }}
@@ -123,7 +139,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Crear GitHub Release
-        if: steps.version_check.outputs.is_new == 'true'
+        if: steps.version_check.outputs.github_release_needed == 'true'
         run: |
           gh release create "v${{ steps.version_check.outputs.current }}" \
             --title "v${{ steps.version_check.outputs.current }}" \
