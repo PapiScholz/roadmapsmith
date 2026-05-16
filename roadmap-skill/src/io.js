@@ -159,7 +159,7 @@ function detectTestFrameworks(projectRoot, files) {
   if (files.some((file) => file.endsWith('pyproject.toml')) || files.some((file) => file.endsWith('pytest.ini'))) {
     frameworks.add('pytest');
   }
-  if (files.some((file) => /(^|\/)test_.*\.py$/.test(file)) || files.some((file) => /(^|\/)tests\//.test(file))) {
+  if (files.some((file) => /(^|\/)test_[^/]*\.py$/.test(file)) || files.some((file) => /(^|\/)tests\//.test(file))) {
     frameworks.add('python-tests');
   }
   if (files.some((file) => file.endsWith('go.mod'))) {
