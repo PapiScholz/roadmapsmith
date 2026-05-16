@@ -42,9 +42,18 @@ test('validator checks explicit file existence hints', () => {
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
-  const pass = validateTask({ id: 'artifact-path', text: 'Document artifact in `docs/artifact.txt`' }, context, config, []);
-  assert.equal(pass.passed, true);
+  // Unchecked task: file exists but file-existence alone is not sufficient for unchecked tasks
+  // (path hint shows WHERE to implement, not that implementation is done).
+  const unchecked = validateTask({ id: 'artifact-path', text: 'Document artifact in `docs/artifact.txt`' }, context, config, []);
+  assert.equal(unchecked.passed, false);
+  assert.ok(unchecked.reasons.some((r) => r.includes('implementation location')), 'unchecked task must get location reason');
 
+  // Already-checked task: file exists → preserved via shouldPreserveCheckedTask.
+  const checked = validateTask({ id: 'artifact-path-done', text: 'Document artifact in `docs/artifact.txt`', checked: true }, context, config, []);
+  assert.equal(checked.passed, true, 'checked task with found file must be preserved');
+  assert.equal(checked.preservedCheckedState, true);
+
+  // File does not exist → missing reason regardless of checked state.
   const fail = validateTask({ id: 'missing-file', text: 'Create parser in `src/missing.js`' }, context, config, []);
   assert.equal(fail.passed, false);
   assert.match(fail.reasons.join('; '), /missing referenced file/);
@@ -1162,4 +1171,101 @@ test('default excluded template directories and configured skillsDir are skipped
   assert.ok(!indexedPaths.some((p) => p.startsWith('.agent/')));
   assert.ok(!indexedPaths.some((p) => p.startsWith('roadmap-skill/')));
   assert.ok(!indexedPaths.some((p) => p.startsWith('custom-skills/')));
+});
+
+// --- Regression: v0.9.10 false-positive and false-negative fixes ---
+
+test('Bare "/" from prose separator (e.g. "API / ESC-POS") is not extracted as path hint', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'p1-thermal-printer',
+      text: 'Impresión de tickets en impresora térmica 80mm (Web Serial API / ESC-POS)',
+      checked: false
+    },
+    context, config, []
+  );
+
+  assert.ok(!result.reasons.some((r) => r.includes('"/"') || r === 'missing referenced file(s): /'), 'bare "/" must not appear in reasons');
+});
+
+test('Backtick-quoted property access like err.message is not extracted as a path hint', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-sanitize-error-messages',
+      text: 'Sanitize error responses: never expose `err.message` or `error.stack` to the client',
+      checked: false
+    },
+    context, config, []
+  );
+
+  assert.ok(!result.reasons.some((r) => r.includes('err.message') || r.includes('error.stack')), 'property access must not appear in missing-file reasons');
+});
+
+test('authoritativeEvidence.passed=true overrides missing path-hint file reason', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'auth.ts'), 'export function requireAuth() {}\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-auth-guard',
+      text: 'Add requireAuth guard to all routes — see src/lib/nonexistent-moved.ts for pattern',
+      checked: false,
+      evidenceLines: [{ text: 'src/lib/auth.ts — requireAuth implemented and tested' }]
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, true, 'authoritative evidence must override missing path hint');
+  assert.ok(!result.reasons.some((r) => r.includes('nonexistent-moved')), 'missing path hint reason must be suppressed by auth evidence');
+});
+
+test('Unchecked task with pure path hint (file exists, no impl evidence) does not auto-pass', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'db.ts'), 'export function query() {}\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-db-corruption-recovery',
+      text: 'Add fallback recovery in src/lib/db.ts when database corruption is detected',
+      checked: false
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, false, 'unchecked task must not pass just because referenced file exists');
+  assert.ok(result.reasons.some((r) => r.includes('implementation location')), 'reason must clarify that path hint shows location not completion');
+});
+
+test('Checked [x] task with pure path hint (file exists, no impl evidence) is preserved', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'db.ts'), 'export function query() {}\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-db-corruption-recovery',
+      text: 'Add fallback recovery in src/lib/db.ts when database corruption is detected',
+      checked: true
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, true, 'already-checked task with found path hint must be preserved');
+  assert.equal(result.preservedCheckedState, true, 'preservedCheckedState must be true');
 });
