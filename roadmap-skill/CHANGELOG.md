@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.8 - 2026-05-16
+
+### Fixed
+- Validator now preserves already-checked tasks that lack machine-readable evidence (`preservedCheckedState`), preventing false negatives from silently unchecking legitimately completed tasks.
+- Removed `TODO`, `FIXME`, and `disabled` from negative implementation signals — these appear in normal codebases and were causing false negatives in unrelated task validations.
+- `minimumConfidence` threshold now skips tasks in preserved-checked state, so the threshold can't undo a valid preservation decision.
+
+### CI / Release
+- `publish_needed` and `github_release_needed` are now independent flags in the release workflow — a GitHub Release is created whenever the tag doesn't exist, regardless of whether npm publish ran.
+- `npm view` failure is now distinguished between E404 (package not yet published) and real network/registry errors.
+
 ## v0.9.7 - 2026-05-16
 
 ### Fixed
