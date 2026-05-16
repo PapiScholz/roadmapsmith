@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.7 - 2026-05-16
+
+### Fixed
+- Validator now treats task-local `Evidence:` lines as authoritative when they reference real files or explicit passing test summaries, preventing false negatives during `sync --audit`.
+- Heuristic completion is stricter for implementation tasks, blocking weak single-signal matches and explicit negative signals like `disabled` or `not implemented`.
+- Parser and validator path extraction were rewritten with linear string parsing to resolve CodeQL ReDoS alerts on roadmap and evidence input handling.
+
 ## v0.9.6 - 2026-05-16
 
 ### Fixed
