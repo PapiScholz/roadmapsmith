@@ -178,6 +178,7 @@ function hasFileExtension(token) {
 }
 
 function isLikelyPath(token) {
+  if (token.includes('*') || token.includes('?')) return false; // glob/wildcard
   if (/^\.{1,2}\/|^\//.test(token)) return true;
   if (hasFileExtension(token)) return true;
   if (KNOWN_PATH_ROOTS.some((root) => token.startsWith(root))) return true;
@@ -288,7 +289,9 @@ function extractExplicitPaths(text) {
     }
   }
 
-  const paths = Array.from(results).sort((left, right) => left.localeCompare(right));
+  const paths = Array.from(results)
+    .filter((p) => !p.includes('*') && !p.includes('?'))
+    .sort((left, right) => left.localeCompare(right));
   return { paths, lineReferenceHints };
 }
 
