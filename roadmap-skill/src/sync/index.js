@@ -34,6 +34,7 @@ function applySync(content, parsedTasks, results) {
     const warningText = formatWarning(task.indent || '', reason || 'validation failed');
     const hasWarning = task.warningLineIndex != null;
     const warningIndex = hasWarning ? task.warningLineIndex + offset : null;
+    const lastChildLineIndex = (task.lastChildLineIndex != null ? task.lastChildLineIndex : task.lineIndex) + offset;
 
     if (result.passed || !result.attempted) {
       if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
@@ -46,7 +47,7 @@ function applySync(content, parsedTasks, results) {
     if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
       lines[warningIndex] = warningText;
     } else {
-      lines.splice(lineIndex + 1, 0, warningText);
+      lines.splice(lastChildLineIndex + 1, 0, warningText);
       offset += 1;
     }
   }

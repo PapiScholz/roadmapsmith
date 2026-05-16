@@ -206,6 +206,49 @@ function hasKnownFileExtension(token) {
   return KNOWN_FILE_EXTENSIONS.has(token.slice(lastDot).toLowerCase());
 }
 
+function isAsciiAlphaNumeric(char) {
+  if (!char || char.length === 0) return false;
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isPathTokenCharacter(char) {
+  return isAsciiAlphaNumeric(char) || char === '.' || char === '_' || char === '-' || char === '/' || char === '\\';
+}
+
+function stripTrailingPathPunctuation(token) {
+  let result = String(token || '');
+  while (result.length > 0) {
+    const lastChar = result[result.length - 1];
+    if (lastChar !== '.' && lastChar !== ',' && lastChar !== ';' && lastChar !== ':' && lastChar !== '!' && lastChar !== '?' && lastChar !== ')') {
+      break;
+    }
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+function collectPathishTokens(text) {
+  const tokens = [];
+  let current = '';
+  const source = String(text || '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (isPathTokenCharacter(char)) {
+      current += char;
+      continue;
+    }
+    if (current) {
+      tokens.push(stripTrailingPathPunctuation(current));
+      current = '';
+    }
+  }
+  if (current) {
+    tokens.push(stripTrailingPathPunctuation(current));
+  }
+  return tokens.filter(Boolean);
+}
+
 function extractExplicitPaths(text) {
   const results = new Set();
   const quoted = String(text).match(/`([^`]+)`/g) || [];
@@ -218,7 +261,7 @@ function extractExplicitPaths(text) {
 
   const pathTokens = String(text).match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)/g) || [];
   for (const raw of pathTokens) {
-    const token = raw.replace(/[.,;:!?)]+$/, '');
+    const token = stripTrailingPathPunctuation(raw);
     if (isLikelyPath(token)) results.add(token);
   }
 
@@ -235,7 +278,7 @@ function extractStandaloneFilenames(text) {
   STANDALONE_FILE_RE.lastIndex = 0;
   let m = STANDALONE_FILE_RE.exec(String(text));
   while (m) {
-    const token = m[1].replace(/[.,;:!?)]+$/, '');
+    const token = stripTrailingPathPunctuation(m[1]);
     if (hasKnownFileExtension(token) && !token.startsWith('.')) {
       results.add(token);
     }
@@ -576,6 +619,207 @@ function findArtifactEvidence(taskText, fileIndex) {
   return { files: files.slice(0, 20), heuristicArtifacts };
 }
 
+function unionArrays(...values) {
+  return Array.from(new Set(values.flat().filter(Boolean)));
+}
+
+function isTestPath(relativePath) {
+  return /(^|\/)(__tests__|tests)\//.test(relativePath) || /\.test\.|\.spec\.|_test\.go$/.test(relativePath);
+}
+
+function extractEvidencePaths(evidenceText) {
+  const paths = new Set();
+  for (const rawCandidate of collectPathishTokens(evidenceText)) {
+    const candidate = rawCandidate.split('\\').join('/');
+    if (!candidate.includes('/') || candidate.includes('*') || candidate.includes('?')) {
+      continue;
+    }
+    if (!hasKnownFileExtension(candidate)) {
+      continue;
+    }
+    paths.add(candidate.replace(/^\.\//, ''));
+  }
+  return Array.from(paths).sort((left, right) => left.localeCompare(right));
+}
+
+function evidenceLineHasPassingSummary(evidenceText) {
+  const text = String(evidenceText || '');
+  if (/\b\d+\s*\/\s*\d+\s+tests?\s+passing\b/i.test(text)) {
+    return true;
+  }
+  if (/\b(?:vitest|jest|npm test|pnpm test|yarn test|bun test)\b.*\b(?:pass(?:ing|ed)?|green|success(?:ful|fully)?)\b/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function evidenceSummaryImpliesTests(evidenceText) {
+  return /\btests?\b/i.test(String(evidenceText || '')) ||
+    /\b(?:vitest|jest|npm test|pnpm test|yarn test|bun test)\b/i.test(String(evidenceText || ''));
+}
+
+function evaluateAuthoritativeEvidence(task, fileIndex) {
+  const evidenceLines = Array.isArray(task.evidenceLines) ? task.evidenceLines : [];
+  if (evidenceLines.length === 0) {
+    return {
+      active: false,
+      passed: false,
+      confidence: null,
+      referencedPaths: [],
+      matchedPaths: [],
+      summaryMatches: [],
+      summaryImpliesTests: false,
+      hasExtractedPaths: false
+    };
+  }
+
+  const referencedPaths = unionArrays(...evidenceLines.map((line) => extractEvidencePaths(line.text)));
+  const matchedPaths = referencedPaths.length > 0 ? findFilesByPathHints(referencedPaths, fileIndex) : [];
+  const summaryMatches = evidenceLines
+    .filter((line) => evidenceLineHasPassingSummary(line.text))
+    .map((line) => line.text);
+  const summaryImpliesTests = summaryMatches.some((line) => evidenceSummaryImpliesTests(line));
+  const matchedTestPaths = matchedPaths.filter((relativePath) => isTestPath(relativePath));
+  const matchedNonTestPaths = matchedPaths.filter((relativePath) => !isTestPath(relativePath));
+
+  if (referencedPaths.length > 0) {
+    if (matchedPaths.length === 0) {
+      return {
+        active: true,
+        passed: false,
+        confidence: 'low',
+        referencedPaths,
+        matchedPaths: [],
+        summaryMatches: [],
+        summaryImpliesTests: false,
+        hasExtractedPaths: true,
+        reasons: [`evidence file(s) not found: ${referencedPaths.join(', ')}`]
+      };
+    }
+
+    return {
+      active: true,
+      passed: true,
+      confidence: matchedTestPaths.length > 0 && matchedNonTestPaths.length > 0 ? 'high' : 'medium',
+      referencedPaths,
+      matchedPaths,
+      summaryMatches: [],
+      summaryImpliesTests: matchedTestPaths.length > 0,
+      hasExtractedPaths: true,
+      reasons: []
+    };
+  }
+
+  if (summaryMatches.length > 0) {
+    return {
+      active: true,
+      passed: true,
+      confidence: 'medium',
+      referencedPaths: [],
+      matchedPaths: [],
+      summaryMatches,
+      summaryImpliesTests,
+      hasExtractedPaths: false,
+      reasons: []
+    };
+  }
+
+  return {
+    active: true,
+    passed: false,
+    confidence: null,
+    referencedPaths: [],
+    matchedPaths: [],
+    summaryMatches: [],
+    summaryImpliesTests: false,
+    hasExtractedPaths: false,
+    reasons: []
+  };
+}
+
+function applyAuthoritativeEvidence(evidence, authoritativeEvidence, fileIndex) {
+  evidence.authoritative = authoritativeEvidence.passed;
+  evidence.authoritativeFiles = authoritativeEvidence.matchedPaths;
+  evidence.authoritativeSummaries = authoritativeEvidence.summaryMatches;
+  evidence.files = unionArrays(evidence.files, authoritativeEvidence.matchedPaths);
+
+  const indexedFiles = new Map(fileIndex.map((file) => [file.relativePath, file]));
+  for (const relativePath of authoritativeEvidence.matchedPaths) {
+    const file = indexedFiles.get(relativePath);
+    if (!file) {
+      continue;
+    }
+    if (file.isTestFile || isTestPath(relativePath)) {
+      evidence.test = true;
+      evidence.testFiles = unionArrays(evidence.testFiles, [relativePath]);
+      continue;
+    }
+    if (CODE_EXTENSIONS.has(file.ext)) {
+      evidence.code = true;
+      evidence.codeFiles = unionArrays(evidence.codeFiles, [relativePath]);
+      continue;
+    }
+    evidence.artifact = true;
+    evidence.artifactFiles = unionArrays(evidence.artifactFiles, [relativePath]);
+  }
+
+  if (authoritativeEvidence.summaryImpliesTests) {
+    evidence.test = true;
+  }
+}
+
+function countStrongEvidenceCategories(taskText, evidence) {
+  if (isDocTask(taskText)) {
+    return {
+      categories: [
+        ...(evidence.artifact ? ['artifact'] : []),
+        ...(evidence.files.length > 0 ? ['referenced-file'] : []),
+        ...(evidence.code ? ['code'] : []),
+        ...(evidence.test ? ['test'] : [])
+      ]
+    };
+  }
+
+  const categories = [];
+  if (evidence.code) {
+    categories.push('code');
+  }
+  if (evidence.test) {
+    categories.push('test');
+  }
+  if (evidence.files.length > 0 || evidence.symbols.length > 0 || evidence.structuralEvidence === true) {
+    categories.push('feature-surface');
+  }
+  return { categories };
+}
+
+function findNegativeImplementationSignals(candidatePaths, fileIndex) {
+  if (!Array.isArray(candidatePaths) || candidatePaths.length === 0) {
+    return [];
+  }
+
+  const indexedFiles = new Map(fileIndex.map((file) => [file.relativePath, file]));
+  const negativeSignals = [
+    /\bTODO\b/i,
+    /\bFIXME\b/i,
+    /\bdisabled\b/i,
+    /\bnot implemented\b/i,
+    /throw\s+new\s+Error\s*\(\s*['"`][^'"`]*not implemented/i
+  ];
+
+  const matches = [];
+  for (const relativePath of unionArrays(candidatePaths)) {
+    const file = indexedFiles.get(relativePath);
+    if (!file || file.isTestFile || !CODE_EXTENSIONS.has(file.ext)) {
+      continue;
+    }
+    if (negativeSignals.some((pattern) => pattern.test(file.content))) {
+      matches.push(relativePath);
+    }
+  }
+  return matches.sort((left, right) => left.localeCompare(right));
+}
+
 function extractTaskNamespace(taskId) {
   if (!taskId) return null;
   const match = String(taskId).match(/^([a-z][a-z0-9]*)-/);
@@ -771,6 +1015,7 @@ function validateTask(task, context, config, plugins) {
   const pathHints = extractExplicitPaths(task.text);
   const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
+  const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.fileIndex);
 
   const filesFromPaths = findFilesByPathHints(pathHints, context.fileIndex);
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
@@ -800,11 +1045,18 @@ function validateTask(task, context, config, plugins) {
     heuristicArtifacts,
     structuralEvidence: structuralCheck.applicable ? structuralCheck.passed : null,
     structuralFiles: structuralCheck.structuralFiles,
+    authoritative: false,
+    authoritativeFiles: [],
+    authoritativeSummaries: []
   };
+  applyAuthoritativeEvidence(evidence, authoritativeEvidence, context.fileIndex);
 
   const reasons = [];
   if (pathHints.length > 0 && filesFromPaths.length === 0) {
     reasons.push(`missing referenced file(s): ${pathHints.join(', ')}`);
+  }
+  if (Array.isArray(authoritativeEvidence.reasons) && authoritativeEvidence.reasons.length > 0) {
+    reasons.push(...authoritativeEvidence.reasons);
   }
   if (symbolHints.length > 0 && filesFromSymbols.length === 0) {
     reasons.push(`missing symbol(s): ${symbolHints.join(', ')}`);
@@ -818,9 +1070,9 @@ function validateTask(task, context, config, plugins) {
 
   const hasEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
   const hasWeakEvidence = filesFromWeakPathTokens.length > 0;
-  if (!hasEvidence && !hasWeakEvidence && !structuralCheck.applicable) {
+  if (!hasEvidence && !hasWeakEvidence && !structuralCheck.applicable && !authoritativeEvidence.hasExtractedPaths && !authoritativeEvidence.passed) {
     reasons.push('no code, test, or artifact evidence found');
-  } else if (!hasEvidence && !hasWeakEvidence && structuralCheck.applicable && structuralCheck.passed) {
+  } else if (!hasEvidence && !hasWeakEvidence && structuralCheck.applicable && structuralCheck.passed && !authoritativeEvidence.hasExtractedPaths && !authoritativeEvidence.passed) {
     reasons.push('no code, test, or artifact evidence found');
   } else if (!hasEvidence && hasWeakEvidence) {
     if (weakPathContentTokens.length === 0) {
@@ -834,9 +1086,11 @@ function validateTask(task, context, config, plugins) {
   const configuredRules = Array.isArray(config.validators) ? config.validators : [];
   const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
   let overrideResult = null;
+  let hasRuleGrantedEvidence = false;
   for (const rule of [...configuredRules, ...pluginRules]) {
     const ruleResult = evaluateRule(rule, task, context);
     if (ruleResult.evidence && Object.keys(ruleResult.evidence).length > 0) {
+      hasRuleGrantedEvidence = true;
       Object.assign(evidence, mergeRuleEvidence(evidence, ruleResult.evidence));
     }
     if (!ruleResult.passed) {
@@ -856,7 +1110,7 @@ function validateTask(task, context, config, plugins) {
     }
   }
 
-  if (requiresTest && !evidence.test) {
+  if (requiresTest && !evidence.test && !authoritativeEvidence.passed) {
     reasons.push('missing test evidence');
   }
 
@@ -866,12 +1120,50 @@ function validateTask(task, context, config, plugins) {
     uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
   }
 
-  const attempted = hasStrongEvidence || hasWeakEvidence || pathHints.length > 0 || symbolHints.length > 0;
+  const attempted = hasStrongEvidence || hasWeakEvidence || pathHints.length > 0 || symbolHints.length > 0 || authoritativeEvidence.active;
+  const { categories: strongEvidenceCategories } = countStrongEvidenceCategories(task.text, evidence);
+  const strongEvidenceCount = strongEvidenceCategories.length;
+  const hasDirectReferencePass = filesFromPaths.length > 0 || filesFromSymbols.length > 0;
+  const hasArtifactTaskPass = evidence.artifact && (
+    isDocTask(task.text) ||
+    evidence.heuristicArtifacts.length > 0 ||
+    filesFromPaths.some((relativePath) => !CODE_EXTENSIONS.has(path.extname(relativePath).toLowerCase()))
+  );
+  const hasTrustedRuleEvidencePass = hasRuleGrantedEvidence && uniqueReasons.length === 0;
+  const meetsStrongThreshold = !isDocTask(task.text) && strongEvidenceCount >= 2;
 
-  const evidenceCount = [evidence.code, evidence.test, evidence.artifact].filter(Boolean).length;
-  let confidence = evidenceCount >= 2 ? 'high' : evidenceCount === 1 ? 'medium' : 'low';
-  if (confidence === 'low' && hasWeakEvidence) {
-    confidence = 'low';
+  let confidence = 'low';
+  if (authoritativeEvidence.passed) {
+    confidence = authoritativeEvidence.confidence || 'medium';
+  } else if (meetsStrongThreshold) {
+    confidence = 'high';
+  } else if (strongEvidenceCount === 1 || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass) {
+    confidence = 'medium';
+  }
+
+  const negativeSignalMatches = findNegativeImplementationSignals(
+    unionArrays(
+      evidence.codeFiles,
+      evidence.files,
+      evidence.symbols,
+      evidence.weakPathFiles,
+      evidence.structuralFiles
+    ),
+    context.fileIndex
+  );
+  if (negativeSignalMatches.length > 0) {
+    uniqueReasons.push(`negative implementation signal found in matched evidence: ${negativeSignalMatches.join(', ')}`);
+    uniqueReasons = Array.from(new Set(uniqueReasons));
+  }
+
+  let passed = authoritativeEvidence.passed || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
+  if (task.warningText && passed && !authoritativeEvidence.passed && !meetsStrongThreshold) {
+    passed = false;
+    uniqueReasons.push(task.warningText);
+    uniqueReasons = Array.from(new Set(uniqueReasons));
+  }
+  if (negativeSignalMatches.length > 0) {
+    passed = false;
   }
 
   // True when the only passing evidence is artifact/doc files and the task is not a doc task.
@@ -880,7 +1172,7 @@ function validateTask(task, context, config, plugins) {
 
   return {
     taskId: task.id,
-    passed: overrideResult ? overrideResult.passed !== false : uniqueReasons.length === 0,
+    passed: overrideResult ? overrideResult.passed !== false : (passed && uniqueReasons.length === 0),
     confidence,
     reasons: uniqueReasons,
     evidence,

@@ -2,12 +2,89 @@
 
 const { slugify } = require('../utils');
 
-const TASK_LINE_RE = /^(\s*)- \[( |x|X)\] (.*?)(?:\s*<!--\s*rs:task=([a-z0-9-]+)([^>]*)-->)?\s*$/;
-const WARNING_RE = /^\s*-\s+⚠️ attempted but validation failed:\s*(.+?)\s*$/;
-const HEADING_RE = /^#{2,3}\s+(.*)$/;
-
 const MANAGED_START = '<!-- rs:managed:start -->';
 const MANAGED_END = '<!-- rs:managed:end -->';
+const WARNING_PREFIX = '⚠️ attempted but validation failed:';
+
+function getIndentWidth(text) {
+  return String(text || '').replace(/\t/g, '    ').length;
+}
+
+function splitIndent(line) {
+  const value = String(line || '');
+  const trimmed = value.trimStart();
+  return {
+    indent: value.slice(0, value.length - trimmed.length),
+    content: trimmed
+  };
+}
+
+function parseHeadingLine(line) {
+  const { content } = splitIndent(line);
+  if (content.startsWith('## ')) {
+    return content.slice(3).trim();
+  }
+  if (content.startsWith('### ')) {
+    return content.slice(4).trim();
+  }
+  return null;
+}
+
+function parseTaskLine(line) {
+  const { indent, content } = splitIndent(line);
+  if (content.length < 6) return null;
+  if (content[0] !== '-' || content[1] !== ' ' || content[2] !== '[') return null;
+
+  const checkedToken = content[3];
+  if (checkedToken !== ' ' && checkedToken !== 'x' && checkedToken !== 'X') return null;
+  if (content[4] !== ']' || content[5] !== ' ') return null;
+
+  let text = content.slice(6).trimEnd();
+  let markerId = null;
+  let markerFlags = '';
+
+  const markerStart = text.lastIndexOf('<!--');
+  if (markerStart >= 0 && text.endsWith('-->')) {
+    const markerBody = text.slice(markerStart + 4, -3).trim();
+    if (markerBody.startsWith('rs:task=')) {
+      const markerPayload = markerBody.slice('rs:task='.length).trim();
+      const markerParts = markerPayload.split(/\s+/).filter(Boolean);
+      markerId = markerParts[0] || null;
+      markerFlags = markerParts.slice(1).join(' ');
+      text = text.slice(0, markerStart).trimEnd();
+    }
+  }
+
+  return {
+    indent,
+    checked: checkedToken.toLowerCase() === 'x',
+    text: text.trim(),
+    markerId,
+    markerFlags
+  };
+}
+
+function parseChildBulletLine(line) {
+  const { indent, content } = splitIndent(line);
+  if (!content.startsWith('- ')) {
+    return null;
+  }
+  return {
+    indent,
+    content: content.slice(2).trim()
+  };
+}
+
+function parseEvidenceLine(content) {
+  if (content.length < 9) return null;
+  if (content.slice(0, 9).toLowerCase() !== 'evidence:') return null;
+  return content.slice(9).trim();
+}
+
+function parseWarningLine(content) {
+  if (!content.startsWith(WARNING_PREFIX)) return null;
+  return content.slice(WARNING_PREFIX.length).trim();
+}
 
 function parseRoadmap(content) {
   const lines = String(content || '').split(/\r?\n/);
@@ -17,31 +94,56 @@ function parseRoadmap(content) {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const headingMatch = line.match(HEADING_RE);
-    if (headingMatch) {
-      section = headingMatch[1].trim();
+    const headingText = parseHeadingLine(line);
+    if (headingText) {
+      section = headingText;
     }
 
-    const taskMatch = line.match(TASK_LINE_RE);
-    if (!taskMatch) {
+    const taskLine = parseTaskLine(line);
+    if (!taskLine) {
       continue;
     }
 
-    const indent = taskMatch[1] || '';
-    const checked = taskMatch[2].toLowerCase() === 'x';
-    const text = taskMatch[3].trim();
-    const markerId = taskMatch[4] || null;
-    const markerFlags = taskMatch[5] || '';
+    const { indent, checked, text, markerId, markerFlags } = taskLine;
     const noTest = /\brs:no-test\b/i.test(markerFlags);
+    const taskIndentWidth = getIndentWidth(indent);
 
     let warningLineIndex = null;
     let warningText = null;
-    if (index + 1 < lines.length) {
-      const nextLine = lines[index + 1];
-      const warningMatch = nextLine.match(WARNING_RE);
-      if (warningMatch) {
-        warningLineIndex = index + 1;
-        warningText = warningMatch[1].trim();
+    const evidenceLines = [];
+    let lastChildLineIndex = index;
+    for (let childIndex = index + 1; childIndex < lines.length; childIndex += 1) {
+      const childLine = lines[childIndex];
+      if (!childLine.trim()) {
+        break;
+      }
+      if (parseHeadingLine(childLine) || parseTaskLine(childLine)) {
+        break;
+      }
+
+      const childBullet = parseChildBulletLine(childLine);
+      if (!childBullet) {
+        break;
+      }
+      if (getIndentWidth(childBullet.indent || '') <= taskIndentWidth) {
+        break;
+      }
+
+      lastChildLineIndex = childIndex;
+
+      const evidenceText = parseEvidenceLine(childBullet.content);
+      if (evidenceText != null) {
+        evidenceLines.push({
+          lineIndex: childIndex,
+          text: evidenceText,
+          raw: childLine
+        });
+      }
+
+      const warningTextValue = parseWarningLine(childBullet.content);
+      if (warningTextValue != null) {
+        warningLineIndex = childIndex;
+        warningText = warningTextValue;
       }
     }
 
@@ -51,8 +153,10 @@ function parseRoadmap(content) {
       text,
       checked,
       lineIndex: index,
+      lastChildLineIndex,
       warningLineIndex,
       warningText,
+      evidenceLines,
       markerId,
       noTest,
       indent,
