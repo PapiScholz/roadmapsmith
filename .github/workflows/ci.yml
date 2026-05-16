@@ -126,26 +126,22 @@ jobs:
 
       - name: Extraer notas del release desde CHANGELOG.md
         if: steps.version_check.outputs.publish_needed == 'true' || steps.version_check.outputs.github_release_needed == 'true'
-        id: changelog
         run: |
           VERSION=${{ steps.version_check.outputs.current }}
-          NOTES=$(awk -v version="$VERSION" '
+          awk -v version="$VERSION" '
             $0 ~ "^##[[:space:]]+([[]?v?" version "[]]?)([[:space:]]|$)" { found=1; next }
             found && $0 ~ "^##[[:space:]]+" { exit }
             found { print }
-          ' CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="Release v$VERSION"
+          ' CHANGELOG.md > /tmp/release-notes.txt
+          if [ ! -s /tmp/release-notes.txt ]; then
+            echo "Release v$VERSION" > /tmp/release-notes.txt
           fi
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Crear GitHub Release
         if: steps.version_check.outputs.github_release_needed == 'true'
         run: |
           gh release create "v${{ steps.version_check.outputs.current }}" \
             --title "v${{ steps.version_check.outputs.current }}" \
-            --notes "${{ steps.changelog.outputs.notes }}"
+            --notes-file /tmp/release-notes.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
