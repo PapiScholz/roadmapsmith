@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.9.10 - 2026-05-16
+
+### Fixed
+- `isLikelyPath` now rejects bare `/` and other empty-segment slash tokens (e.g. the separator in "Web Serial API / ESC-POS") — fixes regression where `p1-thermal-printer` was failing with `missing referenced file(s): /`.
+- Backtick-quoted property access like `` `err.message` `` or `` `error.stack` `` is no longer extracted as a path hint — requires a `/` or a known file extension; fixes `prod-sanitize-error-messages` false negative.
+- `evidence.files` now uses only pure path hints (excluding line-reference hints like `file.ts:169`) so line-reference hints no longer inflate `strongEvidenceCount` via the `feature-surface` category and no longer push tasks past `meetsStrongThreshold` with unrelated code evidence.
+- `hasDirectReferencePass` (file referenced in task text exists) is no longer sufficient alone to pass an unchecked task — it showed WHERE to implement, not that implementation is done. Unchecked tasks now require authoritative evidence, artifact evidence, or the strong code+test threshold. Unchecked tasks that fail only on this condition receive the reason `"file reference shows implementation location, not confirmed completion"`.
+- Already-checked `[x]` tasks with referenced files that exist are preserved via `shouldPreserveCheckedTask` (new case 2: `hasDirectReferencePass = true` + no strong evidence → preserve rather than uncheck).
+- `authoritativeEvidence.passed = true` suppresses `missing referenced file(s)` reasons — a confirmed Evidence line overrides a bad/moved path hint in the task text.
+
 ## v0.9.9 - 2026-05-16
 
 ### Fixed

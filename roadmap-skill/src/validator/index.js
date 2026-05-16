@@ -179,7 +179,10 @@ function hasFileExtension(token) {
 
 function isLikelyPath(token) {
   if (token.includes('*') || token.includes('?')) return false; // glob/wildcard
-  if (/^\.{1,2}\/|^\//.test(token)) return true;
+  if (/^\.{1,2}\/|^\//.test(token)) {
+    // Bare "/" or "./" with nothing after is not a real path (e.g. "API / ESC-POS" → "/")
+    return /[A-Za-z0-9_]/.test(token);
+  }
   if (hasFileExtension(token)) return true;
   if (KNOWN_PATH_ROOTS.some((root) => token.startsWith(root))) return true;
   // The ">= 2 slashes" rule was intentionally removed: it caused conceptual slash phrases
@@ -263,14 +266,16 @@ function extractExplicitPaths(text) {
   for (const token of quoted) {
     const clean = token.slice(1, -1);
     if (clean.includes('*') || clean.includes('?')) continue; // glob
-    if (clean.includes('/') || clean.includes('\\') || clean.includes('.')) {
-      const lineMatch = LINE_REF_RE.exec(clean);
-      if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
-        lineReferenceHints.add(lineMatch[1]);
-        results.add(lineMatch[1]);
-      } else {
-        results.add(clean);
-      }
+    const hasSlash = clean.includes('/') || clean.includes('\\');
+    // Require a slash or a known file extension — rejects property access like err.message,
+    // fs.readFileSync, error.stack (whose extensions are not in KNOWN_FILE_EXTENSIONS).
+    if (!hasSlash && !hasKnownFileExtension(clean)) continue;
+    const lineMatch = LINE_REF_RE.exec(clean);
+    if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
+      lineReferenceHints.add(lineMatch[1]);
+      results.add(lineMatch[1]);
+    } else {
+      results.add(clean);
     }
   }
 
@@ -1063,7 +1068,9 @@ function validateTask(task, context, config, plugins) {
     code: filesFromCode.length > 0 || filesFromSymbols.length > 0,
     test: filesFromTests.length > 0,
     artifact: filesFromArtifacts.length > 0,
-    files: filesFromPaths,
+    // Use only pure path hints (not line-reference hints) so that "file.ts:169" style hints
+    // — which indicate WHERE to implement — do not contribute to feature-surface scoring.
+    files: filesFromPurePathHints,
     symbols: filesFromSymbols,
     codeFiles: filesFromCode,
     weakPathFiles: filesFromWeakPathTokens,
@@ -1080,7 +1087,9 @@ function validateTask(task, context, config, plugins) {
   applyAuthoritativeEvidence(evidence, authoritativeEvidence, context.fileIndex);
 
   const reasons = [];
-  if (pathHints.length > 0 && filesFromPaths.length === 0) {
+  // Suppress path hint failures when authoritative evidence already confirms the task —
+  // a bad path hint (typo, moved file) should not override a passing Evidence line.
+  if (pathHints.length > 0 && filesFromPaths.length === 0 && !authoritativeEvidence.passed) {
     reasons.push(`missing referenced file(s): ${pathHints.join(', ')}`);
   }
   if (Array.isArray(authoritativeEvidence.reasons) && authoritativeEvidence.reasons.length > 0) {
@@ -1185,7 +1194,19 @@ function validateTask(task, context, config, plugins) {
     uniqueReasons = Array.from(new Set(uniqueReasons));
   }
 
-  let passed = authoritativeEvidence.passed || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
+  // hasDirectReferencePass is intentionally excluded: a path hint in task text indicates
+  // WHERE to implement, not that implementation is done. Unchecked tasks need authoritative
+  // evidence, artifact evidence, or strong code+test threshold to pass.
+  // Already-checked tasks with found path hints are preserved via shouldPreserveCheckedTask.
+  let passed = authoritativeEvidence.passed || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
+
+  if (!passed && !task.checked && hasDirectReferencePass) {
+    const locationReason = 'file reference shows implementation location, not confirmed completion';
+    if (!uniqueReasons.includes(locationReason)) {
+      uniqueReasons.push(locationReason);
+    }
+  }
+
   if (task.warningText && passed && !authoritativeEvidence.passed && !meetsStrongThreshold) {
     passed = false;
     uniqueReasons.push(task.warningText);
@@ -1195,15 +1216,20 @@ function validateTask(task, context, config, plugins) {
     passed = false;
   }
 
+  // Preserve already-checked tasks when the validator can't confirm implementation but also
+  // can't find strong evidence against it. Two cases:
+  //   1. No path/symbol hints at all — no machine-readable claims to evaluate.
+  //   2. Path hints resolve to existing files but code/test evidence is absent —
+  //      file presence is not implementation; don't uncheck on that alone.
+  // Symbol hints are NOT preserved: a missing symbol is a concrete falsifiable claim.
   const shouldPreserveCheckedTask =
     task.checked &&
     !passed &&
     !authoritativeEvidence.active &&
-    purePathHints.length === 0 &&
     symbolHints.length === 0 &&
-    !hasDirectReferencePass &&
+    negativeSignalMatches.length === 0 &&
     evidence.structuralEvidence !== false &&
-    negativeSignalMatches.length === 0;
+    (hasDirectReferencePass || purePathHints.length === 0);
   let preservedCheckedState = false;
   if (shouldPreserveCheckedTask) {
     passed = true;
