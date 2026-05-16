@@ -44,6 +44,14 @@ function maybeFilterTasks(tasks, filterValue) {
   });
 }
 
+function tasksInManagedBlock(parsedRoadmap) {
+  if (!parsedRoadmap.managedRange) {
+    return parsedRoadmap.tasks;
+  }
+  const { start, end } = parsedRoadmap.managedRange;
+  return parsedRoadmap.tasks.filter((task) => task.lineIndex > start && task.lineIndex < end);
+}
+
 function printAudit(audit) {
   console.log(`Audit summary: ${audit.checkedWithoutEvidence.length} checked-without-evidence, ${audit.readyButUnchecked.length} ready-but-unchecked.`);
   if (audit.checkedWithoutEvidence.length > 0) {
@@ -157,10 +165,11 @@ async function run() {
     }
 
     const parsedRoadmap = parseRoadmap(content);
+    const syncTasks = tasksInManagedBlock(parsedRoadmap);
     const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
-    const results = validateTasks(parsedRoadmap.tasks, validationContext, config, validationContext.plugins);
+    const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
     applyMinimumConfidence(results, config.validation?.minimumConfidence);
-    const next = applySync(content, parsedRoadmap.tasks, results);
+    const next = applySync(content, syncTasks, results);
     const dryRun = isEnabled(flags['dry-run']);
     const writeResult = writeText(roadmapFile, next, { dryRun });
 
@@ -175,7 +184,7 @@ async function run() {
     }
 
     if (isEnabled(flags.audit)) {
-      const audit = auditValidation(parsedRoadmap.tasks, results);
+      const audit = auditValidation(syncTasks, results);
       printAudit(audit);
     }
     return;

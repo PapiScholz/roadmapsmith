@@ -26,6 +26,21 @@ test('parseRoadmap extracts rs:no-test marker flag', () => {
   assert.equal(parsed.tasks[0].noTest, true);
 });
 
+test('parseRoadmap reports managed block range', () => {
+  const content = [
+    '# Notes',
+    '<!-- rs:managed:start -->',
+    '## Phase P0',
+    '- [ ] Implement CLI parser <!-- rs:task=implement-cli-parser -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.equal(parsed.hasManagedBlock, true);
+  assert.deepEqual(parsed.managedRange, { start: 1, end: 4 });
+});
+
 test('upsertManagedBlock preserves unmanaged content', () => {
   const existing = [
     '# Notes',

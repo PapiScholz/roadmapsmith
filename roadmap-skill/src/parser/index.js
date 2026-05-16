@@ -11,6 +11,7 @@ const MANAGED_END = '<!-- rs:managed:end -->';
 
 function parseRoadmap(content) {
   const lines = String(content || '').split(/\r?\n/);
+  const managedRange = findManagedRange(lines);
   const tasks = [];
   let section = '';
 
@@ -61,6 +62,8 @@ function parseRoadmap(content) {
 
   return {
     lines,
+    managedRange,
+    hasManagedBlock: Boolean(managedRange),
     tasks
   };
 }
@@ -105,6 +108,7 @@ function upsertManagedBlock(existingContent, managedBody) {
 }
 
 module.exports = {
+  findManagedRange,
   parseRoadmap,
   upsertManagedBlock
 };
