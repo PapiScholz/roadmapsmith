@@ -6,10 +6,14 @@
 - Validator now preserves already-checked tasks that lack machine-readable evidence (`preservedCheckedState`), preventing false negatives from silently unchecking legitimately completed tasks.
 - Removed `TODO`, `FIXME`, and `disabled` from negative implementation signals — these appear in normal codebases and were causing false negatives in unrelated task validations.
 - `minimumConfidence` threshold now skips tasks in preserved-checked state, so the threshold can't undo a valid preservation decision.
+- Path extraction in `extractExplicitPaths` replaced polynomial regex with whitespace-split logic — eliminates the CodeQL ReDoS alert on `validator/index.js:262`.
+- `io.js` Python test-file detector pattern changed from `test_.*\.py` to `test_[^/]*\.py` to remove unbounded `.*` on uncontrolled input.
+- `parser/index.js` trailing-whitespace trim changed from `/\s+$/` regex to `String.trimEnd()`.
 
 ### CI / Release
 - `publish_needed` and `github_release_needed` are now independent flags in the release workflow — a GitHub Release is created whenever the tag doesn't exist, regardless of whether npm publish ran.
 - `npm view` failure is now distinguished between E404 (package not yet published) and real network/registry errors.
+- Added `permissions: read-all` at workflow level so the `test` job doesn't inherit default write permissions; the `release` job keeps its explicit grants.
 
 ## v0.9.7 - 2026-05-16
 
