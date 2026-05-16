@@ -23,17 +23,15 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-05-14 3:48am GMT-3
+# [roadmapsmith] recent context, 2026-05-16 2:33pm GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 45 obs (16,826t read) | 775,932t work | 98% savings
+Stats: 50 obs (18,045t read) | 856,656t work | 98% savings
 
 ### May 13, 2026
-400 11:09p ⚖️ Validator API design: dual override modes for custom validators
-401 " ⚖️ i18n file exclusion strategy: path + JSON structure + content heuristics
 402 11:18p 🔴 Bug 3: Implemented rs:no-test marker to disable per-task test requirement
 403 " 🔴 Bug 4 & 5: Excluded translation files and default template dirs from evidence index
 404 " 🔴 Bug 2: Implemented weak path-token matching for non-English task descriptions
@@ -79,6 +77,14 @@ S98 Configure automated npm publishing from GitHub Actions using OIDC trusted pu
 443 " 🔵 Git permission error on Windows with .git/index.lock file
 444 " 🔵 Git index.lock permission denied on Windows during stash operation
 445 3:47a 🔵 Windows git lock file permission issues requiring escalated permissions during merge workflow
+446 3:50a 🔵 PR State Assessment - Release v0.9.5
+447 4:00a 🔴 Weak path-only evidence validation fix tested and verified
+448 " ✅ PR #4 merge conflicts resolved and pushed
+449 4:02a ⚖️ Git branch management workflow established
+450 " 🔵 AGENTS.md modified by automatic context/memory system
+451 " 🔵 release-v0.9.5 branch diverged from origin/main
+### May 16, 2026
+581 2:31p 🟣 Managed block scoping in CLI sync prevents overwriting user content
 
-Access 776k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 857k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

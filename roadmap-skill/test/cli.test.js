@@ -78,6 +78,55 @@ test('cli sync dry-run does not modify file', () => {
   assert.equal(after, before);
 });
 
+test('cli sync preserves existing managed block structure on weak path-only failures', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-sync-managed-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'let boot = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'app.js'), 'function appModule() { return true; }\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Product Roadmap',
+      '',
+      '- [ ] Implement app module <!-- rs:task=outside-implement-app-module -->',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Phase Alfa: Desktop Shell Comercial',
+      '',
+      'Contexto de negocio: el shell Electron mantiene Next.js embebido para demos offline.',
+      '',
+      '- [ ] Configurar Electron con Next.js como servidor embebido <!-- rs:task=p0-configurar-electron-next-embedded-server -->',
+      '',
+      '### Criterio de avance',
+      'La experiencia de escritorio debe iniciar sin depender de servicios externos.',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  run(['sync'], projectRoot);
+  run(['sync'], projectRoot);
+
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+  const warningMatches = content.match(/⚠️ attempted but validation failed/g) || [];
+
+  assert.equal(warningMatches.length, 1);
+  assert.match(content, /## Phase Alfa: Desktop Shell Comercial/);
+  assert.match(content, /Contexto de negocio: el shell Electron mantiene Next\.js embebido para demos offline\./);
+  assert.match(content, /### Criterio de avance/);
+  assert.match(content, /La experiencia de escritorio debe iniciar sin depender de servicios externos\./);
+  assert.match(content, /- \[ \] Configurar Electron con Next\.js como servidor embebido/);
+  assert.match(content, /weak path-only evidence lacks content-specific token match/);
+  assert.match(content, /- \[ \] Implement app module <!-- rs:task=outside-implement-app-module -->/);
+  assert.doesNotMatch(content, /Add SEO metadata/);
+  assert.doesNotMatch(content, /Implement responsive/);
+  assert.doesNotMatch(content, /Foundation Baseline/);
+  assert.doesNotMatch(content, /Detected Project Profile/);
+});
+
 test('cli generate uses legacy roadmap.md when canonical roadmap is missing', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-legacy-fallback-'));
   writePackageJson(projectRoot);

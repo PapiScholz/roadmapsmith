@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Private/internal development. Not published.
+Published as the `roadmapsmith` npm package. Release readiness is tracked here for future package and workflow changes.
 
 ## Canonical Checklist
 
@@ -13,7 +13,7 @@ Use this document for context and command runbook notes only.
 
 - Primary install path is the agent skill: `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync`.
 - The skill install command adds agent instructions, not the CLI package.
-- The optional CLI package/command is `roadmapsmith` and remains unavailable until npm publication.
+- The optional CLI package/command is `roadmapsmith`; update it through npm independently from the skill.
 
 ## Commands
 
@@ -24,6 +24,5 @@ npm test
 node bin/cli.js --help
 node bin/cli.js init --dry-run
 node bin/cli.js generate --project-root . --dry-run --audit
+npm pack --dry-run
 ```
-
-Do not mark public-release tasks as complete yet.

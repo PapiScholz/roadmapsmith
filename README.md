@@ -327,6 +327,33 @@ roadmapsmith validate --json
 roadmapsmith sync --audit
 ```
 
+## Updating RoadmapSmith
+
+Update the CLI based on how it was installed:
+
+```bash
+# Global npm install
+npm install -g roadmapsmith@latest
+
+# Project dependency
+npm install roadmapsmith@latest
+
+# One-off execution without installing
+npx roadmapsmith@latest sync --audit
+```
+
+The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary:
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+```
+
+Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing:
+
+```bash
+npm install C:\Users\ezesc\Github\roadmapsmith\roadmap-skill
+```
+
 ## Local Development
 
 ```bash
