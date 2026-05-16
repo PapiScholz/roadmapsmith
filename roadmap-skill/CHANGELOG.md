@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.9 - 2026-05-16
+
+### Fixed
+- `evidenceLineHasPassingSummary` now accepts `"N tests passing"` without requiring the `N/N` fraction format — fixes false negative when Evidence lines use bare count.
+- `extractExplicitPaths` filters glob tokens (`*`, `?`) so `/api/*` is never extracted as a path hint, allowing the preservation logic to keep checked tasks intact.
+- `requiresTest` is no longer enforced when the task text references a file that exists in the repo (`filesFromPurePathHints.length > 0`) — fixes false negative on tasks with direct file evidence.
+- Path hints with line-number suffixes (`file.ts:169`, `file.ts:13-15`) are tracked as `lineReferenceHints` and excluded from `hasDirectReferencePass` — a file existing at the referenced path no longer marks an unimplemented task as complete.
+- `shouldPreserveCheckedTask` now uses `purePathHints` (excluding line-reference hints) so checked tasks that only mention implementation locations are correctly preserved.
+- `validateTasks` post-pass blocks milestone tasks that declare `Blocked by: task-id` when any listed dependency has `passed: false`.
+- `applySync` preserves a more descriptive existing warning over a shorter generic `"validation failed"` message on re-sync.
+
 ## v0.9.8 - 2026-05-16
 
 ### Fixed

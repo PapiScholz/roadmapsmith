@@ -45,7 +45,13 @@ function applySync(content, parsedTasks, results) {
     }
 
     if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
-      lines[warningIndex] = warningText;
+      const existingReason = lines[warningIndex].split('validation failed:')[1];
+      const newReason = reason || 'validation failed';
+      // Preserve existing warning when it's more descriptive than the new generic message.
+      const existingIsMoreSpecific = existingReason && existingReason.trim().length > newReason.length;
+      if (!existingIsMoreSpecific) {
+        lines[warningIndex] = warningText;
+      }
     } else {
       lines.splice(lastChildLineIndex + 1, 0, warningText);
       offset += 1;
