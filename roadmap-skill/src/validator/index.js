@@ -206,6 +206,49 @@ function hasKnownFileExtension(token) {
   return KNOWN_FILE_EXTENSIONS.has(token.slice(lastDot).toLowerCase());
 }
 
+function isAsciiAlphaNumeric(char) {
+  if (!char || char.length === 0) return false;
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isPathTokenCharacter(char) {
+  return isAsciiAlphaNumeric(char) || char === '.' || char === '_' || char === '-' || char === '/' || char === '\\';
+}
+
+function stripTrailingPathPunctuation(token) {
+  let result = String(token || '');
+  while (result.length > 0) {
+    const lastChar = result[result.length - 1];
+    if (lastChar !== '.' && lastChar !== ',' && lastChar !== ';' && lastChar !== ':' && lastChar !== '!' && lastChar !== '?' && lastChar !== ')') {
+      break;
+    }
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+function collectPathishTokens(text) {
+  const tokens = [];
+  let current = '';
+  const source = String(text || '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (isPathTokenCharacter(char)) {
+      current += char;
+      continue;
+    }
+    if (current) {
+      tokens.push(stripTrailingPathPunctuation(current));
+      current = '';
+    }
+  }
+  if (current) {
+    tokens.push(stripTrailingPathPunctuation(current));
+  }
+  return tokens.filter(Boolean);
+}
+
 function extractExplicitPaths(text) {
   const results = new Set();
   const quoted = String(text).match(/`([^`]+)`/g) || [];
@@ -218,7 +261,7 @@ function extractExplicitPaths(text) {
 
   const pathTokens = String(text).match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)/g) || [];
   for (const raw of pathTokens) {
-    const token = raw.replace(/[.,;:!?)]+$/, '');
+    const token = stripTrailingPathPunctuation(raw);
     if (isLikelyPath(token)) results.add(token);
   }
 
@@ -235,7 +278,7 @@ function extractStandaloneFilenames(text) {
   STANDALONE_FILE_RE.lastIndex = 0;
   let m = STANDALONE_FILE_RE.exec(String(text));
   while (m) {
-    const token = m[1].replace(/[.,;:!?)]+$/, '');
+    const token = stripTrailingPathPunctuation(m[1]);
     if (hasKnownFileExtension(token) && !token.startsWith('.')) {
       results.add(token);
     }
@@ -585,10 +628,9 @@ function isTestPath(relativePath) {
 }
 
 function extractEvidencePaths(evidenceText) {
-  const candidates = String(evidenceText || '').match(/((?:\.{1,2}[\\/]|\/)?[A-Za-z0-9_.-]+(?:[\\/][A-Za-z0-9_.-]+)+\.[A-Za-z0-9]{1,10})/g) || [];
   const paths = new Set();
-  for (const rawCandidate of candidates) {
-    const candidate = rawCandidate.replace(/[.,;:!?)]+$/, '').replace(/\\/g, '/');
+  for (const rawCandidate of collectPathishTokens(evidenceText)) {
+    const candidate = rawCandidate.split('\\').join('/');
     if (!candidate.includes('/') || candidate.includes('*') || candidate.includes('?')) {
       continue;
     }
