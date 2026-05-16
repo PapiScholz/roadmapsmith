@@ -203,7 +203,7 @@ function upsertManagedBlock(existingContent, managedBody) {
     if (existing.trim().length === 0) {
       return [MANAGED_START, ...bodyLines, MANAGED_END].join('\n');
     }
-    return `${existing.replace(/\s+$/, '')}\n\n${MANAGED_START}\n${managedBody}\n${MANAGED_END}`;
+    return `${existing.trimEnd()}\n\n${MANAGED_START}\n${managedBody}\n${MANAGED_END}`;
   }
 
   const prefix = lines.slice(0, range.start + 1);

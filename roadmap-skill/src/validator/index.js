@@ -259,7 +259,7 @@ function extractExplicitPaths(text) {
     }
   }
 
-  const pathTokens = String(text).match(/([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)/g) || [];
+  const pathTokens = String(text).match(/([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+)/g) || [];
   for (const raw of pathTokens) {
     const token = stripTrailingPathPunctuation(raw);
     if (isLikelyPath(token)) results.add(token);
