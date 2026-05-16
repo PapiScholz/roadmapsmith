@@ -210,3 +210,27 @@ test('sync preserves checked task when minimumConfidence is medium and state was
   assert.equal(results['milestone-v0-1'].passed, true);
   assert.match(next, /- \[x\] Foundation baseline complete milestone/);
 });
+
+test('applySync preserves more specific existing warning over generic new message', () => {
+  const content = [
+    '- [ ] Fix timeout in fetch handler <!-- rs:task=fix-timeout -->',
+    '  - ⚠️ attempted but validation failed: missing referenced file(s): src/pos/page.tsx, missing test evidence'
+  ].join('\n');
+  const { parseRoadmap } = require('../src/parser');
+  const parsed = parseRoadmap(content);
+  const results = {
+    'fix-timeout': {
+      passed: false,
+      attempted: true,
+      reasons: ['validation failed']
+    }
+  };
+
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(
+    next,
+    /missing referenced file\(s\): src\/pos\/page\.tsx/,
+    'specific existing warning must be preserved when new message is more generic'
+  );
+});

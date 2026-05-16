@@ -249,23 +249,47 @@ function collectPathishTokens(text) {
   return tokens.filter(Boolean);
 }
 
+// LINE_REF_RE matches "path/file.ext:NN" or "path/file.ext:NN-MM" — indicates WHERE
+// to implement, not that implementation exists. Paths matching this pattern are added
+// to lineReferenceHints and excluded from hasDirectReferencePass scoring.
+const LINE_REF_RE = /^(.+?):(\d+)(?:-\d+)?$/;
+
 function extractExplicitPaths(text) {
   const results = new Set();
+  const lineReferenceHints = new Set();
+
   const quoted = String(text).match(/`([^`]+)`/g) || [];
   for (const token of quoted) {
     const clean = token.slice(1, -1);
+    if (clean.includes('*') || clean.includes('?')) continue; // glob
     if (clean.includes('/') || clean.includes('\\') || clean.includes('.')) {
-      results.add(clean);
+      const lineMatch = LINE_REF_RE.exec(clean);
+      if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
+        lineReferenceHints.add(lineMatch[1]);
+        results.add(lineMatch[1]);
+      } else {
+        results.add(clean);
+      }
     }
   }
 
   for (const word of String(text).split(/\s+/)) {
     if (!word.includes('/')) continue;
     const token = stripTrailingPathPunctuation(word);
-    if (isLikelyPath(token)) results.add(token);
+    if (token.includes('*') || token.includes('?')) continue; // glob
+    const lineMatch = LINE_REF_RE.exec(token);
+    if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
+      if (isLikelyPath(lineMatch[1])) {
+        lineReferenceHints.add(lineMatch[1]);
+        results.add(lineMatch[1]);
+      }
+    } else if (isLikelyPath(token)) {
+      results.add(token);
+    }
   }
 
-  return Array.from(results).sort((left, right) => left.localeCompare(right));
+  const paths = Array.from(results).sort((left, right) => left.localeCompare(right));
+  return { paths, lineReferenceHints };
 }
 
 // Standalone filenames (no slash) mentioned in task prose — e.g. "roadmap-skill.config.json",
@@ -644,7 +668,7 @@ function extractEvidencePaths(evidenceText) {
 
 function evidenceLineHasPassingSummary(evidenceText) {
   const text = String(evidenceText || '');
-  if (/\b\d+\s*\/\s*\d+\s+tests?\s+passing\b/i.test(text)) {
+  if (/\b\d+(?:\s*\/\s*\d+)?\s+tests?\s+passing\b/i.test(text)) {
     return true;
   }
   if (/\b(?:vitest|jest|npm test|pnpm test|yarn test|bun test)\b.*\b(?:pass(?:ing|ed)?|green|success(?:ful|fully)?)\b/i.test(text)) {
@@ -1009,12 +1033,16 @@ function buildValidationContext(projectRoot, config, plugins) {
 }
 
 function validateTask(task, context, config, plugins) {
-  const pathHints = extractExplicitPaths(task.text);
+  const { paths: pathHints, lineReferenceHints } = extractExplicitPaths(task.text);
+  // Paths that are line-reference hints (file.ts:NN) indicate WHERE to implement,
+  // not that implementation exists. They are excluded from hasDirectReferencePass.
+  const purePathHints = pathHints.filter((p) => !lineReferenceHints.has(p));
   const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
   const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.fileIndex);
 
   const filesFromPaths = findFilesByPathHints(pathHints, context.fileIndex);
+  const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.fileIndex);
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
   // Combine path hints AND standalone filenames for token exclusion so that tokens
   // derived from any referenced filename (e.g. "roadmap-skill" from
@@ -1107,7 +1135,7 @@ function validateTask(task, context, config, plugins) {
     }
   }
 
-  if (requiresTest && !evidence.test && !authoritativeEvidence.passed) {
+  if (requiresTest && !evidence.test && !authoritativeEvidence.passed && filesFromPurePathHints.length === 0) {
     reasons.push('missing test evidence');
   }
 
@@ -1120,7 +1148,8 @@ function validateTask(task, context, config, plugins) {
   const attempted = hasStrongEvidence || hasWeakEvidence || pathHints.length > 0 || symbolHints.length > 0 || authoritativeEvidence.active;
   const { categories: strongEvidenceCategories } = countStrongEvidenceCategories(task.text, evidence);
   const strongEvidenceCount = strongEvidenceCategories.length;
-  const hasDirectReferencePass = filesFromPaths.length > 0 || filesFromSymbols.length > 0;
+  // Only pure path hints (not line-reference hints like file.ts:169) count as direct evidence.
+  const hasDirectReferencePass = filesFromPurePathHints.length > 0 || filesFromSymbols.length > 0;
   const hasArtifactTaskPass = evidence.artifact && (
     isDocTask(task.text) ||
     evidence.heuristicArtifacts.length > 0 ||
@@ -1167,7 +1196,7 @@ function validateTask(task, context, config, plugins) {
     task.checked &&
     !passed &&
     !authoritativeEvidence.active &&
-    pathHints.length === 0 &&
+    purePathHints.length === 0 &&
     symbolHints.length === 0 &&
     !hasDirectReferencePass &&
     evidence.structuralEvidence !== false &&
@@ -1198,11 +1227,27 @@ function validateTask(task, context, config, plugins) {
   };
 }
 
+const BLOCKED_BY_RE = /\bBlocked\s+by:\s*([^\n.]+)/i;
+
 function validateTasks(tasks, context, config, plugins) {
   const result = {};
   for (const task of tasks) {
     result[task.id] = validateTask(task, context, config, plugins);
   }
+
+  // Post-pass: milestone tasks with "Blocked by: id-a, id-b" cannot pass
+  // while any listed dependency is still failing.
+  for (const task of tasks) {
+    const m = BLOCKED_BY_RE.exec(task.text);
+    if (!m) continue;
+    const blockedIds = m[1].split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+    const failingDeps = blockedIds.filter((id) => result[id] && !result[id].passed);
+    if (failingDeps.length > 0 && result[task.id] && result[task.id].passed) {
+      result[task.id].passed = false;
+      result[task.id].reasons = [`blocked by incomplete tasks: ${failingDeps.join(', ')}`];
+    }
+  }
+
   return result;
 }
 

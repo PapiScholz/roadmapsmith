@@ -1017,6 +1017,131 @@ test('i18n and translation files are excluded from evidence file index', () => {
   assert.ok(!indexedPaths.some((p) => p.endsWith('es.json')));
 });
 
+// --- Regression: false negatives (tasks incorrectly unmarked) ---
+
+test('Evidence line "N tests passing" (no fraction) satisfies summaryImpliesTests', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'reliability-checks-bare',
+      text: 'Implement reliability regression checks',
+      evidenceLines: [{ text: '28 tests passing across 8 test files (vitest run 2026-05-14)' }]
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, true, 'should pass with bare "N tests passing" format');
+  assert.ok(!result.reasons.includes('missing test evidence'), 'no test evidence reason expected');
+});
+
+test('Task text with /api/* glob does not produce "missing referenced file(s): /api/*"', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-api-auth-middleware',
+      text: 'Add requireAuth() to all routes /api/* — cookie HTTP-only plus requireAuth() on 14 endpoints',
+      checked: true
+    },
+    context, config, []
+  );
+
+  assert.ok(!result.reasons.some((r) => r.includes('/api/*')), 'glob /api/* must not appear in reasons');
+});
+
+test('Checked task with path hint that exists is not blocked by missing test evidence', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'webhook'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'webhook', 'route.ts'),
+    'export async function POST(req) { /* signature check */ }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-mp-webhook-signature',
+      text: 'Validate webhook HMAC signature in src/app/api/webhook/route.ts',
+      checked: true
+    },
+    context, config, []
+  );
+
+  assert.ok(!result.reasons.includes('missing test evidence'), 'path hint found in repo must suppress test requirement');
+});
+
+test('Path hint with line number (file.ts:NN) does not count as direct reference pass', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'page.tsx'),
+    'export default function Page() { return <div>hello</div>; }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // Task text references the file with a line number (indicating WHERE to add code, not that it exists)
+  const result = validateTask(
+    {
+      id: 'prod-login-loading-state',
+      text: 'Add loading spinner to login page (src/app/page.tsx:43)',
+      checked: false
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, false, 'line-reference path hint must not pass the task');
+});
+
+test('Milestone with Blocked by: dep-a where dep-a is failing cannot pass', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const tasks = [
+    { id: 'dep-a', text: 'Implement dep-a feature', checked: false, lineIndex: 0, lastChildLineIndex: 0, evidenceLines: [], warningLineIndex: null, warningText: null, noTest: false, indent: '', section: '' },
+    { id: 'milestone-v1-0', text: 'Ship v1.0 Blocked by: dep-a', checked: true, lineIndex: 1, lastChildLineIndex: 1, evidenceLines: [], warningLineIndex: null, warningText: null, noTest: false, indent: '', section: '' }
+  ];
+
+  const { validateTasks } = require('../src/validator');
+  const results = validateTasks(tasks, context, config, []);
+
+  assert.equal(results['milestone-v1-0'].passed, false, 'milestone must fail when dep-a is incomplete');
+  assert.ok(results['milestone-v1-0'].reasons.some((r) => r.includes('dep-a')));
+});
+
+test('Checked task [x] with line-reference path hint is preserved via shouldPreserveCheckedTask', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'page.tsx'),
+    'export default function Page() { return <div>hello</div>; }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-loading-done',
+      text: 'Add loading spinner (src/app/page.tsx:43)',
+      checked: true
+    },
+    context, config, []
+  );
+
+  assert.equal(result.passed, true, 'already-checked task with line-ref hint should be preserved');
+  assert.equal(result.preservedCheckedState, true, 'preservedCheckedState must be true');
+});
+
 test('default excluded template directories and configured skillsDir are skipped by validator index', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, '.claude', 'skills'), { recursive: true });
