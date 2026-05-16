@@ -380,7 +380,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 ### Showcase
 
 - [ ] `[P1]` docs/ use-cases cover compact and professional profiles <!-- rs:task=prof-doc-docs-use-cases-cover-compact-and-professional-profiles -->
-  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/; weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Generated ROADMAP.md showcases professional Phase→Step→Task output <!-- rs:task=prof-doc-generated-roadmap-md-showcases-professional-phase-step-task-output -->
 
 ## 11. Risks, Constraints, and Anti-Goals
@@ -529,10 +529,14 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 - [ ] `[P0]` Introduce repository classification engine (classifier module) <!-- rs:task=cls-introduce-classifier-module -->
 - [ ] `[P0]` Detect frontend-web signals: app/, pages/, components/, public/, assets/, next.config.*, vite.config.*, astro.config.*, CSS/Tailwind config, package.json deps (next, react, vue, svelte, astro) <!-- rs:task=cls-detect-frontend-web-signals -->
 - [ ] `[P0]` Detect cli-tool signals: bin/ directory, shebang headers, package.json bin field <!-- rs:task=cls-detect-cli-tool-signals -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): bin/; namespace "cls" has no implementation files
 - [ ] `[P0]` Detect npm-package signals: package.json main, exports, and files fields without bin field <!-- rs:task=cls-detect-npm-package-signals -->
 - [ ] `[P0]` Detect python-package signals: setup.py, pyproject.toml, src/ layout <!-- rs:task=cls-detect-python-package-signals -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): src/; namespace "cls" has no implementation files
 - [ ] `[P0]` Detect docs-site signals: docs/, mkdocs.yml, docusaurus.config.*, _config.yml <!-- rs:task=cls-detect-docs-site-signals -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/; namespace "cls" has no implementation files
 - [ ] `[P0]` Detect monorepo signals: packages/, apps/, lerna.json, pnpm-workspace.yaml, workspace config <!-- rs:task=cls-detect-monorepo-signals -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): apps/, packages/; namespace "cls" has no implementation files
 - [ ] `[P0]` Detect api-service signals: routes/, controllers/, Dockerfile, openapi.yaml <!-- rs:task=cls-detect-api-service-signals -->
 - [ ] `[P0]` Add confidence scoring; fall back to unknown-generic when confidence is low <!-- rs:task=cls-add-confidence-scoring -->
 - [ ] `[P1]` Distinguish landing-site from generic frontend-web using route count, marketing copy signals, og/meta tags presence <!-- rs:task=cls-distinguish-landing-site -->
@@ -600,10 +604,11 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [ ] `[P0]` Replace naive slash-path regex with a stricter explicit path parser <!-- rs:task=evh2-replace-naive-slash-path-regex -->
 - [ ] `[P0]` Require at least one strong path signal: known extension (.ts .js .py .go .rs .md .json .yaml .yml .toml .sh .css .html), leading ./ ../ / or .github/ prefix, or known directory prefix (src/ app/ lib/ docs/ test/ tests/ components/ packages/ public/ assets/) <!-- rs:task=evh2-require-strong-path-signal -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): ../, ./, .github/, /, docs/, lib/, packages/, test/, tests/; namespace "evh2" has no implementation files; missing test evidence
 - [ ] `[P0]` Add structural denylist for conceptual slash-phrases: start/end, code/test/artifact, input/output, read/write, client/server, on/off, yes/no, request/response, build/test/deploy, filesystem/package/config, main/exports/files <!-- rs:task=evh2-add-conceptual-phrase-denylist -->
 - [ ] `[P0]` Add regression tests covering all denylist phrases — none must produce missing-file warnings <!-- rs:task=evh2-add-denylist-regression-tests -->
 - [ ] `[P0]` Add regression tests confirming valid paths still parse: src/index.ts, app/page.tsx, components/Navbar.tsx, .github/workflows/ci.yml <!-- rs:task=evh2-add-valid-path-regression-tests -->
-  - ⚠️ attempted but validation failed: namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence
+  - ⚠️ attempted but validation failed: namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence; namespace "evh2" has no implementation files; missing test evidence
 - [ ] `[P0]` Block self-referential validation: ROADMAP.md, README, and documentation files must not be accepted as implementation evidence for any implementation task <!-- rs:task=evh2-block-self-referential-validation -->
   - ⚠️ attempted but validation failed: namespace "evh2" has no implementation files; weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P0]` Documentation-only mentions must not complete implementation tasks — validator must require source code or test file evidence, not doc/roadmap text matches <!-- rs:task=evh2-docs-not-implementation-evidence -->
@@ -705,7 +710,7 @@ RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and 
 
 - [ ] `[P1]` roadmap-skill.config.json accepts projectType field without validation errors <!-- rs:task=cfgo-ph11-st1-exit-project-type-accepted -->
 - [ ] `[P1]` docs/ contains at least one website/landing use-case example <!-- rs:task=doc3-ph11-st2-exit-website-use-case-exists -->
-  - ⚠️ attempted but validation failed: structural token score 2/3 in "doc3" files — token overlap insufficient; weak path-only evidence lacks content-specific token match
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/; structural token score 2/3 in "doc3" files — token overlap insufficient; weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` README or SKILL.md explains product vs. skill vs. CLI distinction <!-- rs:task=doc3-ph11-st2-exit-distinction-documented -->
   - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 <!-- rs:managed:end -->
