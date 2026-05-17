@@ -86,6 +86,11 @@ function parseWarningLine(content) {
   return content.slice(WARNING_PREFIX.length).trim();
 }
 
+function parseBlockedByLine(content) {
+  if (!/^blocked\s+by:/i.test(content)) return null;
+  return content.replace(/^blocked\s+by:\s*/i, '').trim();
+}
+
 function parseRoadmap(content) {
   const lines = String(content || '').split(/\r?\n/);
   const managedRange = findManagedRange(lines);
@@ -111,6 +116,7 @@ function parseRoadmap(content) {
     let warningLineIndex = null;
     let warningText = null;
     const evidenceLines = [];
+    const blockedByIds = [];
     let lastChildLineIndex = index;
     for (let childIndex = index + 1; childIndex < lines.length; childIndex += 1) {
       const childLine = lines[childIndex];
@@ -145,6 +151,12 @@ function parseRoadmap(content) {
         warningLineIndex = childIndex;
         warningText = warningTextValue;
       }
+
+      const blockedByText = parseBlockedByLine(childBullet.content);
+      if (blockedByText !== null) {
+        const ids = blockedByText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+        blockedByIds.push(...ids);
+      }
     }
 
     const id = markerId || slugify(text);
@@ -157,6 +169,7 @@ function parseRoadmap(content) {
       warningLineIndex,
       warningText,
       evidenceLines,
+      blockedByIds,
       markerId,
       noTest,
       indent,

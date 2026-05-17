@@ -1269,3 +1269,108 @@ test('Checked [x] task with pure path hint (file exists, no impl evidence) is pr
   assert.equal(result.passed, true, 'already-checked task with found path hint must be preserved');
   assert.equal(result.preservedCheckedState, true, 'preservedCheckedState must be true');
 });
+
+// --- Regression: v0.9.11 false-positive fixes ---
+
+// Causa 1: Blocked-by in child bullet (not inline in task text)
+// The milestone is [x] (would be preserved as passed), but its child-bullet declares
+// "Blocked by: child-dep-task" and child-dep-task is still [ ] → post-pass must fail it.
+test('Milestone with Blocked-by in child bullet stays failed when dep is incomplete', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const { parseRoadmap } = require('../src/parser');
+  const { validateTasks } = require('../src/validator');
+  const content = [
+    '## Milestones',
+    '- [ ] Dependency task <!-- rs:task=child-dep-task -->',
+    '- [x] v1.0 release <!-- rs:task=child-milestone-v1 -->',
+    '  - Blocked by: child-dep-task',
+    ''
+  ].join('\n');
+  const { tasks } = parseRoadmap(content);
+
+  const results = validateTasks(tasks, context, config, []);
+  assert.equal(results['child-milestone-v1'].passed, false, 'milestone must fail when child-bullet Blocked-by dep is incomplete');
+  assert.ok(results['child-milestone-v1'].reasons.some((r) => r.includes('child-dep-task')), 'reason must name the blocking dep');
+});
+
+// Causa 2: existing ⚠️ warning on unchecked task must survive even when meetsStrongThreshold
+test('Unchecked task with existing warning stays unchecked even when code+feature-surface evidence exists', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  // Code file with matching tokens so evidence.code = true
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'notification.ts'),
+    'export function sendNotification() {} export function notifySystem() {}\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const { parseRoadmap } = require('../src/parser');
+  const content = [
+    '## Phase P2',
+    '- [ ] Add notification system <!-- rs:task=add-notifications -->',
+    '  - ⚠️ attempted but validation failed: helper exists but no delivery mechanism',
+    ''
+  ].join('\n');
+  const { tasks } = parseRoadmap(content);
+  const task = tasks.find((t) => t.id === 'add-notifications');
+
+  const result = validateTask(task, context, config, []);
+  assert.equal(result.passed, false, 'existing warning must keep unchecked task failing regardless of token evidence');
+});
+
+// Causa 3a: action-verb task with path hint + code tokens — stays unchecked without Evidence line
+test('Action-verb task with path hint and code tokens stays unchecked without Evidence line', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'db.ts'),
+    'export function query() { return prisma.findMany(); }\nfunction handleFallback() { /* recovery */ }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-db-recovery',
+      text: 'Agregar fallback recovery en src/lib/db.ts cuando falla Prisma',
+      checked: false
+    },
+    context, config, []
+  );
+  assert.equal(result.passed, false, 'action-verb task without Evidence line must stay unchecked');
+  assert.ok(result.reasons.some((r) => r.includes('action-verb')), 'reason must indicate action-verb requirement');
+});
+
+// Causa 3b: same action-verb task WITH Evidence line passes
+test('Action-verb task WITH Evidence line passes despite no test evidence', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'db.ts'),
+    'export function query() { return prisma.findMany(); }\nfunction handleFallback() { /* recovery logic */ }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-db-recovery',
+      text: 'Agregar fallback recovery en src/lib/db.ts cuando falla Prisma',
+      checked: false,
+      evidenceLines: [{ text: 'src/lib/db.ts' }]
+    },
+    context, config, []
+  );
+  assert.equal(result.passed, true, 'action-verb task WITH Evidence line must pass');
+  assert.ok(!result.reasons.some((r) => r.includes('action-verb')), 'action-verb reason must not appear when Evidence line is present');
+});
