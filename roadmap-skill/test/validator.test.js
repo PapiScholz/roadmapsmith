@@ -1346,7 +1346,7 @@ test('Action-verb task with path hint and code tokens stays unchecked without Ev
     context, config, []
   );
   assert.equal(result.passed, false, 'action-verb task without Evidence line must stay unchecked');
-  assert.ok(result.reasons.some((r) => r.includes('action-verb')), 'reason must indicate action-verb requirement');
+  assert.ok(result.reasons.some((r) => r.includes('action task requires')), 'reason must indicate action task requirement');
 });
 
 // Causa 3b: same action-verb task WITH Evidence line passes
@@ -1372,5 +1372,117 @@ test('Action-verb task WITH Evidence line passes despite no test evidence', () =
     context, config, []
   );
   assert.equal(result.passed, true, 'action-verb task WITH Evidence line must pass');
-  assert.ok(!result.reasons.some((r) => r.includes('action-verb')), 'action-verb reason must not appear when Evidence line is present');
+  assert.ok(!result.reasons.some((r) => r.includes('action task requires')), 'action task reason must not appear when Evidence line is present');
+});
+
+test('taskDescribesChange catches noun form "Manejo" and two-word "Recovery path"', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  // File must match enough task tokens (threshold=3 for 5+ tokens) so meetsStrongThreshold fires
+  // and the action gate can override passed=true to passed=false with the action reason.
+  // Contains tokens for both sub-tests: manejo/falta/archivo for r1, recovery/cash/sessions for r2.
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'db.ts'),
+    'export const db = { sqlite: true, manejo: true, falta: "error", archivo: "path" };\nfunction recovery() { const cash = sessions.get(); }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const r1 = validateTask(
+    { id: 'manejo-db', text: 'Manejo de corrupción o falta del archivo SQLite en src/lib/db.ts', checked: false },
+    context, config, []
+  );
+  assert.equal(r1.passed, false, '"Manejo" must be caught as an action task');
+  assert.ok(r1.reasons.some((r) => r.includes('action task requires')));
+
+  const r2 = validateTask(
+    { id: 'recovery-cash', text: 'Recovery path para cash sessions huérfanas en src/lib/db.ts', checked: false },
+    context, config, []
+  );
+  assert.equal(r2.passed, false, '"Recovery path" must be caught as an action task');
+  assert.ok(r2.reasons.some((r) => r.includes('action task requires')));
+});
+
+test('Action task without Evidence line stays unchecked despite token match in generic fixture', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'inventory'), { recursive: true });
+  // File must contain enough matching tokens (3+) so meetsStrongThreshold fires,
+  // then the action gate overrides passed=true to passed=false with the action reason.
+  fs.writeFileSync(
+    path.join(projectRoot, 'inventory', 'page.tsx'),
+    'export function InventoryPage() { mostrar(ajuste); inventario.push(confirmacion); }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'prod-inventory-warning', text: 'Mostrar confirmación antes de ajuste de inventario en inventory/page.tsx', checked: false },
+    context, config, []
+  );
+  assert.equal(result.passed, false, 'action task must stay unchecked even when file exists with matching tokens');
+  assert.ok(result.reasons.some((r) => r.includes('action task requires')), 'reason must mention Evidence line or high-confidence');
+});
+
+test('Action task WITH Evidence line is marked complete', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'inventory'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'inventory', 'page.tsx'),
+    'export function InventoryPage() { mostrar(ajuste); inventario.push(confirmacion); }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'prod-inventory-warning',
+      text: 'Mostrar confirmación antes de ajuste de inventario en inventory/page.tsx',
+      checked: false,
+      evidenceLines: [{ text: 'inventory/page.tsx' }]
+    },
+    context, config, []
+  );
+  assert.equal(result.passed, true, 'action task WITH Evidence line must pass');
+  assert.ok(!result.reasons.some((r) => r.includes('action task requires')));
+});
+
+test('Non-action task with token match can pass without Evidence line', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'inventory'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'inventory', 'page.tsx'),
+    'export function InventoryPage() { return stock > 0 ? "ok" : "ajuste"; }\n',
+    'utf8'
+  );
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'stock-management', text: 'Stock management module in inventory/page.tsx', checked: false },
+    context, config, []
+  );
+  assert.ok(!result.reasons.some((r) => r.includes('action task requires')), 'non-action task must not be blocked by action gate');
+});
+
+test('/api/* HTTP route paths do not produce missing-file failures', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const routes = [
+    { id: 'api-backup',    text: 'Add error handling to /api/backup route' },
+    { id: 'api-products',  text: 'Validate /api/products/[sku] endpoint' },
+    { id: 'api-dashboard', text: 'Secure /api/dashboard with auth middleware' },
+  ];
+  for (const task of routes) {
+    const result = validateTask(task, context, config, []);
+    const reasons = result.reasons.join('; ');
+    assert.ok(
+      !reasons.includes('missing referenced file'),
+      `"${task.text}" must not produce missing-file failure for HTTP route, got: ${reasons}`
+    );
+  }
 });

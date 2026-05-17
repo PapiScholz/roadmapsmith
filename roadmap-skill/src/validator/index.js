@@ -50,26 +50,23 @@ const GENERIC_TASK_TOKENS = new Set([
   'phrases', 'conceptual',
 ]);
 
-// Verbs that indicate the task describes work still to be done, not completed work.
-// When a task starts with one of these verbs, code token overlap alone cannot pass it —
-// either an Evidence line (authoritativeEvidence.passed) or test evidence is required.
-const ACTION_VERBS = new Set([
-  'agregar', 'mostrar', 'implementar', 'configurar', 'reemplazar', 'cambiar',
-  'corregir', 'manejar', 'proteger', 'sanitizar', 'validar', 'deshabilitar',
-  'generar', 'expandir', 'reducir', 'completar', 'crear', 'eliminar',
-  'add', 'show', 'implement', 'configure', 'replace', 'change', 'fix',
-  'handle', 'protect', 'sanitize', 'validate', 'disable', 'generate',
-  'expand', 'reduce', 'complete', 'create', 'remove'
-]);
+// Patterns that indicate the task describes work still to be done, not completed work.
+// Regex form catches verb and noun forms ("Manejo") and two-word constructions ("Recovery path")
+// that an exact-match Set would miss. When a task matches, code token overlap alone cannot pass
+// it — either an Evidence line or high-confidence evidence (code + test) is required.
+const CHANGE_VERB_PATTERNS = [
+  // Spanish — verb and noun forms of pending-work descriptions
+  /^(agregar|añadir|implementar|configurar|reemplazar|cambiar|corregir|manejar|manejo|proteger|sanitizar|validar|deshabilitar|mostrar|generar|expandir|reducir|completar|crear|eliminar|migrar|refactorizar|recovery\s+path)\b/i,
+  // English
+  /^(add|implement|configure|replace|change|fix|handle|protect|sanitize|validate|disable|show|generate|expand|reduce|complete|create|remove|migrate|refactor|recovery\s+path)\b/i,
+];
 
-function taskStartsWithActionVerb(taskText) {
+function taskDescribesChange(taskText) {
   const normalized = String(taskText)
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\[([^\]]+)\]/g, '$1')
-    .trim()
-    .toLowerCase();
-  const firstWord = normalized.split(/[\s,;:()[\]]+/)[0] || '';
-  return ACTION_VERBS.has(firstWord);
+    .replace(/^\*\*\[.*?\]\*\*\s*/, '')
+    .replace(/^\[.*?\]\s*/, '')
+    .trim();
+  return CHANGE_VERB_PATTERNS.some((p) => p.test(normalized));
 }
 
 const CANONICAL_FILES = {
@@ -201,6 +198,7 @@ function hasFileExtension(token) {
 
 function isLikelyPath(token) {
   if (token.includes('*') || token.includes('?')) return false; // glob/wildcard
+  if (/^\/api\//i.test(token)) return false; // HTTP API route paths are not file paths
   if (/^\.{1,2}\/|^\//.test(token)) {
     // Bare "/" or "./" with nothing after is not a real path (e.g. "API / ESC-POS" → "/")
     return /[A-Za-z0-9_]/.test(token);
@@ -1195,9 +1193,11 @@ function validateTask(task, context, config, plugins) {
   let confidence = 'low';
   if (authoritativeEvidence.passed) {
     confidence = authoritativeEvidence.confidence || 'medium';
-  } else if (meetsStrongThreshold) {
+  } else if (meetsStrongThreshold && evidence.test) {
+    // 'high' requires code + test — code + feature-surface alone is 'medium'
+    // so that action-verb tasks (path hint exists but no test) stay gated.
     confidence = 'high';
-  } else if (strongEvidenceCount === 1 || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass) {
+  } else if (meetsStrongThreshold || strongEvidenceCount === 1 || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass) {
     confidence = 'medium';
   }
 
@@ -1241,24 +1241,22 @@ function validateTask(task, context, config, plugins) {
     passed = false;
   }
 
-  // Action-verb gate (Causa 3): unchecked tasks whose text starts with a pending-work verb
-  // (Agregar, Configurar, Add, Fix, …) cannot pass on code token overlap alone.
-  // The verb signals "this is work to do", so the validator requires either:
-  //   a) an Evidence line confirming the work is done (authoritativeEvidence.passed), or
-  //   b) test evidence proving the feature is exercised, or
-  //   c) grant-evidence from a config rule (hasTrustedRuleEvidencePass), or
-  //   d) canonical artifact evidence (hasArtifactTaskPass — e.g. "Add SECURITY.md").
+  // Action-verb gate (Causa 3): unchecked tasks that describe a change to be made
+  // (Agregar, Configurar, Add, Fix, Manejo, Recovery path, …) cannot pass on code token overlap alone.
+  // Requires either: an Evidence line (authoritativeEvidence.passed), high-confidence evidence
+  // (code + test), grant-evidence from config (hasTrustedRuleEvidencePass), or canonical artifact
+  // evidence (hasArtifactTaskPass — e.g. "Add SECURITY.md").
   if (
     !task.checked &&
     passed &&
-    taskStartsWithActionVerb(task.text) &&
+    taskDescribesChange(task.text) &&
     !authoritativeEvidence.passed &&
     !hasTrustedRuleEvidencePass &&
     !hasArtifactTaskPass &&
-    !evidence.test
+    confidence !== 'high'
   ) {
     passed = false;
-    const actionVerbReason = 'action-verb task requires high-confidence evidence or Evidence line';
+    const actionVerbReason = 'action task requires Evidence line or high-confidence evidence (code + test) to be marked complete';
     if (!uniqueReasons.includes(actionVerbReason)) {
       uniqueReasons.push(actionVerbReason);
     }
