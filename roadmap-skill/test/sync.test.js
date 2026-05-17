@@ -22,7 +22,7 @@ test('sync marks task complete when validation passes', () => {
   const config = loadConfig({ projectRoot });
   const content = [
     '## Phase P0',
-    '- [ ] Implement app module <!-- rs:task=implement-app-module -->',
+    '- [ ] App module <!-- rs:task=implement-app-module -->',
     ''
   ].join('\n');
 
@@ -31,7 +31,7 @@ test('sync marks task complete when validation passes', () => {
   const results = validateTasks(parsed.tasks, context, config, []);
   const next = applySync(content, parsed.tasks, results);
 
-  assert.match(next, /- \[x\] Implement app module/);
+  assert.match(next, /- \[x\] App module/);
   assert.doesNotMatch(next, /validation failed/);
 });
 
