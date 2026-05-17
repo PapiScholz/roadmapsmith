@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.12 - 2026-05-17
+
+### Fixed
+- `taskDescribesChange()` replaces the previous exact-verb `Set` with regex patterns that also match noun forms ("Manejo") and two-word constructions ("Recovery path") — catches all 5 remaining false positives.
+- Confidence 'high' now requires `evidence.test` in addition to `meetsStrongThreshold` (code + feature-surface alone is 'medium'). This ensures the action-task gate fires even when an unrelated test file happens to import the same module, which was preventing the gate from blocking tasks 3–5.
+- `isLikelyPath` now rejects `/api/*` HTTP route paths (e.g. `/api/backup`, `/api/products/[sku]`) so they no longer appear as "missing referenced file(s)" in validation reasons.
+
 ## v0.9.11 - 2026-05-16
 
 ### Fixed
