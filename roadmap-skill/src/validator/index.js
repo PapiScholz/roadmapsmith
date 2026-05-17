@@ -1252,8 +1252,7 @@ function validateTask(task, context, config, plugins) {
     taskDescribesChange(task.text) &&
     !authoritativeEvidence.passed &&
     !hasTrustedRuleEvidencePass &&
-    !hasArtifactTaskPass &&
-    confidence !== 'high'
+    !hasArtifactTaskPass
   ) {
     passed = false;
     const actionVerbReason = 'action task requires Evidence line or high-confidence evidence (code + test) to be marked complete';

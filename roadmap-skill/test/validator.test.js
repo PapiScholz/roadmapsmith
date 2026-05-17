@@ -21,7 +21,7 @@ test('validator passes when code and tests exist for code task', () => {
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
-  const result = validateTask({ id: 'implement-app-module', text: 'Implement app module' }, context, config, []);
+  const result = validateTask({ id: 'implement-app-module', text: 'App module' }, context, config, []);
   assert.equal(result.passed, true);
 });
 
@@ -1485,4 +1485,48 @@ test('/api/* HTTP route paths do not produce missing-file failures', () => {
       `"${task.text}" must not produce missing-file failure for HTTP route, got: ${reasons}`
     );
   }
+});
+
+test('action task stays unchecked even when BOTH code and test files match its tokens', () => {
+  const projectRoot = setupFixture('generic');
+
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  // File contains "cash", "sessions", "recovery" — 3 matches for 5 task tokens (threshold=3)
+  // so evidence.code=true and meetsStrongThreshold fires, letting the gate reach and override.
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'cash.ts'),
+    'export function getCashSessions() { return []; }\n// recovery path handler\n',
+    'utf8'
+  );
+
+  // A test file that imports the same module — this causes confidence='high'
+  // (meetsStrongThreshold && evidence.test) and bypasses the gate in v0.9.12
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'cash.test.ts'),
+    "import { getCashSessions } from '../lib/cash';\n" +
+    "test('cash sessions list', () => { expect(getCashSessions()).toEqual([]); });\n",
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    {
+      id: 'recovery-cash',
+      text: 'Recovery path para cash sessions huérfanas',
+      checked: false
+    },
+    context, config, []
+  );
+
+  assert.equal(
+    result.passed, false,
+    'action task must stay unchecked even when code + test files both match tokens'
+  );
+  assert.ok(
+    result.reasons.some((r) => r.includes('action task requires')),
+    `expected "action task requires" in reasons, got: ${JSON.stringify(result.reasons)}`
+  );
 });
