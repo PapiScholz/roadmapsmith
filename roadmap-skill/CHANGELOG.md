@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.13 - 2026-05-17
+
+### Fixed
+- **Action-verb gate**: Removed `confidence !== 'high'` from the gate condition. The confidence system cannot distinguish "this test covers the described feature" from "this test imports the same module coincidentally" — when `evidence.code=true` and `evidence.test=true` (from unrelated test imports), `confidence='high'` was bypassing the gate and marking action tasks complete without explicit evidence. Action tasks now require only explicit evidence: an `Evidence:` line, a canonical artifact, or a `grant-evidence` config rule.
+
 ## v0.9.12 - 2026-05-17
 
 ### Fixed
