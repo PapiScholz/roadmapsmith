@@ -50,6 +50,28 @@ const GENERIC_TASK_TOKENS = new Set([
   'phrases', 'conceptual',
 ]);
 
+// Verbs that indicate the task describes work still to be done, not completed work.
+// When a task starts with one of these verbs, code token overlap alone cannot pass it —
+// either an Evidence line (authoritativeEvidence.passed) or test evidence is required.
+const ACTION_VERBS = new Set([
+  'agregar', 'mostrar', 'implementar', 'configurar', 'reemplazar', 'cambiar',
+  'corregir', 'manejar', 'proteger', 'sanitizar', 'validar', 'deshabilitar',
+  'generar', 'expandir', 'reducir', 'completar', 'crear', 'eliminar',
+  'add', 'show', 'implement', 'configure', 'replace', 'change', 'fix',
+  'handle', 'protect', 'sanitize', 'validate', 'disable', 'generate',
+  'expand', 'reduce', 'complete', 'create', 'remove'
+]);
+
+function taskStartsWithActionVerb(taskText) {
+  const normalized = String(taskText)
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\[([^\]]+)\]/g, '$1')
+    .trim()
+    .toLowerCase();
+  const firstWord = normalized.split(/[\s,;:()[\]]+/)[0] || '';
+  return ACTION_VERBS.has(firstWord);
+}
+
 const CANONICAL_FILES = {
   security: 'SECURITY.md',
   readme: 'README.md',
@@ -1207,13 +1229,39 @@ function validateTask(task, context, config, plugins) {
     }
   }
 
-  if (task.warningText && passed && !authoritativeEvidence.passed && !meetsStrongThreshold) {
+  // Unchecked tasks with an existing ⚠️ warning are preserved as failing unless an Evidence line
+  // explicitly confirms implementation. meetsStrongThreshold (token match) cannot override a
+  // human/agent judgment that the feature is incomplete.
+  if (task.warningText && !task.checked && passed && !authoritativeEvidence.passed) {
     passed = false;
     uniqueReasons.push(task.warningText);
     uniqueReasons = Array.from(new Set(uniqueReasons));
   }
   if (negativeSignalMatches.length > 0) {
     passed = false;
+  }
+
+  // Action-verb gate (Causa 3): unchecked tasks whose text starts with a pending-work verb
+  // (Agregar, Configurar, Add, Fix, …) cannot pass on code token overlap alone.
+  // The verb signals "this is work to do", so the validator requires either:
+  //   a) an Evidence line confirming the work is done (authoritativeEvidence.passed), or
+  //   b) test evidence proving the feature is exercised, or
+  //   c) grant-evidence from a config rule (hasTrustedRuleEvidencePass), or
+  //   d) canonical artifact evidence (hasArtifactTaskPass — e.g. "Add SECURITY.md").
+  if (
+    !task.checked &&
+    passed &&
+    taskStartsWithActionVerb(task.text) &&
+    !authoritativeEvidence.passed &&
+    !hasTrustedRuleEvidencePass &&
+    !hasArtifactTaskPass &&
+    !evidence.test
+  ) {
+    passed = false;
+    const actionVerbReason = 'action-verb task requires high-confidence evidence or Evidence line';
+    if (!uniqueReasons.includes(actionVerbReason)) {
+      uniqueReasons.push(actionVerbReason);
+    }
   }
 
   // Preserve already-checked tasks when the validator can't confirm implementation but also
@@ -1264,13 +1312,21 @@ function validateTasks(tasks, context, config, plugins) {
     result[task.id] = validateTask(task, context, config, plugins);
   }
 
-  // Post-pass: milestone tasks with "Blocked by: id-a, id-b" cannot pass
-  // while any listed dependency is still failing.
+  // Post-pass: tasks with "Blocked by: id-a, id-b" cannot pass while any listed dependency
+  // is still failing. The IDs may appear inline in task.text OR as child bullet lines
+  // (parsed by parser into task.blockedByIds).
   for (const task of tasks) {
+    const blockedIds = [];
     const m = BLOCKED_BY_RE.exec(task.text);
-    if (!m) continue;
-    const blockedIds = m[1].split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
-    const failingDeps = blockedIds.filter((id) => result[id] && !result[id].passed);
+    if (m) {
+      blockedIds.push(...m[1].split(/[\s,]+/).map((s) => s.trim()).filter(Boolean));
+    }
+    if (Array.isArray(task.blockedByIds) && task.blockedByIds.length > 0) {
+      blockedIds.push(...task.blockedByIds);
+    }
+    if (blockedIds.length === 0) continue;
+    const uniqueBlockedIds = Array.from(new Set(blockedIds));
+    const failingDeps = uniqueBlockedIds.filter((id) => result[id] && !result[id].passed);
     if (failingDeps.length > 0 && result[task.id] && result[task.id].passed) {
       result[task.id].passed = false;
       result[task.id].reasons = [`blocked by incomplete tasks: ${failingDeps.join(', ')}`];

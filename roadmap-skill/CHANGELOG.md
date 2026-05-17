@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.11 - 2026-05-16
+
+### Fixed
+- **Causa 1 — Blocked-by in child bullets**: Parser now extracts `blockedByIds` from child-bullet `- Blocked by: task-id, ...` lines (previously only inline "Blocked by:" in task text was recognised). `validateTasks` post-pass checks both sources, so a milestone whose dependencies are listed as child bullets now correctly stays failed when any dependency is incomplete.
+- **Causa 2 — Existing ⚠️ warning bypassed by token match**: Unchecked tasks that already carry a `⚠️ attempted but validation failed:` warning are now kept failing even when `meetsStrongThreshold` is true (code + feature-surface ≥ 2 categories). The warning represents a prior human/agent judgment that code token overlap must not override. Only an explicit `Evidence:` line (`authoritativeEvidence.passed = true`) can clear it.
+- **Causa 3 — Action-verb tasks auto-pass on token match**: Unchecked tasks whose text starts with a pending-work verb (Agregar, Configurar, Add, Fix, Implement, …) now require either an `Evidence:` line, test evidence, grant-evidence from config, or canonical artifact evidence to pass. Code token overlap alone (path hint exists + tokens in file content = 2 categories) is no longer sufficient — the verb signals that work is still to be done.
+
 ## v0.9.10 - 2026-05-16
 
 ### Fixed
