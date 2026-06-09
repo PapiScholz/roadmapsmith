@@ -71,7 +71,7 @@ Use for repositories with existing code, tests, docs, or a pre-existing `ROADMAP
 2. Run `roadmapsmith generate` to (re)build the managed roadmap block with phased priorities and milestones.
 3. Run `roadmapsmith validate` to inspect evidence status per task.
 4. Run `roadmapsmith sync` to apply validation outcomes to checklist state.
-5. Run `roadmapsmith sync --audit` to surface mismatches between checked state and evidence.
+5. Run `roadmapsmith sync --audit` only as a post-sync summary of mismatches. Today it is not a dedicated read-only audit mode.
 
 If the npm CLI is not installed, run the local engine from the repository package directory:
 
@@ -132,12 +132,15 @@ Phases sort by `phaseNumber`. Steps sort by `stepNumber` within their phase. Pri
 
 Optionally define explicit phases in config (`product.phases[]`). If omitted, phases are inferred from P0/P1/P2 task groups.
 
+When updating an existing roadmap, extend the most relevant existing phase or section before creating a new one. Do not create a parallel phase for the same theme if a current phase already fits.
+
 ## Guardrails
 
 - Mark tasks complete only when repository evidence exists.
 - Require test evidence for code tasks when a test framework exists.
 - Preserve existing non-managed markdown blocks.
 - Keep formatting deterministic for clean git diffs.
+- If a versioned `roadmap-skill.config.json` already exists, treat it as the source of truth instead of regenerating from defaults.
 
 ## Deterministic Output Rules
 

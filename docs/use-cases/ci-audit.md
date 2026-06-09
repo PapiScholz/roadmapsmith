@@ -11,7 +11,7 @@ Teams that want automated enforcement of roadmap accuracy in pull requests:
 
 Use CI Audit Mode when:
 
-- You want PRs to fail if tasks are marked `[x]` without repository evidence
+- You want CI visibility into tasks marked `[x]` without repository evidence
 - An AI agent session just completed work and you want a factual status report
 - You have a team policy that completion state must match code evidence before merge
 - You want to surface tasks that have evidence but have not been checked yet
@@ -20,7 +20,7 @@ Do not use CI Audit Mode as a substitute for running `roadmapsmith sync` locally
 
 ## How it works
 
-`roadmapsmith sync --audit` compares the declared task state in `ROADMAP.md` against repository evidence without modifying the file. It exits with a non-zero status code when mismatches are found, which fails the CI job.
+Today `roadmapsmith sync --audit` applies sync behavior and then prints a mismatch summary. Treat it as a mutating command in an ephemeral checkout, not as a dedicated read-only audit gate.
 
 ### Mismatch types detected
 
@@ -36,9 +36,9 @@ node roadmap-skill/bin/cli.js sync --audit
 
 This command:
 1. Scans the repository for evidence per task
-2. Compares evidence against the checked state in `ROADMAP.md`
+2. Updates the managed roadmap block based on that evidence
 3. Prints a mismatch report to stdout
-4. Exits 1 if any mismatch is found; exits 0 if the roadmap is consistent
+4. Should be run only where mutating `ROADMAP.md` is acceptable, such as disposable CI worktrees
 
 ### GitHub Actions example
 
@@ -71,27 +71,27 @@ roadmap-audit:
 
 ## Interpreting the audit output
 
-A passing audit looks like:
+A clean summary currently looks like:
 
 ```
-✓ Roadmap audit passed — all checked tasks have evidence
+Audit summary: 0 checked-without-evidence, 0 ready-but-unchecked.
 ```
 
-A failing audit includes a per-task breakdown:
+A non-clean summary currently includes the same heading plus category lists:
 
 ```
-⚠ Roadmap audit failed
+Audit summary: 1 checked-without-evidence, 1 ready-but-unchecked.
 
 Checked without evidence:
-  - prof-task-add-ci-audit-docs: "Add docs/use-cases/ci-audit.md" — no file match found
+- [prof-task-add-ci-audit-docs] Add docs/use-cases/ci-audit.md
 
-Evidence present but unchecked:
-  - prof-task-add-output-format: "Define stable public output format" — matched in src/renderer/index.js
+Ready but unchecked:
+- [prof-task-add-output-format] Define stable public output format
 ```
 
 ## Guardrails enforced
 
-- CI Audit does not modify `ROADMAP.md` — it is a read-only check
+- CI Audit currently mutates `ROADMAP.md`; use it only in disposable checkouts
 - The managed block is the only section evaluated; unmanaged content is ignored
 - Task IDs are stable across regenerations, so audit results are reproducible
 - Audit is deterministic: same repository state always produces the same result
@@ -103,8 +103,8 @@ Evidence present but unchecked:
 roadmapsmith sync          # update checked state based on evidence
 roadmapsmith sync --audit  # verify no mismatches remain
 
-# In CI — fails on any mismatch
+# In CI — current summary step in a disposable checkout
 roadmapsmith sync --audit
 ```
 
-Run `sync` to apply evidence-backed updates. Run `sync --audit` in CI to enforce the policy without side effects.
+Run `sync` to apply evidence-backed updates. Run `sync --audit` in CI only when the checkout is disposable and you want the current summary output. A dedicated read-only audit gate is still roadmap work.

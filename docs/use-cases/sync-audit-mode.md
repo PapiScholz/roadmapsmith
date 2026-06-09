@@ -45,11 +45,11 @@ roadmapsmith validate --json
 # Apply validation outcomes — mark [x] where evidence exists, warn where it does not
 roadmapsmith sync
 
-# Report mismatches: checked without evidence, ready but unchecked
+# Print a mismatch summary after sync
 roadmapsmith sync --audit
 ```
 
-Each command is independent. Agents typically run `sync` after completing work. CI can run `sync --audit` to fail on mismatched state.
+Each command is independent. Agents typically run `sync` after completing work. Today `sync --audit` should be treated as a mutating sync plus summary, not as a dedicated read-only audit gate.
 
 ## Why it prevents hallucinated progress
 
@@ -76,8 +76,8 @@ This means a PR reviewer can run `sync --audit` and see a factual mismatch repor
 # Preview what sync would change without writing
 roadmapsmith sync --dry-run
 
-# Show mismatch report without modifying the roadmap
+# Print mismatch report after running sync
 roadmapsmith sync --audit
 ```
 
-Use `--dry-run` before applying changes. Use `--audit` in CI to fail on unresolved mismatches.
+Use `--dry-run` before applying changes. Use `validate --json` when you need a read-only evidence inspection. Use `--audit` when you want the current post-sync summary.

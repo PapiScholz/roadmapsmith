@@ -3,8 +3,8 @@
   "product": {
     "name": "RoadmapSmith",
     "northStar": "Make every software project ship with a living, evidence-backed roadmap — zero manual maintenance.",
-    "positioning": "RoadmapSmith is a CLI tool and Claude skill that auto-generates, validates, and syncs ROADMAP.md files directly from repository evidence. Unlike static roadmap templates or project management tools, RoadmapSmith keeps the roadmap honest: tasks are only marked complete when code, tests, or artifacts back them up.",
-    "primaryUser": "Solo developers and small teams using AI coding agents (Claude Code, Copilot, etc.).",
+    "positioning": "RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and syncs ROADMAP.md files directly from repository evidence. Claude Code has the clearest automation story today; other hosts currently rely on the manual CLI workflow. Unlike static roadmap templates or project management tools, RoadmapSmith keeps the roadmap honest: tasks are only marked complete when code, tests, or artifacts back them up.",
+    "primaryUser": "Solo developers and small teams using AI coding agents, especially Claude Code today, with manual CLI workflows on Codex/Codex CLI and other hosts.",
     "targetOutcome": "Developers run one command and get a production-grade, evidence-validated ROADMAP.md they are proud to publish — and it stays accurate as the project evolves.",
     "antiGoals": [
       "Replace project management tools like Linear or Jira",
