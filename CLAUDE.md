@@ -14,7 +14,8 @@ node bin/cli.js --help
 node bin/cli.js init --dry-run
 node bin/cli.js generate --project-root . --dry-run --audit
 node bin/cli.js validate --json --project-root .. --task <task-id>
-node bin/cli.js sync --dry-run --audit --project-root ..
+node bin/cli.js sync --dry-run --project-root ..
+node bin/cli.js sync --audit --project-root ..
 node bin/cli.js doctor --project-root ..
 ```
 
@@ -81,7 +82,13 @@ Config fields `northStar`, `targetUser`, `problemStatement`, etc. are forward-co
 
 ## PostToolUse Hook
 
-`.claude/settings.json` registers a `PostToolUse` hook that runs `node .claude/hooks/roadmap-sync.js` after every Write/Edit operation. This automatically syncs ROADMAP.md against repository evidence.
+`.claude/settings.json` in this repo registers a Claude-specific `PostToolUse` hook that runs `node .claude/hooks/roadmap-sync.js` after every Write/Edit operation. Treat it as a repo-local example, not as a host-agnostic integration contract.
+
+This is a write-time hook, not the same thing as the git `pre-commit` hook. The write-time path is currently best-effort and depends on the host environment being able to resolve `node` for the spawned child process; the repo's `pre-commit` hook uses an absolute Node path and is stricter.
+
+## Audit Semantics
+
+`sync --audit` currently runs the normal sync mutation path and then prints a mismatch summary. It is not yet a dedicated read-only audit mode with a separate exit-code contract.
 
 ## Publishing
 

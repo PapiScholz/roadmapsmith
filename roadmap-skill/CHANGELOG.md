@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.9.14 - 2026-06-09
+
+### Changed
+- Professional roadmap output now tracks the operational follow-up work around autoupdate reliability, hook behavior, sync contract clarity, and targeted testing/documentation gaps.
+
+### Docs
+- Clarified that `sync --audit` currently runs the normal sync mutation path and then prints a mismatch summary; it is not yet a dedicated read-only audit mode.
+- Documented the current host support split: Claude Code has the clearest automation path today, while Codex/Codex CLI remains a manual CLI workflow.
+- Documented the current Claude write-time hook reliability boundaries, including its dependence on `node` resolution in the host environment and its distinction from the repository `pre-commit` hook.
+
 ## v0.9.13 - 2026-05-17
 
 ### Fixed

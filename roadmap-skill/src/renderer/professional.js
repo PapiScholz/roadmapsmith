@@ -238,10 +238,25 @@ const MODULE_METADATA = {
       { text: 'Tune similarity threshold to reduce false-positive merges', priority: 'P0', id: 'prof-mat-match-tune-similarity-threshold' }
     ]
   },
+  sync: {
+    state: 'Applies validation outcomes to ROADMAP.md and can append warning lines for failed attempts.',
+    tasks: [
+      { text: 'Define explicit contract for sync, sync --audit, and future promote-only flows', priority: 'P0', id: 'prof-mat-sync-define-command-contract' },
+      { text: 'Separate mutating sync behavior from future read-only audit mode', priority: 'P0', id: 'prof-mat-sync-separate-mutation-from-read-only-audit' },
+      { text: 'Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output', priority: 'P1', id: 'prof-mat-sync-expose-rich-audit-findings' },
+      { text: 'Claude PostToolUse hook must invoke the CLI without relying on bare "node" in PATH', priority: 'P0', id: 'prof-mat-sync-claude-hook-avoid-bare-node-path' },
+      { text: 'Claude PostToolUse hook must fail visibly when sync execution fails', priority: 'P0', id: 'prof-mat-sync-claude-hook-fail-visibly-on-sync-error' },
+      { text: 'Claude PostToolUse hook must keep lock-file cleanup on both success and failure', priority: 'P1', id: 'prof-mat-sync-claude-hook-cleanup-lockfile-on-both-paths' },
+      { text: 'Differentiate write-time hook sync from commit-time pre-commit sync in the command contract', priority: 'P1', id: 'prof-mat-sync-differentiate-write-time-and-pre-commit-sync' }
+    ]
+  },
   config: {
     state: 'Supports roadmapProfile, product block, milestones, phaseTemplates, plugins.',
     tasks: [
-      { text: 'Add JSON schema validation for roadmap-skill.config.json', priority: 'P1', id: 'prof-mat-config-json-schema-validation' }
+      { text: 'Add JSON schema validation for roadmap-skill.config.json', priority: 'P1', id: 'prof-mat-config-json-schema-validation' },
+      { text: 'Add init --professional or init --with-config bootstrap flow', priority: 'P0', id: 'prof-mat-config-add-init-with-config-bootstrap-flow' },
+      { text: 'Honor versioned roadmap config instead of regenerating from defaults', priority: 'P1', id: 'prof-mat-config-honor-versioned-config-before-defaults' },
+      { text: 'Define manual-to-managed migration flow and drift warnings between skill and CLI guidance', priority: 'P1', id: 'prof-mat-config-define-manual-to-managed-migration-and-drift-warnings' }
     ]
   },
   io: {
@@ -298,7 +313,12 @@ function renderSection7OutputContract(model, lines) {
   lines.push('');
   const formatItems = [
     { text: 'Define stable public output format (stdout, files, exit codes)', priority: 'P0' },
-    { text: 'Version output format alongside package version', priority: 'P1' }
+    { text: 'Version output format alongside package version', priority: 'P1' },
+    { text: 'Define explicit contract for sync, sync --audit, and future promote-only flows', priority: 'P0' },
+    { text: 'Document current gap: sync --audit is not yet a dedicated read-only audit command', priority: 'P1' },
+    { text: 'Add machine-readable audit output (JSON)', priority: 'P1' },
+    { text: 'Add audit summary-only output mode', priority: 'P1' },
+    { text: 'Define explicit exit-code semantics for sync and audit commands', priority: 'P0' }
   ];
   for (const item of formatItems) {
     const id = `prof-out-${slugify(item.text)}`;
@@ -310,7 +330,9 @@ function renderSection7OutputContract(model, lines) {
   lines.push('');
   const breakingItems = [
     { text: 'Document breaking vs. non-breaking output changes', priority: 'P1' },
-    { text: 'Add output schema validation to CI', priority: 'P1' }
+    { text: 'Add output schema validation to CI', priority: 'P1' },
+    { text: 'Separate mutating sync behavior from future read-only audit mode', priority: 'P0' },
+    { text: 'Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output', priority: 'P1' }
   ];
   for (const item of breakingItems) {
     const id = `prof-out-${slugify(item.text)}`;
@@ -329,7 +351,13 @@ function renderSection8Testing(model, lines) {
     { text: 'Unit test coverage for all core modules', priority: 'P0' },
     { text: 'Integration tests covering the full generate → sync → validate pipeline', priority: 'P0' },
     { text: 'Regression fixtures for compact and professional profile output', priority: 'P1' },
-    { text: 'Edge case coverage: empty repo, no config, large monorepo scan', priority: 'P1' }
+    { text: 'Edge case coverage: empty repo, no config, large monorepo scan', priority: 'P1' },
+    { text: 'Add direct tests for .claude/hooks/roadmap-sync.js payload parsing', priority: 'P1' },
+    { text: 'Add direct tests for ROADMAP.md self-edit skip behavior', priority: 'P1' },
+    { text: 'Add direct tests for lock-file reentry guard', priority: 'P1' },
+    { text: 'Add direct tests for sync failure surfacing when the child process cannot be spawned', priority: 'P0' },
+    { text: 'Add regression coverage for environments where node is not available on PATH', priority: 'P0' },
+    { text: 'Add integration coverage for pre-commit sync using the absolute Node path', priority: 'P1' }
   ];
   for (const item of coverageItems) {
     const id = `prof-test-${slugify(item.text)}`;
@@ -389,7 +417,18 @@ function renderSection10Documentation(model, lines) {
   const coreItems = [
     { text: 'README.md covers install, commands, and profile selection', priority: 'P0' },
     { text: 'SKILL.md reflects current feature set and guardrails', priority: 'P0' },
-    { text: 'CHANGELOG.md maintained for each release', priority: 'P1' }
+    { text: 'CHANGELOG.md maintained for each release', priority: 'P1' },
+    { text: 'README.md documents current sync --audit semantics without claiming read-only behavior', priority: 'P0' },
+    { text: 'README.md includes host matrix for Claude Code, Codex/Codex CLI, CI, and manual workflows', priority: 'P1' },
+    { text: 'Document distinction between supported Claude hooks and manual workflows on other hosts', priority: 'P1' },
+    { text: 'Document Codex/Codex CLI manual fallback workflow', priority: 'P1' },
+    { text: 'Document Windows shell caveats: roadmapsmith.cmd, npm.cmd, and PowerShell policy differences', priority: 'P1' },
+    { text: 'Skill instructions require extending existing phases before adding new ones', priority: 'P1' },
+    { text: 'Document that Claude write-time autoupdate currently depends on Node resolution in the hook environment', priority: 'P1' },
+    { text: 'Document the difference between the Claude PostToolUse hook and the git pre-commit hook', priority: 'P1' },
+    { text: 'Document current autoupdate reliability boundaries: write-time hook is best-effort, pre-commit is stricter', priority: 'P1' },
+    { text: 'Document troubleshooting for hook failure when node is missing from PATH', priority: 'P1' },
+    { text: 'Document that Codex/Codex CLI remains manual and does not share the Claude repo-local hook path', priority: 'P1' }
   ];
   for (const item of coreItems) {
     const id = `prof-doc-${slugify(item.text)}`;

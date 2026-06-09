@@ -34,7 +34,7 @@ npm install -g roadmapsmith@latest
 npm install roadmapsmith@latest
 
 # One-off execution without installing
-npx roadmapsmith@latest sync --audit
+npx roadmapsmith@latest validate --json
 ```
 
 The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary:
@@ -65,8 +65,18 @@ Repository-backed roadmap generation, validation, and synchronization. Use when 
 ```bash
 roadmapsmith generate --project-root .
 roadmapsmith validate --json
-roadmapsmith sync --audit
+roadmapsmith sync
+roadmapsmith sync --dry-run
 ```
+
+## Host Support Today
+
+| Host | Current support |
+|---|---|
+| Claude Code | Manual hook setup is documented and supported. |
+| Codex / Codex CLI | Manual CLI workflow only; no documented auto-hook equivalent yet. |
+| CI | Use disposable checkouts if you run `sync --audit`, because it still mutates the roadmap today. |
+| Other hosts | Use the skill plus manual CLI commands. |
 
 ---
 
@@ -84,6 +94,7 @@ roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config 
 - Generates deterministic `ROADMAP.md` with fixed section order.
 - Uses stable task IDs: `<!-- rs:task=<slug> -->`.
 - Sync marks `[x]` only when validation passes.
+- `sync --audit` currently runs sync and then prints a mismatch summary; it is not yet a dedicated read-only audit mode.
 - Validation evidence gate:
   - code OR test OR artifact evidence required.
   - test evidence required for code tasks when test frameworks are detected.
@@ -113,26 +124,27 @@ Create `roadmap-skill.config.json`:
 {
   "roadmapFile": "./ROADMAP.md",
   "agentsFile": "./AGENTS.md",
-
-  // Forward-compatible fields — recognized by the skill/agent for Zero Mode discovery context,
-  // but not yet read by the generator or validator. Safe to add now; they will be wired in a future release.
-  "northStar": "Ship a self-hosted CLI tool for website capture and AI-readable design analysis.",
-  "targetUser": "Frontend developers, full-stack developers, and AI coding agents.",
-  "problemStatement": "Developers lack a unified tool to capture screenshots, crawl pages, extract assets, and export structured context.",
-  "v1Outcome": "A stable CLI that captures full-page screenshots, crawls internal links, exports metadata, and produces an AI-readable report.",
-  "antiGoals": [
-    "Do not bypass authentication",
-    "Do not target private systems without authorization"
-  ],
-  "risks": [
-    "Browser automation instability",
-    "Scope creep into generic scraping"
-  ],
-  "exitCriteria": [
-    "CLI works against a public test site",
-    "Screenshots and metadata are exported deterministically",
-    "README documents safe and authorized usage"
-  ],
+  "roadmapProfile": "professional",
+  "product": {
+    "name": "My Project",
+    "northStar": "Ship a self-hosted CLI tool for website capture and AI-readable design analysis.",
+    "positioning": "What makes this different from alternatives.",
+    "primaryUser": "Frontend developers, full-stack developers, and AI coding agents.",
+    "targetOutcome": "A stable CLI that captures full-page screenshots, crawls internal links, exports metadata, and produces an AI-readable report.",
+    "antiGoals": [
+      "Do not bypass authentication",
+      "Do not target private systems without authorization"
+    ],
+    "risks": [
+      "Browser automation instability",
+      "Scope creep into generic scraping"
+    ],
+    "successCriteria": [
+      "CLI works against a public test site",
+      "Screenshots and metadata are exported deterministically",
+      "README documents safe and authorized usage"
+    ]
+  },
 
   "taskMatchers": [
     {
@@ -232,14 +244,14 @@ module.exports = {
 roadmapsmith init
 roadmapsmith generate --project-root .
 roadmapsmith validate --json
-roadmapsmith sync --audit
+roadmapsmith sync
 roadmapsmith sync --dry-run
 ```
 
 ## Dry Run and Audit
 
 - `--dry-run`: shows file diff preview without writing.
-- `--audit`: reports roadmap/code mismatches:
+- `--audit`: currently runs sync and then reports roadmap/code mismatches:
   - checked without evidence
   - ready but unchecked
 
