@@ -387,7 +387,12 @@ function renderPosixTaskWrapper() {
   return [
     '#!/bin/sh',
     'set -eu',
-    'SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)',
+    'SCRIPT_PATH="$0"',
+    'case "${SCRIPT_PATH}" in',
+    '  */*) ;;',
+    '  *) SCRIPT_PATH="./${SCRIPT_PATH}" ;;',
+    'esac',
+    'SCRIPT_DIR=$(CDPATH= cd -- "${SCRIPT_PATH%/*}" && pwd)',
     'ACTION="${1:-explain}"',
     'ROADMAPSMITH_NODE_RESOLVED=""',
     'if [ -n "${ROADMAPSMITH_NODE:-}" ]; then',
