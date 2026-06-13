@@ -18,11 +18,23 @@ Turn vague software ideas into deterministic, evidence-trackable roadmaps for AI
 
 ```bash
 npm install -g roadmapsmith
-roadmapsmith init
-roadmapsmith generate --project-root .
-roadmapsmith validate --json
-roadmapsmith sync --dry-run
+roadmapsmith setup
+roadmapsmith zero       # Empty repo: interview + init + generate
+roadmapsmith maintain   # Existing repo: generate + sync + audit
 ```
+
+In VS Code, run `Tasks: Run Task` and start with `RoadmapSmith: Status`, then use `RoadmapSmith: Zero Mode` for empty repos or `RoadmapSmith: Maintain` for existing repos.
+The generated task layer now resolves Node automatically where possible; if it cannot, RoadmapSmith prints a readable runtime diagnostic instead of a dead task.
+`RoadmapSmith: Status` now treats "ready" as runnable task UX, not merely generated files.
+You can also use slash entrypoints such as `roadmapsmith /road`, `roadmapsmith /zero`, `roadmapsmith /maintain`, or `roadmapsmith /roadmap-sync maintain`.
+
+Optional agent skill:
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+```
+
+The skill guides the agent. The CLI executes actions. Slash routing improves invocation and discovery. `roadmapsmith setup` makes those actions visible in VS Code, generates per-platform task wrappers, and can also wire the repo-local Claude hook.
 
 ## Demo
 
@@ -65,14 +77,29 @@ RoadmapSmith introduces a third path: **validation by evidence**. Before `sync` 
 ## How It Works
 
 ```
-roadmapsmith init              # Write ROADMAP.md + AGENTS.md governance files
-roadmapsmith generate          # Scan repo → emit deterministic task candidates
-roadmapsmith validate --json   # Check task completion against code/test/artifact evidence
-roadmapsmith sync              # Apply validation results (mark ✓ or warn ⚠️)
-roadmapsmith sync --audit      # Run sync and also print a mismatch summary (currently mutating)
+roadmapsmith setup             # Create visible VS Code tasks + optional Claude hook wiring
+roadmapsmith zero              # Empty repo: terminal interview + init + generate
+roadmapsmith maintain          # Existing repo: generate + sync + audit
+roadmapsmith init              # Advanced/manual: write ROADMAP.md + AGENTS.md governance files
+roadmapsmith generate          # Advanced/manual: scan repo → emit deterministic task candidates
+roadmapsmith validate --json   # Advanced/manual: check task completion against evidence
+roadmapsmith sync              # Advanced/manual: apply validation results (mark ✓ or warn ⚠️)
 ```
 
-Each command is independent and composable. Agents typically run `sync` after making changes. Today `sync --audit` is best treated as a mutating sync plus summary, not as a dedicated read-only audit gate.
+The primary contract is now one command per mode: `zero` for empty repos, `maintain` for existing repos. The lower-level commands remain available for manual control. `setup` is the editor-host bridge: it creates visible VS Code tasks for Codex/manual workflows, generates per-platform task wrappers that resolve Node automatically, and can wire the Claude `PostToolUse` hook. Slash routing adds a discovery layer on top: `/road` shows the RoadmapSmith palette, exact slash commands execute, and incomplete or ambiguous slash input only shows suggestions. Today `sync --audit` is best treated as a mutating sync plus summary, not as a dedicated read-only audit gate.
+
+### Slash Invocation
+
+```bash
+roadmapsmith /road
+roadmapsmith /zero
+roadmapsmith /maintain
+roadmapsmith /roadmap-sync maintain
+```
+
+- `/road` is a palette/help entrypoint.
+- Exact slash commands execute normally.
+- Partial or ambiguous input shows suggestions only; it never writes files by accident.
 
 **`generate`** indexes your repository for languages, test frameworks, modules in `src/`, `lib/`, `packages/`, and TODO/FIXME markers (up to 120 files). It emits deterministic task candidates — same input always produces the same structure. Task IDs are stable across regenerations via `<!-- rs:task=id -->` markers.
 
@@ -84,12 +111,12 @@ Each command is independent and composable. Agents typically run `sync` after ma
 
 | Host | Current support |
 |---|---|
-| Claude Code | Supported with a repo-local hook script example and manual hook registration. |
-| Codex / Codex CLI | Supported as a manual CLI workflow today; no documented repo-local PostToolUse equivalent yet. |
+| Claude Code | Supported through `roadmapsmith setup`: visible VS Code tasks, slash-capable launcher UX, and optional repo-local Claude hook wiring. |
+| Codex / Codex CLI | Supported through a visible VS Code task workflow and slash-capable launcher UX after `roadmapsmith setup`. Codex chat itself remains unchanged unless the host exposes native slash registration. |
 | CI | Usable in disposable checkouts, but `sync --audit` is still mutating. |
 | Other hosts | Use the skill instructions plus manual `generate`, `validate`, `sync`, and `sync --dry-run` commands. |
 
-Claude write-time autoupdate depends on the host environment being able to resolve `node` for the repo-local hook. That best-effort hook is separate from this repository's git `pre-commit` sync behavior.
+Claude write-time autoupdate depends on the host environment being able to resolve `node` for the repo-local hook. VS Code tasks use generated wrappers and can also honor `ROADMAPSMITH_NODE` when PATH-based Node resolution is unreliable. That best-effort hook is separate from this repository's git `pre-commit` sync behavior. RoadmapSmith does not invent native chat slash APIs where the host does not expose them; the guaranteed UX surface in this iteration is VS Code Tasks plus the slash-capable launcher/status/help output.
 
 Windows note: prefer `roadmapsmith.cmd`, `npm.cmd`, or explicit `node` paths in shells where PowerShell execution policy or PATH resolution differs from `cmd.exe`.
 
@@ -115,7 +142,9 @@ Expected agent behavior:
 - Define the v1.0 outcome, anti-goals, and risks.
 - Generate ROADMAP.md as the execution contract.
 
-Discovery questions the agent will ask:
+`roadmapsmith zero` is the public entrypoint for this mode. It runs the terminal interview, persists the brief into config, creates governance files when needed, and generates the first roadmap in one invocation.
+
+Discovery questions asked by the CLI interview:
 
 1. What product are we building?
 2. Who is the target user?
@@ -129,12 +158,16 @@ Discovery questions the agent will ask:
 Recommended workflow:
 
 ```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-roadmapsmith init
-roadmapsmith generate --project-root .
+roadmapsmith zero
 ```
 
-The CLI creates governance files. The AI agent performs the discovery interview using the `roadmap-sync` skill instructions before generating the roadmap.
+Optional policy layer:
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+```
+
+The CLI executes the one-command workflow. The `roadmap-sync` skill remains the agent policy/governance layer for hosts that use skills.
 
 ---
 
@@ -153,13 +186,10 @@ Expected behavior:
 Recommended workflow:
 
 ```bash
-roadmapsmith generate --project-root .
-roadmapsmith validate --json
-roadmapsmith sync
-roadmapsmith sync --dry-run
+roadmapsmith maintain
 ```
 
-This is the current mature mode. It is not deprecated — it is the primary workflow for any repository with existing implementation.
+`maintain` runs `generate + sync + audit` in one invocation. Use the lower-level commands only when you want manual inspection or tighter control.
 
 ---
 
@@ -311,14 +341,21 @@ Do not use it if:
 
 | Command | Purpose |
 |---|---|
+| `roadmapsmith setup` | Generate visible VS Code tasks, per-platform task wrappers, and optional Claude hook wiring |
+| `roadmapsmith zero` | Run the Zero Mode interview and generate the first roadmap in one command |
+| `roadmapsmith maintain` | Run the default existing-repo flow: generate, sync, and audit in one command |
+| `roadmapsmith /road` | Show the RoadmapSmith slash palette and related actions |
+| `roadmapsmith /zero` | Slash alias for Zero Mode |
+| `roadmapsmith /maintain` | Slash alias for the default existing-repo flow |
+| `roadmapsmith /roadmap-sync maintain` | Execute the namespaced skill-style slash form through the router |
 | `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
 | `roadmapsmith generate --project-root .` | Generate a roadmap from repository context |
 | `roadmapsmith validate --json` | Validate roadmap task evidence and emit JSON results |
 | `roadmapsmith sync --audit` | Apply sync and print a mismatch summary; currently mutates `ROADMAP.md` |
-| `roadmapsmith doctor` | Check basic repository health: config loads and ROADMAP.md exists |
+| `roadmapsmith doctor --json` | Check repository plus host readiness: CLI resolution, roadmap/rules, VS Code tasks, Node runtime, Claude hook |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
 
-## Install: Agent Skill (Primary)
+## Install: Agent Skill (Optional Policy Layer)
 
 ### skills.sh and agentskill.sh
 
@@ -326,20 +363,53 @@ Do not use it if:
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This adds the `roadmap-sync` agent skill. It does not install the CLI package.
+This adds the `roadmap-sync` agent skill only. It does not install the CLI and it does not create visible VS Code actions by itself.
 
 ### aitmpl.com/skills
 
 Search for `roadmapsmith` on [aitmpl.com/skills](https://aitmpl.com/skills) and follow the install prompt, or install directly using the skills CLI above.
 
-## Install: CLI (Optional)
+## Install: CLI + VS Code Host UX
 
 ```bash
 npm install -g roadmapsmith
-roadmapsmith init
-roadmapsmith generate --project-root .
-roadmapsmith validate --json
-roadmapsmith sync --audit
+roadmapsmith setup
+```
+
+Then, inside VS Code:
+
+1. Run `Tasks: Run Task`
+2. Choose `RoadmapSmith: Status`
+3. Use `RoadmapSmith: Zero Mode` for empty repos or `RoadmapSmith: Maintain` for existing repos
+4. Use `Init`, `Generate`, `Validate`, and `Sync` only when you want manual control
+5. Or invoke slash commands from CLI or launcher, starting with `/road`
+
+### VS Code / Codex quick start
+
+```bash
+npm install -g roadmapsmith
+roadmapsmith setup
+```
+
+Codex in VS Code does not get native RoadmapSmith buttons inside the chat pane. The supported visible UX is the generated VS Code task list plus the launcher slash router.
+If Node is installed outside PATH, set `ROADMAPSMITH_NODE` to a working `node` executable and rerun `RoadmapSmith: Status`.
+If the host supports slash registration, RoadmapSmith metadata can advertise the slash entrypoints. If not, the supported fallback is the CLI/launcher slash router plus VS Code tasks.
+
+Recommended commands:
+
+```bash
+roadmapsmith zero
+roadmapsmith maintain
+roadmapsmith /road
+```
+
+### Claude Code quick start
+
+```bash
+npm install -g roadmapsmith
+roadmapsmith setup --hosts codex,claude
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+roadmapsmith zero
 ```
 
 ## Updating RoadmapSmith
@@ -357,11 +427,13 @@ npm install roadmapsmith@latest
 npx roadmapsmith@latest sync --audit
 ```
 
-The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary:
+The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary or the generated VS Code host files:
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
+
+After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, launcher behavior, or Claude hook template.
 
 Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing:
 
@@ -380,6 +452,22 @@ node bin/cli.js init --dry-run
 node bin/cli.js generate --project-root . --dry-run --audit
 node bin/cli.js validate --json
 ```
+
+If `npm test` fails in your shell with "`node` is not recognized", treat that as a local PATH/runtime issue first and rerun the suite with an explicit Node executable.
+
+## Release Readiness
+
+Release and publication notes now live in:
+
+- [docs/release-readiness.md](docs/release-readiness.md)
+- [docs/release-ux-gate.md](docs/release-ux-gate.md)
+
+Before publishing, the docs, changelog, CLI help, slash routing, and VS Code task surface should all agree on the same public contract:
+
+- `roadmapsmith setup`
+- `roadmapsmith zero`
+- `roadmapsmith maintain`
+- optional `roadmap-sync` skill as policy layer
 
 ## Naming Model
 
@@ -442,7 +530,7 @@ The `AGENTS.md` file (generated by `init`) provides the agent with explicit exec
 ## Use Cases
 
 **AI coding agents**
-Install `roadmap-sync` as a skill. Claude Code currently has the clearest automation path through a manual hook setup. Codex/Codex CLI and other hosts are currently documented as manual workflows: run `generate` to rehydrate context, `validate --json` to inspect evidence, `sync` to apply results, and `sync --dry-run` when you want a preview without writes. The `ROADMAP.md` becomes a reliable contract between sessions — not a note the model wrote to itself.
+Install `roadmap-sync` as a skill when you want the agent to follow the roadmap contract. Install the CLI and run `roadmapsmith setup` when you want visible VS Code actions. Claude Code can also use the generated repo-local hook. Codex/Codex CLI remains a VS Code task workflow in this iteration, not a native chat-pane integration. The `ROADMAP.md` becomes a reliable contract between sessions — not a note the model wrote to itself.
 
 **Multi-session development workflows**
 Each session starts from the same `ROADMAP.md` ground truth. Completed tasks are backed by evidence; in-progress tasks are visible without reading git history or asking the agent to summarize its own work.
@@ -500,4 +588,4 @@ Full detail in [ROADMAP.md](./ROADMAP.md). Summary of active priorities:
 - Caching layer for `buildValidationContext()` — avoid full repo scan per call
 - Incremental scan strategy
 - Configurable phase definitions beyond P0/P1/P2
-- Future: `roadmapsmith discover` and `roadmapsmith init --interactive` CLI commands
+- Future: richer `roadmapsmith zero` brief imports and non-interactive brief/config handoff

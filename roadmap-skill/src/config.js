@@ -24,6 +24,12 @@ const DEFAULT_CONFIG = {
     steps: [],
     phases: []
   },
+  zeroMode: {
+    problemStatement: '',
+    preferredStack: '',
+    constraints: [],
+    doneCriteria: []
+  },
   validation: {
     minimumConfidence: 'low'
   },
@@ -77,6 +83,16 @@ function mergeConfig(userConfig) {
         ? userConfig.product.phases
         : DEFAULT_CONFIG.product.phases
     },
+    zeroMode: {
+      ...DEFAULT_CONFIG.zeroMode,
+      ...((userConfig && userConfig.zeroMode) || {}),
+      constraints: (userConfig && userConfig.zeroMode && Array.isArray(userConfig.zeroMode.constraints))
+        ? userConfig.zeroMode.constraints
+        : DEFAULT_CONFIG.zeroMode.constraints,
+      doneCriteria: (userConfig && userConfig.zeroMode && Array.isArray(userConfig.zeroMode.doneCriteria))
+        ? userConfig.zeroMode.doneCriteria
+        : DEFAULT_CONFIG.zeroMode.doneCriteria
+    },
     validation: {
       ...DEFAULT_CONFIG.validation,
       ...((userConfig && userConfig.validation) || {})
@@ -84,11 +100,15 @@ function mergeConfig(userConfig) {
   };
 }
 
-function loadConfig(options = {}) {
+function resolveConfigPath(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
-  const resolvedConfigPath = options.configPath
+  return options.configPath
     ? path.resolve(projectRoot, String(options.configPath))
     : path.resolve(projectRoot, 'roadmap-skill.config.json');
+}
+
+function loadConfig(options = {}) {
+  const resolvedConfigPath = resolveConfigPath(options);
 
   const content = readTextIfExists(resolvedConfigPath);
   let userConfig = {};
@@ -112,6 +132,15 @@ function loadConfig(options = {}) {
     writable: false
   });
   return merged;
+}
+
+function readUserConfig(options = {}) {
+  const resolvedConfigPath = resolveConfigPath(options);
+  const content = readTextIfExists(resolvedConfigPath);
+  if (!content) {
+    return {};
+  }
+  return safeParseJson(content, resolvedConfigPath);
 }
 
 function resolveRoadmapFile(projectRoot, config, overridePath) {
@@ -214,6 +243,8 @@ module.exports = {
   collectPluginContributions,
   loadConfig,
   loadPlugins,
+  readUserConfig,
   resolveAgentsFile,
+  resolveConfigPath,
   resolveRoadmapFile
 };

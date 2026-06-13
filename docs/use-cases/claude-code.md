@@ -18,7 +18,7 @@ Use the Claude Code integration when:
 
 ## How it works
 
-This repository includes an example `.claude/hooks/roadmap-sync.js` script for Claude Code. If you wire it into `.claude/settings.json`, it fires after every file write and runs `roadmapsmith sync`. That workflow is Claude-specific today; Codex/Codex CLI should use the manual CLI flow documented in the main README.
+This repository includes an example `.claude/hooks/roadmap-sync.js` script for Claude Code. If you wire it into `.claude/settings.json`, it fires after every file write and runs `roadmapsmith sync`. That workflow is Claude-specific today; the visible UX surface still starts with `roadmapsmith setup`, `roadmapsmith zero`, and `roadmapsmith maintain`.
 
 The write-time hook is best-effort today. It depends on the Claude host environment being able to resolve `node` for the child process launched by the hook script.
 
@@ -32,15 +32,24 @@ The write-time hook is best-effort today. It depends on the Claude host environm
 
 ## Setup
 
-### Option 1: Install via skills
+### Option 1: Install via CLI + setup
+
+```bash
+npm install -g roadmapsmith
+roadmapsmith setup --hosts codex,claude
+```
+
+This creates the visible VS Code task layer and upserts the repo-local Claude hook wiring.
+
+### Option 2: Install the optional skill
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This installs the skill instructions only. It does not register a Claude hook for you.
+This installs the agent policy instructions only. It does not install the CLI.
 
-### Option 2: Manual hook setup
+### Option 3: Manual hook setup
 
 Copy `.claude/hooks/roadmap-sync.js` to your project's `.claude/hooks/` directory, then register it in `.claude/settings.json`:
 
@@ -65,15 +74,22 @@ Copy `.claude/hooks/roadmap-sync.js` to your project's `.claude/hooks/` director
 ## Typical workflow with Claude Code
 
 ```bash
-# 1. Initialize roadmap files
-roadmapsmith init
+# 1. Install the visible host UX and optional skill
+roadmapsmith setup --hosts codex,claude
+npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 
-# 2. Start a Claude Code session — the skill guides the agent
-# 3. The agent implements tasks; the optional hook syncs the roadmap after each file write
-# 4. At the end of the session, verify the state is accurate
+# 2. For a new repo, create the first roadmap in one command
+roadmapsmith zero
+
+# 3. For an existing repo, run the maintenance flow in one command
+roadmapsmith maintain
+
+# 4. Start a Claude Code session — the skill guides the agent
+# 5. The agent implements tasks; the optional hook syncs the roadmap after each file write
+# 6. At the end of the session, verify the state is accurate
 roadmapsmith sync --audit
 
-# 5. Commit — if you use a pre-commit hook, it can run a final sync
+# 7. Commit — if you use a pre-commit hook, it can run a final sync
 git commit -m "feat: implement task X"
 ```
 

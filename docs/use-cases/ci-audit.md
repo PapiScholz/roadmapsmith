@@ -100,11 +100,10 @@ Ready but unchecked:
 
 ```bash
 # Run locally before pushing
-roadmapsmith sync          # update checked state based on evidence
-roadmapsmith sync --audit  # verify no mismatches remain
+roadmapsmith maintain      # generate + sync + audit in one command
 
 # In CI — current summary step in a disposable checkout
 roadmapsmith sync --audit
 ```
 
-Run `sync` to apply evidence-backed updates. Run `sync --audit` in CI only when the checkout is disposable and you want the current summary output. A dedicated read-only audit gate is still roadmap work.
+Run `maintain` locally as the normal existing-repo workflow. Run `sync --audit` in CI only when the checkout is disposable and you want the current summary output. A dedicated read-only audit gate is still roadmap work.

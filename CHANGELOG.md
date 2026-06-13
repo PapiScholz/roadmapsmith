@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Documented the new one-command product contract around `roadmapsmith setup`, `roadmapsmith zero`, and `roadmapsmith maintain`.
+- Added `docs/release-ux-gate.md` to make publication criteria explicit for onboarding clarity, failure safety, and config-preserving host setup.
+
+### Changed
+- Release and use-case docs now treat the `roadmap-sync` skill as an optional policy layer instead of the primary end-user entrypoint.
+- Zero Mode and Sync/Audit Mode documentation now match the real CLI and VS Code task flows.
+
 ## [0.7.0] — 2026-04-27
 
 ### Added

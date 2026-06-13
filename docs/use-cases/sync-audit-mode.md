@@ -36,20 +36,21 @@ A task passes only when accumulated evidence exceeds the configured threshold.
 ## Workflow
 
 ```bash
-# Rebuild the managed roadmap block from current repository context
+roadmapsmith maintain
+```
+
+`maintain` is the default existing-repo flow. It runs `generate + sync + audit` in one invocation.
+
+Advanced/manual flow:
+
+```bash
 roadmapsmith generate --project-root .
-
-# Inspect evidence status per task (returns JSON with per-task results)
 roadmapsmith validate --json
-
-# Apply validation outcomes — mark [x] where evidence exists, warn where it does not
 roadmapsmith sync
-
-# Print a mismatch summary after sync
 roadmapsmith sync --audit
 ```
 
-Each command is independent. Agents typically run `sync` after completing work. Today `sync --audit` should be treated as a mutating sync plus summary, not as a dedicated read-only audit gate.
+Today `sync --audit` should be treated as a mutating sync plus summary, not as a dedicated read-only audit gate.
 
 ## Why it prevents hallucinated progress
 

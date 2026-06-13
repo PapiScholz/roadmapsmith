@@ -12,7 +12,14 @@ Production-grade roadmap generator and sync tool for agent-driven projects.
 
 ```bash
 npm install -g roadmapsmith
+roadmapsmith setup
+roadmapsmith zero
+roadmapsmith maintain
 ```
+
+Slash entrypoints are also supported from the CLI and launcher, for example: `roadmapsmith /road`, `roadmapsmith /zero`, `roadmapsmith /maintain`, and `roadmapsmith /roadmap-sync maintain`.
+The generated VS Code task layer now resolves Node automatically where possible; if it cannot, RoadmapSmith prints a readable runtime diagnostic instead of a dead task.
+`RoadmapSmith: Status` now treats "ready" as runnable task UX, not merely generated files.
 
 ### Agent Skill
 
@@ -20,7 +27,7 @@ npm install -g roadmapsmith
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This adds the `roadmap-sync` agent skill. It does not install the CLI package.
+This adds the `roadmap-sync` agent skill only. It does not install the CLI and it does not create visible VS Code actions by itself.
 
 ## Updating
 
@@ -37,11 +44,13 @@ npm install roadmapsmith@latest
 npx roadmapsmith@latest validate --json
 ```
 
-The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary:
+The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary or the generated VS Code host files:
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
+
+After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, task wrappers, launcher behavior, or Claude hook template.
 
 Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing.
 
@@ -51,11 +60,11 @@ Fixes are available through `@latest` only after a new npm package version has b
 
 Agent-guided discovery for empty or low-context repositories. The developer has a product idea but no implementation files, no stack decision, and no ROADMAP.md yet.
 
-The CLI creates governance files. The AI agent (using the `roadmap-sync` skill) performs the discovery interview before generating the roadmap.
+Run `roadmapsmith setup` first if you want visible VS Code tasks. `roadmapsmith zero` is the one-command entrypoint: it runs the terminal interview, creates governance files when needed, and generates the first roadmap.
 
 ```bash
-roadmapsmith init
-roadmapsmith generate --project-root .
+roadmapsmith setup
+roadmapsmith zero
 ```
 
 ### Sync/Audit Mode
@@ -63,30 +72,50 @@ roadmapsmith generate --project-root .
 Repository-backed roadmap generation, validation, and synchronization. Use when the repository already has code, tests, docs, TODOs, or an existing ROADMAP.md.
 
 ```bash
-roadmapsmith generate --project-root .
-roadmapsmith validate --json
-roadmapsmith sync
-roadmapsmith sync --dry-run
+roadmapsmith setup
+roadmapsmith maintain
 ```
+
+## Recommended Daily Flow
+
+Use the public entrypoints first:
+
+```bash
+roadmapsmith setup
+roadmapsmith zero       # empty repo
+roadmapsmith maintain   # existing repo
+```
+
+Use the lower-level commands only when you want manual control over generation, validation, or sync.
 
 ## Host Support Today
 
 | Host | Current support |
 |---|---|
-| Claude Code | Manual hook setup is documented and supported. |
-| Codex / Codex CLI | Manual CLI workflow only; no documented auto-hook equivalent yet. |
+| Claude Code | Supported through `roadmapsmith setup`: visible VS Code tasks, slash-capable launcher UX, and optional repo-local Claude hook wiring. |
+| Codex / Codex CLI | Supported through a visible VS Code task workflow and slash-capable launcher UX after `roadmapsmith setup`. Codex chat itself remains unchanged unless the host exposes native slash registration. |
 | CI | Use disposable checkouts if you run `sync --audit`, because it still mutates the roadmap today. |
 | Other hosts | Use the skill plus manual CLI commands. |
+
+If Node is installed outside PATH, set `ROADMAPSMITH_NODE` to a working `node` executable before using the generated VS Code tasks.
 
 ---
 
 ## Commands
 
 ```bash
+roadmapsmith /road
+roadmapsmith /zero
+roadmapsmith /maintain
+roadmapsmith /roadmap-sync maintain
+roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]
+roadmapsmith zero [--project-root <path>] [--config <path>]
+roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>]
 roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]
 roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]
 roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]
 roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]
+roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]
 ```
 
 ## Behavior
@@ -241,10 +270,9 @@ module.exports = {
 ## Example Usage
 
 ```bash
-roadmapsmith init
-roadmapsmith generate --project-root .
+roadmapsmith zero
+roadmapsmith maintain
 roadmapsmith validate --json
-roadmapsmith sync
 roadmapsmith sync --dry-run
 ```
 
@@ -261,6 +289,8 @@ roadmapsmith sync --dry-run
 npm test
 ```
 
+If `npm test` fails in your shell with "`node` is not recognized", treat that as a local PATH/runtime issue first and rerun the suite with an explicit Node executable.
+
 ## Publishing
 
 ```bash
@@ -269,6 +299,12 @@ npm version patch   # or minor / major
 npm publish --access public
 git push origin main --follow-tags
 ```
+
+Repository-specific release note:
+
+- The canonical release automation lives in `.github/workflows/ci.yml`.
+- This repository publishes from GitHub Actions on `main`; local `npm publish` is a maintainer workflow, not the default repo release path.
+- Before publishing, verify the UX/release gate in `docs/release-ux-gate.md` and update `CHANGELOG.md` with the user-visible behavior changes.
 
 ## Versioning Strategy
 

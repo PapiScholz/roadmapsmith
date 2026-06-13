@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 
-// .claude/hooks/ → project root (two levels up)
+// .claude/hooks/ -> project root (two levels up)
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CLI = path.join(PROJECT_ROOT, 'roadmap-skill', 'bin', 'cli.js');
 const LOCK_FILE = path.join(__dirname, '.sync.lock');
@@ -22,20 +22,18 @@ process.stdin.on('end', () => {
     process.exit(0);
   }
 
-  // Normalise slashes; skip if ROADMAP.md itself was edited (prevents re-trigger loop)
   const normalised = filePath.replace(/\\/g, '/');
   if (!normalised || normalised.endsWith('/ROADMAP.md')) {
     process.exit(0);
   }
 
-  // Skip if another sync is already running (Claude may fire multiple edits in rapid succession)
   if (fs.existsSync(LOCK_FILE)) {
     process.exit(0);
   }
 
   try {
     fs.writeFileSync(LOCK_FILE, String(process.pid));
-    execFileSync('node', [CLI, 'sync', '--project-root', PROJECT_ROOT], {
+    execFileSync(process.execPath, [CLI, 'sync', '--project-root', PROJECT_ROOT], {
       stdio: 'inherit'
     });
   } catch (err) {
