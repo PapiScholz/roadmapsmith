@@ -490,11 +490,12 @@ function createModel(scan, tasks, config, customSections, checkedById) {
   }
 
   const productConfig = config.product || {};
+  const zeroModeConfig = config.zeroMode || {};
   const inferredName = inferProjectName(scan.projectRoot || process.cwd());
   const product = {
     name: productConfig.name || inferredName,
     northStar: productConfig.northStar || '',
-    positioning: productConfig.positioning || '',
+    positioning: productConfig.positioning || (zeroModeConfig.problemStatement ? `Core problem: ${zeroModeConfig.problemStatement}` : ''),
     primaryUser: productConfig.primaryUser || '',
     targetOutcome: productConfig.targetOutcome || ''
   };
@@ -510,9 +511,16 @@ function createModel(scan, tasks, config, customSections, checkedById) {
     'Do not hide validation failures from roadmap consumers'
   ];
 
-  const risks = (productConfig.risks && productConfig.risks.length > 0) ? productConfig.risks : defaultRisks;
+  const derivedConstraintRisks = Array.isArray(zeroModeConfig.constraints)
+    ? zeroModeConfig.constraints.map((constraint) => `Constraint: ${constraint}`)
+    : [];
+  const risks = (productConfig.risks && productConfig.risks.length > 0)
+    ? productConfig.risks
+    : (derivedConstraintRisks.length > 0 ? derivedConstraintRisks : defaultRisks);
   const antiGoals = (productConfig.antiGoals && productConfig.antiGoals.length > 0) ? productConfig.antiGoals : defaultAntiGoals;
-  const successCriteria = productConfig.successCriteria || [];
+  const successCriteria = (productConfig.successCriteria && productConfig.successCriteria.length > 0)
+    ? productConfig.successCriteria
+    : (Array.isArray(zeroModeConfig.doneCriteria) ? zeroModeConfig.doneCriteria : []);
 
   const northStar = productConfig.northStar
     || 'Ship validated, high-impact increments with deterministic delivery and transparent completion evidence.';
@@ -555,6 +563,7 @@ function normalizeCandidate(candidate) {
 function generateRoadmapDocument(options) {
   const projectRoot = options.projectRoot;
   const config = options.config;
+  const zeroModeConfig = config.zeroMode || {};
   const plugins = options.plugins || [];
   const existingContent = options.existingContent || '';
 
@@ -581,6 +590,24 @@ function generateRoadmapDocument(options) {
     items: section.items || []
   }));
 
+  const zeroModeBriefItems = [];
+  if (zeroModeConfig.problemStatement) {
+    zeroModeBriefItems.push(`- **Problem statement:** ${zeroModeConfig.problemStatement}`);
+  }
+  if (zeroModeConfig.preferredStack) {
+    zeroModeBriefItems.push(`- **Preferred stack:** ${zeroModeConfig.preferredStack}`);
+  }
+  if (Array.isArray(zeroModeConfig.constraints) && zeroModeConfig.constraints.length > 0) {
+    zeroModeBriefItems.push(`- **Constraints:** ${zeroModeConfig.constraints.join('; ')}`);
+  }
+  if (Array.isArray(zeroModeConfig.doneCriteria) && zeroModeConfig.doneCriteria.length > 0) {
+    zeroModeBriefItems.push(`- **Done means:** ${zeroModeConfig.doneCriteria.join('; ')}`);
+  }
+  const generatedZeroModeSection = zeroModeBriefItems.length > 0 ? [{
+    title: 'Zero Mode Brief',
+    items: zeroModeBriefItems
+  }] : [];
+
   const configSections = (config.customSections || []).map((section) => ({
     title: section.title,
     items: section.items || []
@@ -601,7 +628,7 @@ function generateRoadmapDocument(options) {
   const baseCandidates = buildDefaultCandidates(scan, config);
   const matcherCandidates = applyTaskMatchers(scan, config);
   const merged = mergeWithExisting([...baseCandidates, ...matcherCandidates, ...pluginTaskCandidates], existingPhaseTasks);
-  const model = createModel(scan, merged, config, [profileSection, ...configSections, ...pluginSections], existingCheckedById);
+  const model = createModel(scan, merged, config, [profileSection, ...generatedZeroModeSection, ...configSections, ...pluginSections], existingCheckedById);
   const profile = config.roadmapProfile || 'compact';
   const managedBody = renderBody(model, profile);
 

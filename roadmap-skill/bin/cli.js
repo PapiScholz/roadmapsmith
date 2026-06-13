@@ -3,23 +3,34 @@
 
 const fs = require('fs');
 const path = require('path');
+const readline = require('node:readline/promises');
 const { parseArgv } = require('../src/utils');
-const { loadConfig, resolveRoadmapFile, resolveAgentsFile, loadPlugins } = require('../src/config');
+const { loadConfig, resolveRoadmapFile, resolveAgentsFile, loadPlugins, readUserConfig, resolveConfigPath } = require('../src/config');
 const { readTextIfExists, writeText, printDryRunDiff } = require('../src/io');
+const { buildSetupFiles, applySetupFiles, inspectHostSetup, parseHosts, assertSupportedEditor } = require('../src/host');
+const { getSlashAction, renderSlashPalette, resolveSlashInvocation } = require('../src/slash');
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
 const { generateRoadmapDocument } = require('../src/generator');
 const { parseRoadmap } = require('../src/parser');
 const { buildValidationContext, validateTasks, auditValidation, CONFIDENCE_RANK, applyMinimumConfidence } = require('../src/validator');
 const { applySync } = require('../src/sync');
+const { buildZeroModeConfigPatch, buildZeroModeDefaults, collectZeroModeAnswers, isInteractiveTerminal } = require('../src/zero');
 
 function printHelp() {
   console.log([
     'Usage:',
+    '  roadmapsmith zero [--project-root <path>] [--config <path>]',
+    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>]',
+    '  roadmapsmith /road',
+    '  roadmapsmith /road <action>',
+    '  roadmapsmith /roadmap-sync <action>',
+    '  roadmapsmith /zero | /maintain | /status | /init | /generate | /validate | /sync | /audit | /setup',
     '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
+    '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
-    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>]'
+    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]'
   ].join('\n'));
 }
 
@@ -68,10 +79,194 @@ function printAudit(audit) {
   }
 }
 
+function formatSetupVerb(result, dryRun) {
+  if (dryRun) {
+    return result.before == null ? 'Would create' : 'Would update';
+  }
+  return result.before == null ? 'Created' : 'Updated';
+}
+
+function runInitCommand(projectRoot, config, flags) {
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
+  const dryRun = isEnabled(flags['dry-run']);
+
+  const roadmapExists = fs.existsSync(roadmapFile);
+  const agentsExists = fs.existsSync(agentsFile);
+
+  if (!roadmapExists) {
+    const roadmap = renderRoadmapTemplate();
+    const result = writeText(roadmapFile, roadmap, { dryRun });
+    if (dryRun && result.changed) {
+      printDryRunDiff(roadmapFile, result.before, result.after);
+    }
+    console.log(`${dryRun ? 'Would create' : 'Created'} ${roadmapFile}`);
+  } else {
+    console.log(`Skipped existing ${roadmapFile}`);
+  }
+
+  if (!agentsExists) {
+    const agents = renderAgentsTemplate({ roadmapPath: path.basename(roadmapFile) });
+    const result = writeText(agentsFile, agents, { dryRun });
+    if (dryRun && result.changed) {
+      printDryRunDiff(agentsFile, result.before, result.after);
+    }
+    console.log(`${dryRun ? 'Would create' : 'Created'} ${agentsFile}`);
+  } else {
+    console.log(`Skipped existing ${agentsFile}`);
+  }
+}
+
+function runGenerateCommand(projectRoot, config, flags, options = {}) {
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const plugins = loadPlugins(projectRoot, config.plugins);
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const dryRun = isEnabled(flags['dry-run']);
+
+  const document = generateRoadmapDocument({
+    projectRoot,
+    roadmapPath: roadmapFile,
+    existingContent,
+    config,
+    plugins
+  });
+
+  const writeResult = writeText(roadmapFile, document, { dryRun });
+  if (dryRun) {
+    if (writeResult.changed) {
+      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
+    } else {
+      console.log(`No changes for ${roadmapFile}`);
+    }
+  } else {
+    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
+  }
+
+  if (options.audit || isEnabled(flags.audit)) {
+    const parsedRoadmap = parseRoadmap(document);
+    const validationContext = buildValidationContext(projectRoot, config, plugins);
+    const results = validateTasks(parsedRoadmap.tasks, validationContext, config, plugins);
+    const audit = auditValidation(parsedRoadmap.tasks, results);
+    printAudit(audit);
+  }
+}
+
+function runSyncCommand(projectRoot, config, flags, options = {}) {
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const content = readTextIfExists(roadmapFile);
+  if (content == null) {
+    throw new Error(`Roadmap not found: ${roadmapFile}`);
+  }
+
+  const parsedRoadmap = parseRoadmap(content);
+  const syncTasks = tasksInManagedBlock(parsedRoadmap);
+  const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
+  const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
+  applyMinimumConfidence(results, config.validation?.minimumConfidence);
+  const next = applySync(content, syncTasks, results);
+  const dryRun = isEnabled(flags['dry-run']);
+  const writeResult = writeText(roadmapFile, next, { dryRun });
+
+  if (dryRun) {
+    if (writeResult.changed) {
+      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
+    } else {
+      console.log(`No changes for ${roadmapFile}`);
+    }
+  } else {
+    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
+  }
+
+  if (options.audit || isEnabled(flags.audit)) {
+    const audit = auditValidation(syncTasks, results);
+    printAudit(audit);
+  }
+}
+
+function printHumanStatus(payload) {
+  console.log('RoadmapSmith status\n');
+  console.log(`Project root: ${payload.projectRoot}`);
+  console.log(`CLI resolution: ${payload.cli.kind}${payload.cli.path ? ` (${payload.cli.path})` : ''}${payload.cli.ready ? '' : ' [missing]'}`);
+  console.log(`Roadmap file: ${payload.roadmap.exists ? 'ready' : 'missing'} (${payload.roadmap.path})`);
+  console.log(`Agent rules: ${payload.agents.exists ? 'ready' : 'missing'} (${payload.agents.path})`);
+  console.log(`VS Code launcher: ${payload.vscode.launcher.exists ? 'ready' : 'missing'} (${payload.vscode.launcher.path})`);
+  console.log(`VS Code task wrappers: ${payload.vscode.wrappers.ready ? 'ready' : 'incomplete'} (${payload.vscode.wrappers.presentCount}/${payload.vscode.wrappers.expectedCount} files)`);
+  console.log(`VS Code tasks: ${payload.vscode.tasks.ready ? 'ready' : 'incomplete'} (${payload.vscode.tasks.presentLabels.length}/${payload.vscode.tasks.expectedLabels.length} tasks)`);
+  console.log(`Node runtime: ${payload.runtime.ready ? `ready (${payload.runtime.kind}${payload.runtime.path ? `: ${payload.runtime.path}` : ''})` : 'missing'}`);
+  if (!payload.vscode.tasks.ready && payload.vscode.tasks.missingLabels.length > 0) {
+    console.log(`Missing VS Code tasks: ${payload.vscode.tasks.missingLabels.join(', ')}`);
+  }
+  if (!payload.vscode.wrappers.ready) {
+    console.log(`Missing task wrapper files: ${payload.vscode.wrappers.missingPaths.join(', ')}`);
+  }
+  console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
+  console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
+  console.log('\nRecommended entrypoints: roadmapsmith zero (empty repo), roadmapsmith maintain (existing repo).');
+  if (!payload.cli.ready) {
+    console.log('\nInstalling the skill alone does not expose the CLI in VS Code. Install the CLI and rerun roadmapsmith setup.');
+  }
+  if (!payload.runtime.ready) {
+    console.log('\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun RoadmapSmith: Status.');
+  }
+}
+
+function runStatusCommand(projectRoot, config, flags, options = {}) {
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
+  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile });
+
+  if (options.json) {
+    process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+  } else {
+    printHumanStatus(payload);
+  }
+
+  const ready = payload.cli.ready && payload.roadmap.exists && payload.agents.exists && payload.vscode.tasks.ready && payload.runtime.ready && payload.claude.ready;
+  if (!ready) {
+    process.exitCode = 1;
+  }
+}
+
+async function runZeroCommand(projectRoot, flags) {
+  const configPath = resolveConfigPath({ projectRoot, configPath: flags.config });
+  const config = loadConfig({ projectRoot, configPath: flags.config });
+  if (!isInteractiveTerminal(process.stdin, process.stdout)) {
+    throw new Error('Zero Mode requires an interactive terminal. Run roadmapsmith zero from a terminal session, or add a config/brief workflow before retrying in non-interactive mode.');
+  }
+
+  const defaults = buildZeroModeDefaults(projectRoot, config);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  try {
+    console.log('RoadmapSmith Zero Mode');
+    console.log('Answer the discovery interview to generate the first roadmap.\n');
+    const answers = await collectZeroModeAnswers((prompt) => rl.question(prompt), defaults);
+    const existingUserConfig = readUserConfig({ projectRoot, configPath: flags.config });
+    const nextUserConfig = buildZeroModeConfigPatch(projectRoot, existingUserConfig, answers);
+    writeText(configPath, JSON.stringify(nextUserConfig, null, 2));
+    console.log(`Updated ${configPath}`);
+    const nextConfig = loadConfig({ projectRoot, configPath: flags.config });
+    runInitCommand(projectRoot, nextConfig, flags);
+    runGenerateCommand(projectRoot, nextConfig, flags);
+  } finally {
+    rl.close();
+  }
+}
+
+function runMaintainCommand(projectRoot, flags) {
+  const config = loadConfig({ projectRoot, configPath: flags.config });
+  runGenerateCommand(projectRoot, config, flags);
+  runSyncCommand(projectRoot, config, { ...flags, audit: true }, { audit: true });
+}
+
 async function run() {
   const parsed = parseArgv(process.argv.slice(2));
   const command = parsed.command;
   const flags = parsed.flags;
+  let effectiveCommand = command;
 
   if (isEnabled(flags.version) || isEnabled(flags.v)) {
     const pkg = require(path.join(__dirname, '..', 'package.json'));
@@ -84,113 +279,91 @@ async function run() {
     return;
   }
 
-  if (command === 'init') {
-    const projectRoot = process.cwd();
-    const config = loadConfig({ projectRoot });
-    const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-    const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-    const dryRun = isEnabled(flags['dry-run']);
-
-    const roadmapExists = fs.existsSync(roadmapFile);
-    const agentsExists = fs.existsSync(agentsFile);
-
-    if (!roadmapExists) {
-      const roadmap = renderRoadmapTemplate();
-      const result = writeText(roadmapFile, roadmap, { dryRun });
-      if (dryRun && result.changed) {
-        printDryRunDiff(roadmapFile, result.before, result.after);
-      }
-      console.log(`${dryRun ? 'Would create' : 'Created'} ${roadmapFile}`);
-    } else {
-      console.log(`Skipped existing ${roadmapFile}`);
+  const slashInvocation = resolveSlashInvocation(command, parsed.args);
+  if (slashInvocation) {
+    if (slashInvocation.kind === 'palette') {
+      process.stdout.write(renderSlashPalette(slashInvocation) + '\n');
+      return;
     }
 
-    if (!agentsExists) {
-      const agents = renderAgentsTemplate({ roadmapPath: path.basename(roadmapFile) });
-      const result = writeText(agentsFile, agents, { dryRun });
-      if (dryRun && result.changed) {
-        printDryRunDiff(agentsFile, result.before, result.after);
-      }
-      console.log(`${dryRun ? 'Would create' : 'Created'} ${agentsFile}`);
-    } else {
-      console.log(`Skipped existing ${agentsFile}`);
+    const slashAction = getSlashAction(slashInvocation.actionId);
+    if (!slashAction) {
+      process.stdout.write(renderSlashPalette(slashInvocation) + '\n');
+      return;
     }
+
+    if (slashAction.id === 'status') {
+      const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+      const config = loadConfig({ projectRoot, configPath: flags.config });
+      runStatusCommand(projectRoot, config, flags, { json: isEnabled(flags.json) });
+      return;
+    }
+
+    if (slashAction.id === 'audit') {
+      flags.audit = true;
+      effectiveCommand = 'sync';
+    } else {
+      effectiveCommand = slashAction.id;
+    }
+  }
+
+  if (effectiveCommand === 'zero') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    await runZeroCommand(projectRoot, flags);
     return;
   }
 
-  if (command === 'generate') {
+  if (effectiveCommand === 'maintain') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    runMaintainCommand(projectRoot, flags);
+    return;
+  }
+
+  if (effectiveCommand === 'init') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
-    const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-    const plugins = loadPlugins(projectRoot, config.plugins);
-    const existingContent = readTextIfExists(roadmapFile) || '';
-    const dryRun = isEnabled(flags['dry-run']);
+    runInitCommand(projectRoot, config, flags);
+    return;
+  }
 
-    const document = generateRoadmapDocument({
-      projectRoot,
-      roadmapPath: roadmapFile,
-      existingContent,
-      config,
-      plugins
+  if (effectiveCommand === 'generate') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    const config = loadConfig({ projectRoot, configPath: flags.config });
+    runGenerateCommand(projectRoot, config, flags);
+    return;
+  }
+
+  if (effectiveCommand === 'setup') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    loadConfig({ projectRoot, configPath: flags.config });
+    const editor = assertSupportedEditor(flags.editor || 'vscode');
+    const hosts = parseHosts(flags.hosts || 'codex,claude');
+    const dryRun = isEnabled(flags['dry-run']);
+    const setupPlan = buildSetupFiles(projectRoot, { editor, hosts });
+    const results = applySetupFiles(setupPlan, { dryRun });
+
+    results.forEach((result) => {
+      if (dryRun && result.changed) {
+        printDryRunDiff(result.path, result.before, result.after);
+      }
+      if (!result.changed) {
+        console.log(`No changes for ${result.path}`);
+        return;
+      }
+      console.log(`${formatSetupVerb(result, dryRun)} ${result.path}`);
     });
 
-    const writeResult = writeText(roadmapFile, document, { dryRun });
-    if (dryRun) {
-      if (writeResult.changed) {
-        printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
-      } else {
-        console.log(`No changes for ${roadmapFile}`);
-      }
-    } else {
-      console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
-    }
-
-    if (isEnabled(flags.audit)) {
-      const parsedRoadmap = parseRoadmap(document);
-      const validationContext = buildValidationContext(projectRoot, config, plugins);
-      const results = validateTasks(parsedRoadmap.tasks, validationContext, config, plugins);
-      const audit = auditValidation(parsedRoadmap.tasks, results);
-      printAudit(audit);
-    }
     return;
   }
 
-  if (command === 'sync') {
+  if (effectiveCommand === 'sync') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
-    const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-    const content = readTextIfExists(roadmapFile);
-    if (content == null) {
-      throw new Error(`Roadmap not found: ${roadmapFile}`);
-    }
-
-    const parsedRoadmap = parseRoadmap(content);
-    const syncTasks = tasksInManagedBlock(parsedRoadmap);
-    const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
-    const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
-    applyMinimumConfidence(results, config.validation?.minimumConfidence);
-    const next = applySync(content, syncTasks, results);
-    const dryRun = isEnabled(flags['dry-run']);
-    const writeResult = writeText(roadmapFile, next, { dryRun });
-
-    if (dryRun) {
-      if (writeResult.changed) {
-        printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
-      } else {
-        console.log(`No changes for ${roadmapFile}`);
-      }
-    } else {
-      console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
-    }
-
-    if (isEnabled(flags.audit)) {
-      const audit = auditValidation(syncTasks, results);
-      printAudit(audit);
-    }
+    runSyncCommand(projectRoot, config, flags);
     return;
   }
 
-  if (command === 'validate') {
+  if (effectiveCommand === 'validate') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
     const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
@@ -223,38 +396,112 @@ async function run() {
     return;
   }
 
-  if (command === 'doctor') {
+  if (effectiveCommand === 'doctor') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     let ok = true;
+    const jsonMode = isEnabled(flags.json);
+    const log = jsonMode ? () => {} : console.log;
+    const logError = jsonMode ? () => {} : console.error;
 
     let config;
+    let roadmapFile = null;
+    let agentsFile = null;
     try {
       config = loadConfig({ projectRoot, configPath: flags.config });
-      console.log('[ok] Config loaded without errors');
+      log('[ok] Config loaded without errors');
     } catch (error) {
-      console.error(`[fail] Config error: ${error.message}`);
+      logError(`[fail] Config error: ${error.message}`);
       ok = false;
     }
 
     if (config) {
-      const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+      roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
       if (fs.existsSync(roadmapFile)) {
-        console.log(`[ok] ROADMAP file found: ${roadmapFile}`);
+        log(`[ok] ROADMAP file found: ${roadmapFile}`);
       } else {
-        console.error(`[fail] ROADMAP file not found: ${roadmapFile}`);
+        logError(`[fail] ROADMAP file not found: ${roadmapFile}`);
         ok = false;
       }
+
+      agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
+      if (fs.existsSync(agentsFile)) {
+        log(`[ok] Agent rules file found: ${agentsFile}`);
+      } else {
+        logError(`[fail] Agent rules file not found: ${agentsFile}`);
+        ok = false;
+      }
+    }
+
+    let hostStatus = null;
+    if (config) {
+      try {
+        hostStatus = inspectHostSetup(projectRoot, { roadmapFile, agentsFile });
+      } catch (error) {
+        logError(`[fail] Host integration error: ${error.message}`);
+        ok = false;
+      }
+    }
+
+    if (hostStatus) {
+      if (hostStatus.cli.ready) {
+        log(`[ok] CLI resolution: ${hostStatus.cli.kind}${hostStatus.cli.path ? ` (${hostStatus.cli.path})` : ''}`);
+      } else {
+        logError('[fail] CLI resolution: missing local package and global command');
+        ok = false;
+      }
+
+      if (hostStatus.vscode.launcher.exists) {
+        log(`[ok] VS Code launcher found: ${hostStatus.vscode.launcher.path}`);
+      } else {
+        logError(`[fail] VS Code launcher missing: ${hostStatus.vscode.launcher.path}`);
+        ok = false;
+      }
+
+      if (hostStatus.vscode.wrappers.ready) {
+        log(`[ok] VS Code task wrappers ready: ${hostStatus.vscode.wrappers.presentCount}/${hostStatus.vscode.wrappers.expectedCount} files`);
+      } else {
+        logError(`[fail] VS Code task wrappers incomplete: missing ${hostStatus.vscode.wrappers.missingPaths.join(', ') || 'wrapper files'}`);
+        ok = false;
+      }
+
+      if (hostStatus.vscode.tasks.ready) {
+        log(`[ok] VS Code tasks ready: ${hostStatus.vscode.tasks.presentLabels.length}/${hostStatus.vscode.tasks.expectedLabels.length} tasks`);
+      } else {
+        logError(`[fail] VS Code tasks incomplete: missing ${hostStatus.vscode.tasks.missingLabels.join(', ') || 'managed labels'}`);
+        ok = false;
+      }
+
+      if (hostStatus.runtime.ready) {
+        log(`[ok] Node runtime: ${hostStatus.runtime.kind}${hostStatus.runtime.path ? ` (${hostStatus.runtime.path})` : ''}`);
+      } else {
+        logError('[fail] Node runtime missing for VS Code task execution');
+        ok = false;
+      }
+
+      if (hostStatus.claude.ready) {
+        log(`[ok] Claude hook ready: ${hostStatus.claude.hookFile.path}`);
+      } else {
+        logError(`[fail] Claude hook incomplete: ${hostStatus.hosts.claude.message}`);
+        ok = false;
+      }
+    }
+
+    if (jsonMode) {
+      process.stdout.write(JSON.stringify(hostStatus || {
+        projectRoot,
+        error: 'doctor failed before host inspection'
+      }, null, 2) + '\n');
     }
 
     if (!ok) {
       process.exitCode = 1;
       return;
     }
-    console.log('doctor: all checks passed');
+    log('doctor: all checks passed');
     return;
   }
 
-  throw new Error(`Unknown command: ${command}`);
+  throw new Error(`Unknown command: ${effectiveCommand}`);
 }
 
 run().catch((error) => {

@@ -20,7 +20,9 @@ Do not use Zero Mode for a repository that already has code, tests, or a partial
 
 ## How it works
 
-The AI agent (using the `roadmap-sync` skill) detects low-context conditions and does not immediately generate a generic roadmap. Instead, it runs a discovery conversation to build a product brief.
+`roadmapsmith zero` is the public entrypoint. It does not expect the user to invent a free-form prompt. The CLI detects that Zero Mode applies, runs a terminal-native discovery interview, persists the brief into config, creates governance files when needed, and generates the first roadmap in one invocation.
+
+The `roadmap-sync` skill remains the policy layer for agent hosts that use skills, but it is no longer the only way to access Zero Mode.
 
 ### Discovery Questions
 
@@ -35,7 +37,7 @@ The agent asks up to 8 questions:
 7. What constraints exist? (Budget, hosting, compliance, platform, deadline.)
 8. What does "done" mean for the first usable version?
 
-If the developer already provided enough context in their initial prompt, the agent summarizes the inferred product brief and asks for confirmation rather than repeating questions.
+If existing config already contains answers, the interview uses those values as defaults so the developer does not have to restate the whole brief.
 
 ## Expected ROADMAP.md sections after discovery
 
@@ -52,17 +54,13 @@ A well-formed Zero Mode roadmap includes:
 ## Example workflow
 
 ```bash
-# 1. Install the skill
+roadmapsmith zero
+```
+
+Optional policy layer for skill-based hosts:
+
+```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
-
-# 2. Initialize governance files (creates ROADMAP.md and AGENTS.md stubs)
-roadmapsmith init
-
-# 3. Start an agent session — the skill detects empty context and runs discovery
-# 4. Agent asks the discovery questions, developer answers
-# 5. Agent generates ROADMAP.md from the confirmed product brief
-
-roadmapsmith generate --project-root .
 ```
 
 ## What makes a good discovery outcome
@@ -73,6 +71,8 @@ roadmapsmith generate --project-root .
 - Risks are named early, not discovered mid-execution
 - Phase P0 contains only the critical path to the first runnable version
 
-## Guardrail
+## Guardrails
 
-The agent must not generate a generic roadmap (e.g., "Set up repo", "Add tests", "Deploy") without first completing discovery. Generic tasks have no product context and produce no execution value.
+- Zero Mode must not generate a generic roadmap (for example: "Set up repo", "Add tests", "Deploy") without first completing discovery.
+- In non-interactive environments, `roadmapsmith zero` must fail clearly instead of guessing the missing brief.
+- Skill installation alone must not be presented as if it already enabled the CLI or VS Code task surface.

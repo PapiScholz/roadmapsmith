@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.9.15 - Unreleased
+
+### Added
+- `roadmapsmith zero`: one-command Zero Mode flow for empty or low-context repositories. Runs the terminal discovery interview, persists the brief into config, creates governance files when needed, and generates the first roadmap.
+- `roadmapsmith maintain`: one-command existing-repository flow that runs `generate + sync + audit`.
+- Slash aliases for the new public entrypoints: `/zero`, `/maintain`, `/road zero`, `/road maintain`, `/roadmap-sync zero`, and `/roadmap-sync maintain`.
+- New visible VS Code tasks: `RoadmapSmith: Zero Mode` and `RoadmapSmith: Maintain`.
+- Release UX gate documentation in `docs/release-ux-gate.md`.
+
+### Changed
+- Public product contract now recommends `setup`, `zero`, and `maintain` before the lower-level manual commands.
+- Zero Mode no longer depends on a free-form agent prompt as the primary user surface; the `roadmap-sync` skill remains the policy/governance layer.
+- Status/help/launcher output now teaches the one-command flow and clarifies that skill installation alone does not expose CLI behavior in VS Code.
+- Release-readiness and use-case docs now reflect the VS Code-first host UX, additive host setup, and current mutating `sync --audit` semantics.
+
+### Fixed
+- Generated launcher smoke coverage now verifies `maintain` in a temporary project using a resolvable workspace CLI shim.
+
 ## v0.9.14 - 2026-06-09
 
 ### Changed

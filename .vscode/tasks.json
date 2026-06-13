@@ -1,0 +1,313 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "RoadmapSmith: Zero Mode",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "zero"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "zero"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Run the Zero Mode interview and generate the first roadmap in one command."
+    },
+    {
+      "label": "RoadmapSmith: Maintain",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "maintain"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "maintain"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Run the default existing-repo flow: generate, sync, and audit in one command."
+    },
+    {
+      "label": "RoadmapSmith: Status",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "status"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "status"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Inspect readiness and learn the slash entrypoints like /road and /roadmap-sync <action>."
+    },
+    {
+      "label": "RoadmapSmith: Explain Workflow",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "explain"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "explain"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Explain how zero, maintain, the skill, setup, slash routing, and VS Code tasks work together."
+    },
+    {
+      "label": "RoadmapSmith: Init",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "init"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "init"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Create ROADMAP.md and AGENTS.md when they are missing."
+    },
+    {
+      "label": "RoadmapSmith: Generate",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "generate"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "generate"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Rebuild the managed roadmap block from repository context."
+    },
+    {
+      "label": "RoadmapSmith: Validate",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "validate"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "validate"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Inspect per-task evidence status as JSON."
+    },
+    {
+      "label": "RoadmapSmith: Sync",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "sync"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "sync"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Apply evidence-backed checklist sync to ROADMAP.md."
+    },
+    {
+      "label": "RoadmapSmith: Sync Dry Run",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "sync-dry-run"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "sync-dry-run"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Preview the next roadmap sync without writing files."
+    },
+    {
+      "label": "RoadmapSmith: Sync Audit",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "sync-audit"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "sync-audit"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Run sync and print the post-sync mismatch summary."
+    },
+    {
+      "label": "RoadmapSmith: Refresh Setup",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "setup"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "setup"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Reapply RoadmapSmith VS Code and host integration files."
+    }
+  ]
+}

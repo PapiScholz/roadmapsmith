@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "description": "Production-grade roadmap generation and sync skill package for coding agents.",
+  "description": "One-command roadmap generation and maintenance for coding agents, with an optional roadmap-sync policy skill.",
   "triggers": [
     "roadmap",
     "sync roadmap",
@@ -10,22 +10,24 @@
   ],
   "usageExamples": [
     "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
-    "roadmapsmith init",
-    "roadmapsmith generate --project-root .",
-    "roadmapsmith sync --audit",
+    "roadmapsmith setup",
+    "roadmapsmith zero",
+    "roadmapsmith maintain",
+    "roadmapsmith /road",
+    "roadmapsmith /maintain",
     "roadmapsmith validate --json"
   ],
   "install": {
     "command": "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
     "source": "PapiScholz/roadmapsmith",
     "skill": "roadmap-sync",
-    "notes": "The install command adds the agent skill. The optional CLI package is intended to be published separately to npm as roadmapsmith."
+    "notes": "The install command adds agent instructions only. Install the roadmapsmith CLI and run roadmapsmith setup to expose the Zero Mode and Maintain workflows in VS Code."
   },
   "skills": [
     {
       "name": "roadmap-sync",
       "path": "skills/roadmap-sync",
-      "description": "Rules and operating procedure for roadmap generation, sync, and validation.",
+      "description": "Policy and operating rules for Zero Mode discovery plus ongoing roadmap generation, sync, and validation.",
       "version": "0.7.0"
     }
   ]

@@ -1,3 +1,3 @@
 display_name: Roadmap Sync
-short_description: Deterministic roadmap generation, sync, and validation for agent execution.
-default_prompt: Generate or synchronize ROADMAP.md (or legacy roadmap.md) using phased priorities, milestone checklists, and evidence-based completion validation.
+short_description: One-command roadmap creation and maintenance with deterministic sync, validation, and slash-driven discovery.
+default_prompt: Prefer explicit RoadmapSmith commands over a free-form request: run roadmapsmith zero for empty repos, roadmapsmith maintain for existing repos, or discover slash entrypoints with /road. Namespaced forms like /roadmap-sync zero and /roadmap-sync maintain mirror the same actions when the host surface supports them.
