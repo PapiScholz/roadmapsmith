@@ -12,10 +12,12 @@ The public entrypoints must stay consistent across CLI help, VS Code tasks, laun
 - `roadmapsmith zero`
 - `roadmapsmith maintain`
 - `roadmapsmith /road`
+- Native Claude GUI slash commands: `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, `/setup`
 
-The optional skill remains a policy layer:
+The skill bundle remains a GUI/policy layer distinct from the CLI:
 
-- `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync`
+- `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`
+- `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` remains the legacy compatibility path
 
 Skill installation alone must never be described as full activation of the product.
 
@@ -69,6 +71,20 @@ And when `RoadmapSmith: Status` explains:
 - tasks/config ready or missing
 - skill install alone does not expose CLI behavior
 
+Pass when Claude GUI slash discovery shows at least:
+
+- `/road`
+- `/zero`
+- `/maintain`
+- `/status`
+- `/init`
+- `/generate`
+- `/validate`
+- `/sync`
+- `/audit`
+- `/setup`
+- `/roadmap-sync`
+
 ### 4. Failure clarity
 
 These cases must be tested:
@@ -79,6 +95,7 @@ These cases must be tested:
 - invalid `.claude/settings.json`
 - `roadmapsmith zero` in non-interactive mode
 - user installed only the skill
+- user installed only the legacy `roadmap-sync` skill
 
 Pass when each case tells the user:
 
@@ -102,6 +119,7 @@ Pass when:
 
 - `README.md` recommends `setup`, `zero`, and `maintain` first
 - `roadmap-skill/README.md` matches the same contract
+- Claude docs explain that native GUI slash commands come from the installed skill bundle, not from the CLI slash router alone
 - `docs/release-readiness.md` matches the actual release workflow
 - `roadmap-skill/CHANGELOG.md` includes the user-visible UX/runtime changes
 

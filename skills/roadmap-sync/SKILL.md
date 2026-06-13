@@ -7,6 +7,18 @@ description: Generate, synchronize, and validate project roadmap checklist state
 
 Use this skill to keep roadmap execution state accurate and deterministic.
 
+## Preferred Claude GUI entrypoints
+
+When the full RoadmapSmith skill bundle is installed in Claude Code, prefer these native GUI commands:
+
+- `/road` for discovery/palette help
+- `/zero` for empty or low-context repositories
+- `/maintain` for the default existing-repository flow
+- `/status` for readiness checks
+- `/init`, `/generate`, `/validate`, `/sync`, `/audit`, and `/setup` for advanced/manual control
+
+`/roadmap-sync` remains valid as the legacy or namespaced entrypoint and should continue to work for backward compatibility.
+
 ## Mode Selection
 
 Before generating or updating `ROADMAP.md`, determine which mode applies.
