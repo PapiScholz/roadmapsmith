@@ -577,6 +577,7 @@ test('generated launcher accepts maintain for temp projects', () => {
 
 test('task wrapper can launch the launcher via ROADMAPSMITH_NODE override', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-wrapper-override-'));
+  writeWorkspaceCliShim(projectRoot);
   run(['setup', '--hosts', 'codex', '--project-root', projectRoot], projectRoot);
 
   const result = runWrapperResult(projectRoot, 'explain', {
