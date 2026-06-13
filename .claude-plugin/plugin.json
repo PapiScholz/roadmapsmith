@@ -1,7 +1,7 @@
 {
   "name": "roadmapsmith",
   "version": "0.7.0",
-  "description": "Generate and maintain deterministic project roadmaps for AI coding agents. Provides one-command zero/maintain workflows, the roadmap-sync policy skill, and setup-generated VS Code host UX for visible tasks and status.",
+  "description": "Generate and maintain deterministic project roadmaps for AI coding agents. Provides native Claude GUI slash skills like /road, /zero, /maintain, /status, /sync, and /setup, plus the legacy /roadmap-sync skill and setup-generated VS Code host UX.",
   "author": {
     "name": "PapiScholz"
   },
@@ -16,6 +16,9 @@
     "sync",
     "validation",
     "cli",
-    "claude-code"
+    "claude-code",
+    "slash-commands",
+    "zero-mode",
+    "maintain"
   ]
 }

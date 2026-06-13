@@ -28,13 +28,15 @@ The generated task layer now resolves Node automatically where possible; if it c
 `RoadmapSmith: Status` now treats "ready" as runnable task UX, not merely generated files.
 You can also use slash entrypoints such as `roadmapsmith /road`, `roadmapsmith /zero`, `roadmapsmith /maintain`, or `roadmapsmith /roadmap-sync maintain`.
 
-Optional agent skill:
+Optional Claude Code skill bundle:
 
 ```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 ```
 
-The skill guides the agent. The CLI executes actions. Slash routing improves invocation and discovery. `roadmapsmith setup` makes those actions visible in VS Code, generates per-platform task wrappers, and can also wire the repo-local Claude hook.
+This is the recommended install path if you want native Claude GUI slash commands such as `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, `/setup`, and the legacy `/roadmap-sync`.
+If you install only `--skill roadmap-sync`, Claude GUI will expose only `/roadmap-sync`.
+The skills guide the agent. The CLI executes actions. `roadmapsmith setup` makes those actions visible in VS Code, generates per-platform task wrappers, and can also wire the repo-local Claude hook, but it does not create native Claude GUI slash commands by itself.
 
 ## Demo
 
@@ -111,12 +113,12 @@ roadmapsmith /roadmap-sync maintain
 
 | Host | Current support |
 |---|---|
-| Claude Code | Supported through `roadmapsmith setup`: visible VS Code tasks, slash-capable launcher UX, and optional repo-local Claude hook wiring. |
+| Claude Code | Supported through the full RoadmapSmith skill bundle for native GUI slash commands (`/road`, `/zero`, `/maintain`, etc.), plus `roadmapsmith setup` for visible VS Code tasks and the optional repo-local Claude hook. |
 | Codex / Codex CLI | Supported through a visible VS Code task workflow and slash-capable launcher UX after `roadmapsmith setup`. Codex chat itself remains unchanged unless the host exposes native slash registration. |
 | CI | Usable in disposable checkouts, but `sync --audit` is still mutating. |
 | Other hosts | Use the skill instructions plus manual `generate`, `validate`, `sync`, and `sync --dry-run` commands. |
 
-Claude write-time autoupdate depends on the host environment being able to resolve `node` for the repo-local hook. VS Code tasks use generated wrappers and can also honor `ROADMAPSMITH_NODE` when PATH-based Node resolution is unreliable. That best-effort hook is separate from this repository's git `pre-commit` sync behavior. RoadmapSmith does not invent native chat slash APIs where the host does not expose them; the guaranteed UX surface in this iteration is VS Code Tasks plus the slash-capable launcher/status/help output.
+Claude write-time autoupdate depends on the host environment being able to resolve `node` for the repo-local hook. VS Code tasks use generated wrappers and can also honor `ROADMAPSMITH_NODE` when PATH-based Node resolution is unreliable. That best-effort hook is separate from this repository's git `pre-commit` sync behavior. Native Claude GUI slash commands come from the installed RoadmapSmith skill bundle; CLI slash routing (`roadmapsmith /road`, `roadmapsmith /zero`, and so on) is a separate surface that remains available in terminals and launchers.
 
 Windows note: prefer `roadmapsmith.cmd`, `npm.cmd`, or explicit `node` paths in shells where PowerShell execution policy or PATH resolution differs from `cmd.exe`.
 
@@ -167,7 +169,7 @@ Optional policy layer:
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-The CLI executes the one-command workflow. The `roadmap-sync` skill remains the agent policy/governance layer for hosts that use skills.
+The CLI executes the one-command workflow. The `roadmap-sync` skill remains the agent policy/governance layer for hosts that use skills. For native Claude GUI slash commands, install the full Claude bundle instead of only `roadmap-sync`.
 
 ---
 
@@ -353,17 +355,40 @@ Do not use it if:
 | `roadmapsmith validate --json` | Validate roadmap task evidence and emit JSON results |
 | `roadmapsmith sync --audit` | Apply sync and print a mismatch summary; currently mutates `ROADMAP.md` |
 | `roadmapsmith doctor --json` | Check repository plus host readiness: CLI resolution, roadmap/rules, VS Code tasks, Node runtime, Claude hook |
-| `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install the agent skill |
+| `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code` | Install the full Claude GUI skill bundle with native slash commands |
+| `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install only the legacy `/roadmap-sync` skill |
 
-## Install: Agent Skill (Optional Policy Layer)
+## Install: Claude Code Skill Bundle
 
 ### skills.sh and agentskill.sh
+
+```bash
+npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
+```
+
+This is the recommended Claude Code install path. It exposes the full native GUI command set:
+
+- `/road`
+- `/zero`
+- `/maintain`
+- `/status`
+- `/init`
+- `/generate`
+- `/validate`
+- `/sync`
+- `/audit`
+- `/setup`
+- `/roadmap-sync`
+
+After installing or updating the bundle, run `/reload-skills`. If you installed RoadmapSmith through a Claude plugin, also run `/reload-plugins` in the current session.
+
+Compatibility path:
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This adds the `roadmap-sync` agent skill only. It does not install the CLI and it does not create visible VS Code actions by itself.
+That installs only the legacy `/roadmap-sync` skill. It does not install the CLI and it does not create visible VS Code actions by itself.
 
 ### aitmpl.com/skills
 
@@ -408,9 +433,17 @@ roadmapsmith /road
 ```bash
 npm install -g roadmapsmith
 roadmapsmith setup --hosts codex,claude
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 roadmapsmith zero
 ```
+
+Then, in Claude Code:
+
+1. Run `/reload-skills`
+2. If RoadmapSmith was installed through a Claude plugin, also run `/reload-plugins`
+3. Confirm the slash menu shows `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, `/setup`, and `/roadmap-sync`
+
+Native Claude GUI slash commands come from the installed skill bundle. CLI slash routing such as `roadmapsmith /road` remains available in terminals and launchers, but it does not by itself populate the Claude GUI slash menu.
 
 ## Updating RoadmapSmith
 
@@ -427,12 +460,13 @@ npm install roadmapsmith@latest
 npx roadmapsmith@latest sync --audit
 ```
 
-The `roadmap-sync` agent skill is separate from the CLI. Re-running the skills install updates the agent instructions, but it does not update the `roadmapsmith` npm binary or the generated VS Code host files:
+The RoadmapSmith Claude skill bundle is separate from the CLI. Re-running a skills install updates the Claude-facing instructions, but it does not update the `roadmapsmith` npm binary or the generated VS Code host files:
 
 ```bash
-npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
+npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 ```
 
+After updating the Claude skill bundle, run `/reload-skills` and, if applicable, `/reload-plugins`.
 After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, launcher behavior, or Claude hook template.
 
 Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing:
@@ -530,7 +564,7 @@ The `AGENTS.md` file (generated by `init`) provides the agent with explicit exec
 ## Use Cases
 
 **AI coding agents**
-Install `roadmap-sync` as a skill when you want the agent to follow the roadmap contract. Install the CLI and run `roadmapsmith setup` when you want visible VS Code actions. Claude Code can also use the generated repo-local hook. Codex/Codex CLI remains a VS Code task workflow in this iteration, not a native chat-pane integration. The `ROADMAP.md` becomes a reliable contract between sessions — not a note the model wrote to itself.
+Install the full RoadmapSmith skill bundle in Claude Code when you want native GUI slash commands like `/road`, `/zero`, and `/maintain`, or install only `roadmap-sync` when you want the legacy policy skill alone. Install the CLI and run `roadmapsmith setup` when you want visible VS Code actions and the optional repo-local Claude hook. Codex/Codex CLI remains a VS Code task workflow in this iteration, not a native chat-pane integration. The `ROADMAP.md` becomes a reliable contract between sessions — not a note the model wrote to itself.
 
 **Multi-session development workflows**
 Each session starts from the same `ROADMAP.md` ground truth. Completed tasks are backed by evidence; in-progress tasks are visible without reading git history or asking the agent to summarize its own work.

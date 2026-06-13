@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.16 - 2026-06-13
+
+### Added
+- Native Claude GUI slash skill bundle: `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, and `/setup`, while keeping `/roadmap-sync` as the legacy namespaced entrypoint.
+- Skill-manifest regression coverage to ensure `skills.json` stays aligned with the on-disk Claude bundle and install contract.
+
+### Changed
+- Claude onboarding now recommends installing the full RoadmapSmith skill bundle with `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code` instead of teaching `roadmap-sync` as the only visible slash command.
+- Root/package README, release-readiness docs, and Claude-use-case docs now separate the three layers explicitly: Claude GUI skills expose native slash commands, the CLI executes actions, and `setup` configures VS Code tasks plus the optional Claude hook.
+- Claude plugin metadata now advertises the full slash-command surface and tells users to reload skills/plugins in the current session after install or update.
+
 ## v0.9.15 - 2026-06-13
 
 ### Added
