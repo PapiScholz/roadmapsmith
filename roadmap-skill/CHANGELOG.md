@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.15 - Unreleased
+## v0.9.15 - 2026-06-13
 
 ### Added
 - `roadmapsmith zero`: one-command Zero Mode flow for empty or low-context repositories. Runs the terminal discovery interview, persists the brief into config, creates governance files when needed, and generates the first roadmap.
