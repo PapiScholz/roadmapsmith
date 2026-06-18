@@ -6,7 +6,7 @@ const { syncBundleMetadata } = require('./plugin-bundle');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..');
-const RELEASE_COMMIT_PATTERN = /^chore\(release\): v(\d+\.\d+\.\d+) \[skip ci\]$/;
+const RELEASE_COMMIT_PATTERN = /^chore\(release\): v(\d+\.\d+\.\d+)$/;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -52,7 +52,7 @@ function buildReleaseTag(version) {
 }
 
 function buildReleaseCommitMessage(version) {
-  return `chore(release): ${buildReleaseTag(version)} [skip ci]`;
+  return `chore(release): ${buildReleaseTag(version)}`;
 }
 
 function detectReleaseMode(commitMessage) {

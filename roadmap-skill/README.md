@@ -56,7 +56,7 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 After updating the Claude skill bundle, run `/reload-skills` and, if applicable, `/reload-plugins`.
 After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, task wrappers, launcher behavior, or Claude hook template. Published npm/plugin artifacts now include the Codex and Claude bundle files for downstream host loaders, but native UX still depends on the host loading the correct surface.
 
-Fixes are available through `@latest` after the automated release path completes on `main`. In this repo, a successful push to `main` now opens or refreshes an automated `release/vX.Y.Z` PR, that PR squashes back into `main` as the bot release commit, and the follow-up `main` run publishes the new patch version. Before that completes, install from a local checkout or a packed tarball for testing.
+Fixes are available through `@latest` after the automated release path completes on `main`. In this repo, a successful push to `main` now opens or refreshes an automated `release/vX.Y.Z` PR, that PR squashes back into `main` as the bot release commit `chore(release): vX.Y.Z`, and the follow-up `main` run publishes the new patch version. Before that completes, install from a local checkout or a packed tarball for testing.
 
 ## Operating Modes
 
@@ -355,7 +355,7 @@ npm test
 Repository-specific release note:
 
 - The canonical release automation lives in `.github/workflows/ci.yml`.
-- Every successful push to `main` now bumps `PATCH` through an automated `release/vX.Y.Z` PR, writes the version back with the squashed bot commit `chore(release): vX.Y.Z [skip ci]`, and then the follow-up `main` run publishes npm plus the GitHub Release.
+- Every successful push to `main` now bumps `PATCH` through an automated `release/vX.Y.Z` PR, writes the version back with the squashed bot commit `chore(release): vX.Y.Z`, and then the follow-up `main` run publishes npm plus the GitHub Release.
 - Repair reruns on the bot release commit do not bump again; they only publish/create any missing artifacts left behind by a partial failure.
 - On repos where GitHub blocks `GITHUB_TOKEN` from creating or merging PRs, provide a dedicated secret such as `RELEASE_BOT_TOKEN` so the protected-branch release PR flow can complete.
 - Before any push, run the dual validation gate with separate owners: `QA/Regression` uses `npm run validate:qa-regression` and `Functional/Smoke` uses `npm run validate:functional-smoke`.
