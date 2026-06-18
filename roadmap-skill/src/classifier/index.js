@@ -12,6 +12,14 @@ const WEB_CONFIGS = [
 ];
 const STYLE_CONFIGS = ['tailwind.config.js', 'tailwind.config.ts', 'tailwind.config.cjs'];
 const WEB_DEPS = new Set(['next', 'react', 'vue', 'svelte', 'astro', 'vite', 'nuxt', 'gatsby', 'remix', '@remix-run/react']);
+const ELECTRON_DEPS = new Set(['electron', 'electron-builder', 'electron-forge', '@electron-forge/cli', 'electron-updater']);
+const ELECTRON_CONFIGS = [
+  'electron-builder.json',
+  'electron-builder.yml',
+  'electron-builder.yaml',
+  'forge.config.js',
+  'forge.config.ts'
+];
 const LANDING_ROUTE_RE = /(?:^|\/)(?:contact|services|about|pricing|hero|cta|landing)(?:\/|\.)/i;
 
 function readPackageDeps(projectRoot) {
@@ -59,9 +67,14 @@ function classifyProject({ projectRoot, files }) {
 
   let webScore = 0;
   let landingScore = 0;
+  let electronScore = 0;
   const deps = readPackageDeps(projectRoot);
 
   for (const dep of deps) {
+    if (ELECTRON_DEPS.has(dep)) {
+      electronScore += 3;
+      signals.push(`dependency: ${dep}`);
+    }
     if (WEB_DEPS.has(dep)) {
       webScore += 2;
       signals.push(`dependency: ${dep}`);
@@ -79,6 +92,23 @@ function classifyProject({ projectRoot, files }) {
     if (hasDir(files, dir)) {
       webScore += 1;
       signals.push(`directory: ${dir.replace(/\/$/, '')}`);
+    }
+  }
+
+  if (hasDir(files, 'electron/')) {
+    electronScore += 3;
+    signals.push('directory: electron');
+  }
+
+  if (files.some((file) => /^electron\/.+\.(js|ts|cjs|mjs)$/.test(file))) {
+    electronScore += 2;
+    signals.push('electron main/preload sources');
+  }
+
+  for (const cfg of ELECTRON_CONFIGS) {
+    if (hasFilename(files, cfg)) {
+      electronScore += 2;
+      signals.push(`config: ${cfg}`);
     }
   }
 
@@ -120,6 +150,11 @@ function classifyProject({ projectRoot, files }) {
   if (webScore === 0 && hasFilename(files, 'package.json')) {
     signals.push('package.json, no web signals');
     return { type: 'npm-package', confidence: 'low', signals };
+  }
+
+  if (electronScore >= 3) {
+    const confidence = electronScore >= 6 ? 'high' : 'medium';
+    return { type: 'electron-app', confidence, signals };
   }
 
   if (webScore >= 3) {

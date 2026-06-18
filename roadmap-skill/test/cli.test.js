@@ -67,6 +67,13 @@ function runWrapperResult(projectRoot, action, options = {}) {
   });
 }
 
+function buildNoCliEnv() {
+  const env = { ...process.env };
+  delete env.ROADMAPSMITH_NODE;
+  env.PATH = '';
+  return env;
+}
+
 function writePackageJson(projectRoot) {
   fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ name: 'x', version: '1.0.0' }, null, 2));
 }
@@ -247,6 +254,174 @@ test('cli maintain runs generate, sync, and audit in one invocation', () => {
   assert.match(content, /<!-- rs:managed:start -->/);
 });
 
+test('cli maintain preserves a substantive custom managed block for Electron desktop repos', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-maintain-preserve-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const shell = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'scripts', 'healthcheck.py'), 'print("helper only")\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Roadmap del Producto',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Product North Star',
+      'Convertir el POS actual en una app Electron offline-first con SQLite embebido.',
+      '',
+      '### P0 - Migracion Firebase -> Electron + SQLite',
+      '- [ ] Migrar autenticacion local para operar 100% offline <!-- rs:task=pos-migrar-autenticacion-local-offline -->',
+      '  - Evidence: electron/main.ts',
+      '- [ ] Reemplazar persistencia remota por SQLite embebido <!-- rs:task=pos-reemplazar-persistencia-remota-sqlite -->',
+      '  - Evidence: src/renderer.tsx',
+      '',
+      '#### Paso operativo',
+      'El flujo de ventas no debe depender de servicios web para abrir caja o cerrar turnos.',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  run(['maintain'], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.match(content, /Convertir el POS actual en una app Electron offline-first con SQLite embebido/);
+  assert.match(content, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
+  assert.match(content, /#### Paso operativo/);
+  assert.doesNotMatch(content, /Add SEO metadata/i);
+  assert.doesNotMatch(content, /Lighthouse performance score/i);
+});
+
+test('cli generate refuses to replace a substantive custom managed block without --full-regen', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-generate-refuse-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const shell = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Roadmap del Producto',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Product North Star',
+      'North star especifico del POS de escritorio.',
+      '',
+      '### P0 - Migracion Firebase -> Electron + SQLite',
+      '- [ ] Migrar autenticacion local para operar 100% offline <!-- rs:task=pos-migrar-autenticacion-local-offline -->',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const result = runResult(['generate'], projectRoot);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--full-regen/);
+});
+
+test('cli regenerate intentionally rebuilds a substantive custom managed block', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-generate-full-regen-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const shell = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Roadmap del Producto',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Product North Star',
+      'North star especifico del POS de escritorio.',
+      '',
+      '### P0 - Migracion Firebase -> Electron + SQLite',
+      '- [ ] Migrar autenticacion local para operar 100% offline <!-- rs:task=pos-migrar-autenticacion-local-offline -->',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  run(['regenerate'], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.match(content, /### Phase P0 \(Critical\)/);
+  assert.doesNotMatch(content, /North star especifico del POS de escritorio/);
+  assert.doesNotMatch(content, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
+});
+
+test('cli generate --full-regen intentionally rebuilds a substantive custom managed block', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-maintain-full-regen-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const shell = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Roadmap del Producto',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Product North Star',
+      'North star especifico del POS de escritorio.',
+      '',
+      '### P0 - Migracion Firebase -> Electron + SQLite',
+      '- [ ] Migrar autenticacion local para operar 100% offline <!-- rs:task=pos-migrar-autenticacion-local-offline -->',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  run(['generate', '--full-regen'], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.match(content, /### Phase P0 \(Critical\)/);
+  assert.doesNotMatch(content, /North star especifico del POS de escritorio/);
+  assert.doesNotMatch(content, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
+});
+
+test('cli maintain --full-regen intentionally rebuilds a substantive custom managed block', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-maintain-full-regen-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const shell = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '# Roadmap del Producto',
+      '',
+      '<!-- rs:managed:start -->',
+      '## Product North Star',
+      'North star especifico del POS de escritorio.',
+      '',
+      '### P0 - Migracion Firebase -> Electron + SQLite',
+      '- [ ] Migrar autenticacion local para operar 100% offline <!-- rs:task=pos-migrar-autenticacion-local-offline -->',
+      '<!-- rs:managed:end -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  run(['maintain', '--full-regen'], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.match(content, /### Phase P0 \(Critical\)/);
+  assert.doesNotMatch(content, /North star especifico del POS de escritorio/);
+  assert.doesNotMatch(content, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
+});
+
 test('cli sync dry-run does not modify file', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-sync-'));
   writePackageJson(projectRoot);
@@ -403,29 +578,32 @@ test('no args prints usage', () => {
   assert.match(out, /Usage:/);
   assert.match(out, /roadmapsmith zero/);
   assert.match(out, /roadmapsmith maintain/);
+  assert.match(out, /--full-regen/);
+  assert.match(out, /\/roadmap-update/);
+  assert.doesNotMatch(out, /\/roadmap-regenerate/);
 });
 
-test('cli /road prints the contextual slash palette', () => {
+test('cli /roadmap prints the contextual slash palette', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-palette-'));
-  const out = run(['/road'], projectRoot);
+  const out = run(['/roadmap'], projectRoot);
 
   assert.match(out, /RoadmapSmith slash palette/);
   assert.match(out, /roadmapsmith maintain/);
 });
 
-test('cli /maintain executes the one-command existing-repo flow', () => {
+test('cli /roadmap-maintain executes the one-command existing-repo flow', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-maintain-'));
   writePackageJson(projectRoot);
   fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
   fs.writeFileSync(path.join(projectRoot, 'src', 'index.js'), 'function main() { return true; }\n', 'utf8');
 
-  const out = run(['/maintain'], projectRoot);
+  const out = run(['/roadmap-maintain'], projectRoot);
 
   assert.match(out, /Audit summary:/);
   assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
 });
 
-test('cli /road sync resolves to sync without changing dry-run behavior', () => {
+test('cli /roadmap sync resolves to sync without changing dry-run behavior', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-sync-'));
   writePackageJson(projectRoot);
   fs.writeFileSync(
@@ -434,11 +612,28 @@ test('cli /road sync resolves to sync without changing dry-run behavior', () => 
   );
 
   const before = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
-  const out = run(['/road', 'sync', '--dry-run'], projectRoot);
+  const out = run(['/roadmap', 'sync', '--dry-run'], projectRoot);
   const after = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
 
   assert.equal(after, before);
   assert.match(out, /No changes for|Dry run:/);
+});
+
+test('cli bare /roadmap-sync shows legacy palette help instead of executing', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-direct-sync-'));
+  writePackageJson(projectRoot);
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    ['## Phase P0', '- [ ] Implement missing module <!-- rs:task=implement-missing-module -->', ''].join('\n')
+  );
+
+  const before = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+  const out = run(['/roadmap-sync', '--dry-run'], projectRoot);
+  const after = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(after, before);
+  assert.match(out, /RoadmapSmith slash palette/);
+  assert.match(out, /\/roadmap-update/);
 });
 
 test('cli /roadmap-sync validate resolves to validate', () => {
@@ -452,17 +647,19 @@ test('cli /roadmap-sync validate resolves to validate', () => {
   const result = runResult(['/roadmap-sync', 'validate', '--json'], projectRoot);
 
   assert.equal(result.status, 1);
+  assert.match(result.stderr, /deprecated/i);
   assert.match(result.stdout, /\[\s*\{/);
 });
 
 test('cli ambiguous slash input shows suggestions and does not execute', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-ambiguous-'));
-  const out = run(['/road', 's'], projectRoot);
+  const out = run(['/roadmap', 's'], projectRoot);
 
   assert.match(out, /No exact slash match was executed/);
-  assert.match(out, /\/status/);
-  assert.match(out, /\/sync/);
-  assert.match(out, /\/setup/);
+  assert.match(out, /\/roadmap-status/);
+  assert.match(out, /\/roadmap-update/);
+  assert.match(out, /\/roadmap-sync/);
+  assert.match(out, /\/roadmap-setup/);
 });
 
 test('cli unknown direct slash input shows related help safely', () => {
@@ -471,7 +668,8 @@ test('cli unknown direct slash input shows related help safely', () => {
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /RoadmapSmith slash palette/);
-  assert.match(result.stdout, /\/sync/);
+  assert.match(result.stdout, /\/roadmap-update/);
+  assert.match(result.stdout, /\/roadmap-sync/);
 });
 
 test('cli zero fails clearly in non-interactive mode', () => {
@@ -486,7 +684,9 @@ test('doctor --json reports missing integration state', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-doctor-missing-'));
   run(['init'], projectRoot);
 
-  const result = runResult(['doctor', '--json', '--project-root', projectRoot], projectRoot);
+  const result = runResult(['doctor', '--json', '--project-root', projectRoot], projectRoot, {
+    env: buildNoCliEnv()
+  });
   const payload = JSON.parse(result.stdout);
 
   assert.notEqual(result.status, 0);
@@ -494,6 +694,7 @@ test('doctor --json reports missing integration state', () => {
   assert.equal(payload.vscode.tasks.ready, false);
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, false);
+  assert.deepEqual(Object.keys(payload.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
 });
 
 test('doctor --json reports healthy configured integration state', () => {
@@ -512,6 +713,19 @@ test('doctor --json reports healthy configured integration state', () => {
   assert.equal(payload.runtime.ready, true);
   assert.equal(payload.hosts.codex.ready, true);
   assert.equal(payload.hosts.claude.ready, true);
+  assert.deepEqual(payload.surfaces.claudeGui.availableCommands, [
+    '/roadmap',
+    '/roadmap-zero',
+    '/roadmap-maintain',
+    '/roadmap-status',
+    '/roadmap-init',
+    '/roadmap-generate',
+    '/roadmap-validate',
+    '/roadmap-update',
+    '/roadmap-sync',
+    '/roadmap-audit',
+    '/roadmap-setup'
+  ]);
 });
 
 test('doctor --json reports missing task runtime without downgrading Claude readiness', () => {
@@ -539,14 +753,15 @@ test('doctor --json reports missing task runtime without downgrading Claude read
   assert.equal(payload.runtime.ready, false);
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, true);
+  assert.deepEqual(Object.keys(payload.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
 });
 
-test('launcher accepts /road and prints the same conceptual palette', () => {
-  const result = runLauncherResult(['/road'], path.resolve(__dirname, '..', '..'));
+test('launcher accepts /roadmap and prints the same conceptual palette', () => {
+  const result = runLauncherResult(['/roadmap'], path.resolve(__dirname, '..', '..'));
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /RoadmapSmith slash palette/);
-  assert.match(result.stdout, /\/roadmap-sync maintain/);
+  assert.match(result.stdout, /\/roadmap maintain/);
 });
 
 test('launcher keeps non-slash actions working', () => {

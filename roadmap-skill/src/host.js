@@ -1,12 +1,15 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { readTextIfExists, writeText } = require('./io');
-const { getSlashActionSpecs } = require('./slash');
+const { getHostNativeSkillNames, getHostNativeSlashCommands, getSlashActionSpecs } = require('./slash');
 
 const SUPPORTED_EDITORS = new Set(['vscode']);
 const SUPPORTED_HOSTS = new Set(['codex', 'claude']);
+const PACKAGE_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..');
 const VSCODE_LAUNCHER_RELATIVE_PATH = '.vscode/roadmapsmith-launcher.js';
 const WINDOWS_TASK_WRAPPER_RELATIVE_PATH = '.vscode/roadmapsmith-task.cmd';
 const POSIX_TASK_WRAPPER_RELATIVE_PATH = '.vscode/roadmapsmith-task.sh';
@@ -25,6 +28,14 @@ const ROADMAPSMITH_TASK_LABELS = [
 ];
 const CLAUDE_HOOK_COMMAND = 'node .claude/hooks/roadmap-sync.js';
 const CLAUDE_HOOK_RELATIVE_PATH = '.claude/hooks/roadmap-sync.js';
+const ROADMAPSMITH_PLUGIN_NAME = 'roadmapsmith';
+const LEGACY_ROADMAP_SYNC_SKILL_NAME = 'roadmap-sync';
+const EXPECTED_NATIVE_SKILL_NAMES = Object.freeze(getHostNativeSkillNames());
+const EXPECTED_NATIVE_SLASH_COMMANDS = Object.freeze(getHostNativeSlashCommands());
+const BUNDLE_ROOT_CANDIDATES = Object.freeze([
+  { kind: 'package', root: PACKAGE_ROOT },
+  { kind: 'repo', root: REPO_ROOT }
+]);
 
 function removeJsonComments(content) {
   let result = '';
@@ -156,6 +167,64 @@ function stringifyJson(value) {
   return JSON.stringify(value, null, 2);
 }
 
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function readJsonIfExists(filePath) {
+  return fs.existsSync(filePath) ? readJson(filePath) : null;
+}
+
+function normalizeComparablePath(filePath) {
+  if (!filePath) {
+    return null;
+  }
+  const normalized = path.resolve(String(filePath));
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function getHomeDirectory(options = {}, env = process.env) {
+  return options.homeDir
+    || env.ROADMAPSMITH_HOME
+    || env.HOME
+    || env.USERPROFILE
+    || os.homedir();
+}
+
+function findCommandPaths(commandName, env = process.env) {
+  const probe = process.platform === 'win32'
+    ? require('child_process').spawnSync('where', [commandName], { encoding: 'utf8', env })
+    : require('child_process').spawnSync('which', [commandName], { encoding: 'utf8', env });
+  if (probe.status !== 0 || !probe.stdout) {
+    return [];
+  }
+
+  return probe.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function pickPreferredCommandPath(paths) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    return null;
+  }
+
+  if (process.platform !== 'win32') {
+    return paths[0];
+  }
+
+  const priorities = ['.exe', '.cmd', '.bat', '.ps1'];
+  for (const extension of priorities) {
+    const match = paths.find((candidate) => candidate.toLowerCase().endsWith(extension));
+    if (match) {
+      return match;
+    }
+  }
+
+  return paths[0];
+}
+
 function normalizeHostValue(host) {
   return String(host || '').trim().toLowerCase();
 }
@@ -223,11 +292,11 @@ function createTask(action, label, detail) {
 function createManagedTasks() {
   return [
     createTask('zero', 'RoadmapSmith: Zero Mode', 'Run the Zero Mode interview and generate the first roadmap in one command.'),
-    createTask('maintain', 'RoadmapSmith: Maintain', 'Run the default existing-repo flow: generate, sync, and audit in one command.'),
-    createTask('status', 'RoadmapSmith: Status', 'Inspect readiness and learn the slash entrypoints like /road and /roadmap-sync <action>.'),
+    createTask('maintain', 'RoadmapSmith: Maintain', 'Run the preserve-first existing-repo flow: generate, sync, and audit in one command.'),
+    createTask('status', 'RoadmapSmith: Status', 'Inspect readiness and learn the slash entrypoints like /roadmap, /roadmap-update, and legacy /roadmap-sync <action>.'),
     createTask('explain', 'RoadmapSmith: Explain Workflow', 'Explain how zero, maintain, the skill, setup, slash routing, and VS Code tasks work together.'),
     createTask('init', 'RoadmapSmith: Init', 'Create ROADMAP.md and AGENTS.md when they are missing.'),
-    createTask('generate', 'RoadmapSmith: Generate', 'Rebuild the managed roadmap block from repository context.'),
+    createTask('generate', 'RoadmapSmith: Generate', 'Update ROADMAP.md and refuse destructive replacement unless rerun with --full-regen.'),
     createTask('validate', 'RoadmapSmith: Validate', 'Inspect per-task evidence status as JSON.'),
     createTask('sync', 'RoadmapSmith: Sync', 'Apply evidence-backed checklist sync to ROADMAP.md.'),
     createTask('sync-dry-run', 'RoadmapSmith: Sync Dry Run', 'Preview the next roadmap sync without writing files.'),
@@ -422,13 +491,7 @@ function renderPosixTaskWrapper() {
 }
 
 function findCommandPath(commandName, env = process.env) {
-  const probe = process.platform === 'win32'
-    ? require('child_process').spawnSync('where', [commandName], { encoding: 'utf8', env })
-    : require('child_process').spawnSync('which', [commandName], { encoding: 'utf8', env });
-  if (probe.status !== 0 || !probe.stdout) {
-    return null;
-  }
-  return probe.stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || null;
+  return pickPreferredCommandPath(findCommandPaths(commandName, env));
 }
 
 function detectNodeRuntime(env = process.env) {
@@ -470,6 +533,207 @@ function detectNodeRuntime(env = process.env) {
   };
 }
 
+function resolveBundleSurface() {
+  const candidates = BUNDLE_ROOT_CANDIDATES.map(({ kind, root }) => {
+    const skillsManifestPath = path.join(root, 'skills.json');
+    const claudePluginManifestPath = path.join(root, '.claude-plugin', 'plugin.json');
+    const codexPluginManifestPath = path.join(root, '.codex-plugin', 'plugin.json');
+    return {
+      kind,
+      root,
+      skillsManifestPath,
+      claudePluginManifestPath,
+      codexPluginManifestPath,
+      hasSkillsManifest: fs.existsSync(skillsManifestPath),
+      hasClaudePluginManifest: fs.existsSync(claudePluginManifestPath),
+      hasCodexPluginManifest: fs.existsSync(codexPluginManifestPath)
+    };
+  });
+
+  return candidates.find((candidate) => {
+    return candidate.hasSkillsManifest
+      && candidate.hasClaudePluginManifest
+      && candidate.hasCodexPluginManifest;
+  }) || candidates.find((candidate) => {
+    return candidate.hasSkillsManifest
+      || candidate.hasClaudePluginManifest
+      || candidate.hasCodexPluginManifest;
+  }) || candidates[0];
+}
+
+function inspectSharedBundleSurface() {
+  const bundleSurface = resolveBundleSurface();
+  const skillsManifest = readJsonIfExists(bundleSurface.skillsManifestPath);
+  const declaredSkillNames = Array.isArray(skillsManifest && skillsManifest.skills)
+    ? skillsManifest.skills.map((skill) => skill && skill.name).filter(Boolean)
+    : [];
+  const availableCommands = declaredSkillNames.map((name) => `/${name}`);
+  const missingCommands = EXPECTED_NATIVE_SLASH_COMMANDS.filter((command) => !availableCommands.includes(command));
+
+  return {
+    kind: bundleSurface.kind,
+    root: bundleSurface.root,
+    ready: bundleSurface.hasSkillsManifest
+      && bundleSurface.hasClaudePluginManifest
+      && bundleSurface.hasCodexPluginManifest
+      && missingCommands.length === 0,
+    files: {
+      skillsManifestPath: bundleSurface.skillsManifestPath,
+      hasSkillsManifest: bundleSurface.hasSkillsManifest,
+      claudePluginManifestPath: bundleSurface.claudePluginManifestPath,
+      hasClaudePluginManifest: bundleSurface.hasClaudePluginManifest,
+      codexPluginManifestPath: bundleSurface.codexPluginManifestPath,
+      hasCodexPluginManifest: bundleSurface.hasCodexPluginManifest
+    },
+    declaredSkillNames,
+    expectedCommands: EXPECTED_NATIVE_SLASH_COMMANDS.slice(),
+    availableCommands,
+    missingCommands
+  };
+}
+
+function inspectLegacyRoadmapSyncSkill(options = {}, env = process.env) {
+  const homeDir = getHomeDirectory(options, env);
+  const skillDir = path.join(homeDir, '.agents', 'skills', LEGACY_ROADMAP_SYNC_SKILL_NAME);
+  const skillPath = path.join(skillDir, 'SKILL.md');
+  return {
+    exists: fs.existsSync(skillPath),
+    path: skillPath
+  };
+}
+
+function runJsonCommand(commandPath, args, env = process.env) {
+  const result = require('child_process').spawnSync(commandPath, args, {
+    encoding: 'utf8',
+    env
+  });
+
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      error: result.stderr || result.stdout || `Command exited with code ${result.status}`,
+      status: result.status
+    };
+  }
+
+  try {
+    return {
+      ok: true,
+      payload: JSON.parse(result.stdout)
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Invalid JSON from ${path.basename(commandPath)}: ${error.message}`
+    };
+  }
+}
+
+function inspectCodexPluginState(projectRoot, options = {}) {
+  const env = options.env || process.env;
+  const codexCommandPath = Object.prototype.hasOwnProperty.call(options, 'codexCommandPath')
+    ? options.codexCommandPath
+    : findCommandPath('codex', env);
+  const legacySkill = inspectLegacyRoadmapSyncSkill(options, env);
+  const expectedCommands = EXPECTED_NATIVE_SLASH_COMMANDS.slice();
+  const missingCommands = expectedCommands.slice();
+  const baseState = {
+    commandPath: codexCommandPath,
+    plugin: null,
+    marketplace: null,
+    expectedCommands,
+    availableCommands: [],
+    missingCommands,
+    duplicates: [],
+    ready: false,
+    source: codexCommandPath
+      ? 'Codex command detected but RoadmapSmith plugin is not installed'
+      : 'Codex command not found on this machine',
+    message: codexCommandPath
+      ? 'Install and enable the RoadmapSmith Codex plugin, then verify the host surfaces manually.'
+      : 'Install Codex locally before expecting native Codex GUI or CLI slash surfaces.'
+  };
+
+  if (!codexCommandPath) {
+    return baseState;
+  }
+
+  const pluginListResult = Object.prototype.hasOwnProperty.call(options, 'codexPluginList')
+    ? { ok: true, payload: options.codexPluginList }
+    : runJsonCommand(codexCommandPath, ['plugin', 'list', '--json'], env);
+  const marketplaceListResult = Object.prototype.hasOwnProperty.call(options, 'codexMarketplaceList')
+    ? { ok: true, payload: options.codexMarketplaceList }
+    : runJsonCommand(codexCommandPath, ['plugin', 'marketplace', 'list', '--json'], env);
+
+  if (!pluginListResult.ok) {
+    return {
+      ...baseState,
+      source: 'Codex command detected',
+      message: `Codex is installed, but plugin inspection failed: ${pluginListResult.error}`
+    };
+  }
+
+  const installedPlugins = Array.isArray(pluginListResult.payload && pluginListResult.payload.installed)
+    ? pluginListResult.payload.installed
+    : [];
+  const plugin = installedPlugins.find((entry) => entry && entry.name === ROADMAPSMITH_PLUGIN_NAME);
+
+  if (!plugin || !plugin.installed || !plugin.enabled) {
+    return {
+      ...baseState,
+      plugin: plugin || null,
+      source: plugin
+        ? `RoadmapSmith plugin is installed but not enabled (${plugin.pluginId || plugin.name})`
+        : 'Codex command detected',
+      message: plugin
+        ? 'Enable the installed RoadmapSmith Codex plugin to expose the native slash bundle.'
+        : 'Install and enable the RoadmapSmith Codex plugin to expose the native slash bundle.'
+    };
+  }
+
+  const marketplaces = Array.isArray(marketplaceListResult.payload && marketplaceListResult.payload.marketplaces)
+    ? marketplaceListResult.payload.marketplaces
+    : [];
+  const marketplace = marketplaces.find((entry) => entry && entry.name === plugin.marketplaceName) || null;
+  const duplicates = legacySkill.exists
+    ? [{
+      command: '/roadmap-sync',
+      reason: 'legacy ~/.agents/skills install and RoadmapSmith plugin both register the same skill name',
+      sources: [legacySkill.path, plugin.source && plugin.source.path].filter(Boolean)
+    }]
+    : [];
+
+  return {
+    commandPath: codexCommandPath,
+    plugin,
+    marketplace,
+    expectedCommands,
+    availableCommands: expectedCommands,
+    missingCommands: [],
+    duplicates,
+    ready: duplicates.length === 0,
+    source: `${plugin.pluginId || plugin.name}${plugin.marketplaceName ? ` (${plugin.marketplaceName})` : ''}`,
+    message: duplicates.length > 0
+      ? 'RoadmapSmith is installed in Codex, but /roadmap-sync is duplicated by the legacy ~/.agents/skills install.'
+      : 'RoadmapSmith is installed and enabled in Codex. Interactive slash-menu visibility still needs manual host verification.',
+    legacySkill
+  };
+}
+
+function createSurfaceStatus({ name, source, message, expectedCommands, availableCommands, missingCommands, duplicates, ready, verification }) {
+  return {
+    name,
+    source,
+    message,
+    expectedCommands,
+    availableCommands,
+    missingCommands,
+    duplicates,
+    ready,
+    verification
+  };
+}
+
 function renderVsCodeLauncher() {
   const slashSpecsJson = JSON.stringify(getSlashActionSpecs());
   return [
@@ -484,18 +748,8 @@ function renderVsCodeLauncher() {
     'const RAW_ARGS = process.argv.slice(2);',
     'const ACTION = RAW_ARGS[0] || \'explain\';',
     `const SLASH_ACTIONS = ${slashSpecsJson};`,
-    'const SLASH_ROOT_ALIASES = new Set([\'/road\', \'/roadmap-sync\']);',
-    'const DIRECT_SLASH_ALIAS_TO_ACTION = {',
-    '  \'/zero\': \'zero\',',
-    '  \'/maintain\': \'maintain\',',
-    '  \'/status\': \'status\',',
-    '  \'/init\': \'init\',',
-    '  \'/generate\': \'generate\',',
-    '  \'/validate\': \'validate\',',
-    '  \'/sync\': \'sync\',',
-    '  \'/audit\': \'audit\',',
-    '  \'/setup\': \'setup\'',
-    '};',
+    'const SLASH_ROOT_ALIASES = new Set([\'/roadmap\', \'/road\']);',
+    'const LEGACY_ROUTER_ALIAS = \'/roadmap-sync\';',
     'const LOCAL_DEV_CLI = path.join(PROJECT_ROOT, \'roadmap-skill\', \'bin\', \'cli.js\');',
     'const LOCAL_PACKAGE_CLI = path.join(PROJECT_ROOT, \'node_modules\', \'roadmapsmith\', \'bin\', \'cli.js\');',
     '',
@@ -528,8 +782,26 @@ function renderVsCodeLauncher() {
     '  return null;',
     '}',
     '',
+    'function getNamespacedDirectSlash(actionId) {',
+    '  return actionId === \'sync\' ? \'/roadmap-update\' : `/roadmap-${actionId}`;',
+    '}',
+    '',
+    'const DIRECT_HOST_NATIVE_ALIAS_TO_ACTION = Object.fromEntries(',
+    '  SLASH_ACTIONS.map((action) => [getNamespacedDirectSlash(action.id), action.id])',
+    ');',
+    'const DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION = Object.fromEntries(',
+    '  SLASH_ACTIONS.map((action) => [`/${action.id}`, action.id])',
+    ');',
+    '',
     'function normalizeActionId(value) {',
-    '  return String(value || \'\').trim().toLowerCase().replace(/^\\/+/g, \'\');',
+    '  let normalized = String(value || \'\').trim().toLowerCase().replace(/^\\/+/g, \'\');',
+    '  if (normalized.startsWith(\'roadmap-\')) {',
+    '    normalized = normalized.slice(\'roadmap-\'.length);',
+    '  }',
+    '  if (normalized === \'update\') {',
+    '    normalized = \'sync\';',
+    '  }',
+    '  return normalized;',
     '}',
     '',
     'function getSlashSuggestions(query) {',
@@ -543,12 +815,16 @@ function renderVsCodeLauncher() {
     '}',
     '',
     'function renderSlashPalette(route) {',
-    '  const source = route && route.source ? route.source : \'/road\';',
+    '  const source = route && route.source ? route.source : \'/roadmap\';',
     '  const query = normalizeActionId(route && route.query);',
     '  const suggestions = route && Array.isArray(route.suggestions) ? route.suggestions : getSlashSuggestions(query);',
     '  const lines = [];',
     '  lines.push(\'RoadmapSmith slash palette\');',
     '  lines.push(\'\');',
+    '  if (route && route.deprecated && route.deprecationMessage) {',
+    '    lines.push(`Deprecated alias: ${route.deprecationMessage}`);',
+    '    lines.push(\'\');',
+    '  }',
     '  if (query) {',
     '    lines.push(`Input: ${source} ${query}`);',
     '    lines.push(suggestions.length > 0 ? \'No exact slash match was executed. Related actions:\' : \'No exact slash match was executed.\');',
@@ -561,22 +837,36 @@ function renderVsCodeLauncher() {
     '    lines.push(\'No related slash actions found.\');',
     '  } else {',
     '    suggestions.forEach((action) => {',
-    '      lines.push(`- /${action.id}: ${action.description}`);',
+    '      lines.push(`- ${action.directSlash}: ${action.description}`);',
+    '      lines.push(`  Router form: ${action.routerSlash}`);',
+    '      lines.push(`  Legacy router: ${action.legacyRouterSlash}`);',
     '      lines.push(`  Classic CLI: ${action.classicCliExample}`);',
-    '      lines.push(`  Skill form: /roadmap-sync ${action.id}`);',
     '      lines.push(`  VS Code task: ${action.taskLabel}`);',
     '    });',
     '  }',
     '  lines.push(\'\');',
     '  lines.push(\'Examples:\');',
-    '  lines.push(\'- roadmapsmith zero\');',
-    '  lines.push(\'- roadmapsmith maintain\');',
-    '  lines.push(\'- roadmapsmith /road\');',
-    '  lines.push(\'- roadmapsmith /maintain\');',
-    '  lines.push(\'- roadmapsmith /roadmap-sync maintain\');',
+    '  lines.push(\'- roadmapsmith /roadmap\');',
+    '  lines.push(\'- roadmapsmith /roadmap maintain\');',
+    '  lines.push(\'- roadmapsmith /roadmap-maintain\');',
+    '  lines.push(\'- roadmapsmith /roadmap-update\');',
+    '  lines.push(\'- roadmapsmith /roadmap-sync validate\');',
     '  lines.push(\'\');',
     '  lines.push(\'Installing the skill alone does not expose CLI behavior in VS Code. Use roadmapsmith setup for the visible task/launcher layer.\');',
     '  return lines.join(\'\\n\');',
+    '}',
+    '',
+    'function getSlashAction(actionId) {',
+    '  const normalized = normalizeActionId(actionId);',
+    '  return SLASH_ACTIONS.find((action) => action.id === normalized) || null;',
+    '}',
+    '',
+    'function paletteResponse(source, query, deprecated = false, deprecationMessage = \'\') {',
+    '  return { kind: \'palette\', query, source, suggestions: getSlashSuggestions(query), deprecated, deprecationMessage };',
+    '}',
+    '',
+    'function executeResponse(source, actionId, query, deprecated = false, deprecationMessage = \'\') {',
+    '  return { kind: \'execute\', actionId, query, source, suggestions: getSlashSuggestions(query), deprecated, deprecationMessage };',
     '}',
     '',
     'function resolveSlashInvocation(command, args) {',
@@ -584,39 +874,60 @@ function renderVsCodeLauncher() {
     '    return null;',
     '  }',
     '  const normalizedCommand = command.trim().toLowerCase();',
-    '  if (Object.prototype.hasOwnProperty.call(DIRECT_SLASH_ALIAS_TO_ACTION, normalizedCommand)) {',
-    '    return {',
-    '      kind: \'execute\',',
-    '      actionId: DIRECT_SLASH_ALIAS_TO_ACTION[normalizedCommand],',
-    '      query: normalizeActionId(normalizedCommand),',
-    '      source: normalizedCommand,',
-    '      suggestions: getSlashSuggestions(normalizedCommand)',
-    '    };',
+    '  if (normalizedCommand === LEGACY_ROUTER_ALIAS) {',
+    '    if (args.length === 0) {',
+    '      return paletteResponse(normalizedCommand, \'\');',
+    '    }',
+    '    const queryToken = normalizeActionId(args[0]);',
+    '    const deprecationMessage = \'Legacy CLI compatibility root /roadmap-sync <action> is deprecated. Use /roadmap <action> or the direct /roadmap-* commands.\';',
+    '    const exactAction = getSlashAction(queryToken);',
+    '    if (exactAction) {',
+    '      return executeResponse(normalizedCommand, exactAction.id, queryToken, true, deprecationMessage);',
+    '    }',
+    '    return paletteResponse(normalizedCommand, queryToken, true, deprecationMessage);',
+    '  }',
+    '  if (Object.prototype.hasOwnProperty.call(DIRECT_HOST_NATIVE_ALIAS_TO_ACTION, normalizedCommand)) {',
+    '    return executeResponse(normalizedCommand, DIRECT_HOST_NATIVE_ALIAS_TO_ACTION[normalizedCommand], normalizeActionId(normalizedCommand));',
+    '  }',
+    '  if (Object.prototype.hasOwnProperty.call(DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION, normalizedCommand)) {',
+    '    const actionId = DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION[normalizedCommand];',
+    '    return executeResponse(',
+    '      normalizedCommand,',
+    '      actionId,',
+    '      normalizeActionId(normalizedCommand),',
+    '      true,',
+    '      `CLI compatibility alias ${normalizedCommand} is deprecated. Use ${getNamespacedDirectSlash(actionId)} or /roadmap ${actionId}.`',
+    '    );',
     '  }',
     '  if (SLASH_ROOT_ALIASES.has(normalizedCommand)) {',
     '    const queryToken = args.length > 0 ? normalizeActionId(args[0]) : \'\';',
+    '    const deprecated = normalizedCommand === \'/road\';',
+    '    const deprecationMessage = deprecated ? \'CLI compatibility alias /road is deprecated. Use /roadmap.\' : \'\';',
     '    if (!queryToken) {',
-    '      return { kind: \'palette\', query: \'\', source: normalizedCommand, suggestions: getSlashSuggestions(\'\') };',
+    '      return paletteResponse(normalizedCommand, \'\', deprecated, deprecationMessage);',
     '    }',
-    '    const exactAction = SLASH_ACTIONS.find((action) => action.id === queryToken);',
+    '    const exactAction = getSlashAction(queryToken);',
     '    if (exactAction) {',
-    '      return { kind: \'execute\', actionId: exactAction.id, query: queryToken, source: normalizedCommand, suggestions: getSlashSuggestions(queryToken) };',
+    '      return executeResponse(normalizedCommand, exactAction.id, queryToken, deprecated, deprecationMessage);',
     '    }',
-    '    return { kind: \'palette\', query: queryToken, source: normalizedCommand, suggestions: getSlashSuggestions(queryToken) };',
+    '    return paletteResponse(normalizedCommand, queryToken, deprecated, deprecationMessage);',
     '  }',
-    '  return { kind: \'palette\', query: normalizeActionId(normalizedCommand), source: normalizedCommand, suggestions: getSlashSuggestions(normalizedCommand) };',
+    '  if (normalizedCommand.startsWith(\'/roadmap-\')) {',
+    '    return paletteResponse(normalizedCommand, normalizeActionId(normalizedCommand));',
+    '  }',
+    '  return paletteResponse(normalizedCommand, normalizeActionId(normalizedCommand));',
     '}',
     '',
     'function explain() {',
     '  console.log(\'RoadmapSmith layers:\\n\');',
     '  console.log(\'1. The roadmap-sync skill guides the agent. It does not add VS Code buttons or install the CLI.\');',
-    '  console.log(\'2. The roadmapsmith CLI executes zero/maintain plus the lower-level init/generate/validate/sync/setup/doctor commands.\');',
+    '  console.log(\'2. The roadmapsmith CLI executes zero/maintain plus init/generate/validate/sync/setup/doctor, with --full-regen reserved for destructive replacement.\');',
     '  console.log(\'3. roadmapsmith setup makes the CLI visible in VS Code through tasks and optional Claude hook wiring.\\n\');',
     '  console.log(\'Typical VS Code workflow:\');',
     '  console.log(\'- Run "RoadmapSmith: Status" to inspect readiness.\');',
-    '  console.log(\'- For empty repos, run "RoadmapSmith: Zero Mode" or use "/road zero".\');',
-    '  console.log(\'- For existing repos, run "RoadmapSmith: Maintain" or use "/road maintain".\');',
-    '  console.log(\'- Use the lower-level Init, Generate, Validate, and Sync tasks only when you want manual control.\\n\');',
+    '  console.log(\'- For empty repos, run "RoadmapSmith: Zero Mode" or use "/roadmap zero".\');',
+    '  console.log(\'- For existing repos, run "RoadmapSmith: Maintain" or use "/roadmap maintain".\');',
+    '  console.log(\'- Use Init, Generate, Validate, and Sync when you want manual control.\\n\');',
     '  console.log(\'If you installed only the skill, install the CLI as well and then run "RoadmapSmith: Refresh Setup".\');',
     '}',
     '',
@@ -643,6 +954,21 @@ function renderVsCodeLauncher() {
     '  }',
     '  console.log(`Codex readiness: ${payload.hosts.codex.ready ? \'ready\' : \'needs setup\'} (${payload.hosts.codex.message})`);',
     '  console.log(`Claude readiness: ${payload.hosts.claude.ready ? \'ready\' : \'needs setup\'} (${payload.hosts.claude.message})`);',
+    '  if (payload.surfaces && typeof payload.surfaces === \'object\') {',
+    '    console.log(\'\\nNative slash surfaces:\');',
+    '    Object.entries(payload.surfaces).forEach(([surfaceKey, surface]) => {',
+    '      const label = surfaceKey.replace(/([A-Z])/g, \' $1\').replace(/^./, (character) => character.toUpperCase());',
+    '      console.log(`- ${label}: ${surface.ready ? \'ready\' : \'needs attention\'} (${surface.message})`);',
+    '      console.log(`  Source: ${surface.source}`);',
+    '      console.log(`  Verification: ${surface.verification}`);',
+    '      if (Array.isArray(surface.missingCommands) && surface.missingCommands.length > 0) {',
+    '        console.log(`  Missing commands: ${surface.missingCommands.join(\', \')}`);',
+    '      }',
+    '      if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {',
+    '        console.log(`  Duplicates: ${surface.duplicates.map((duplicate) => duplicate.command).join(\', \')}`);',
+    '      }',
+    '    });',
+    '  }',
     '  if (!payload.cli.ready) {',
     '    console.log(\'\\nThe CLI is missing. Installing the skill alone does not expose RoadmapSmith actions in VS Code.\');',
     '    console.log(\'Install the CLI, then run "RoadmapSmith: Refresh Setup".\');',
@@ -651,7 +977,7 @@ function renderVsCodeLauncher() {
     '    console.log(\'\\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun "RoadmapSmith: Status".\');',
     '  }',
     '  console.log(\'\\nRecommended entrypoints: roadmapsmith zero, roadmapsmith maintain\');',
-    '  console.log(\'Slash entrypoints: /road, /zero, /maintain, /status, /generate, /validate, /sync, /audit, /setup, /roadmap-sync <action>\');',
+    '  console.log(\'Slash entrypoints: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, /roadmap-setup, plus legacy /roadmap-sync <action>.\');',
     '}',
     '',
     'function printMissingCliStatus() {',
@@ -662,7 +988,7 @@ function renderVsCodeLauncher() {
     '  console.log(\'Installing the skill alone does not expose the CLI in VS Code.\');',
     '  console.log(\'Install the roadmapsmith package, then run "RoadmapSmith: Refresh Setup".\');',
     '  console.log(\'The launcher looks for, in order: workspace dev copy, workspace dependency, global command.\');',
-    '  console.log(\'Slash discovery still works here: try /road for the local palette.\');',
+    '  console.log(\'Slash discovery still works here: try /roadmap for the local palette.\');',
     '}',
     '',
     'function runCli(args, options = {}) {',
@@ -729,8 +1055,14 @@ function renderVsCodeLauncher() {
     '  if (slashInvocation.kind === \'palette\') {',
     '    console.log(renderSlashPalette(slashInvocation));',
     '  } else if (slashInvocation.actionId === \'status\') {',
+    '    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {',
+    '      console.error(slashInvocation.deprecationMessage);',
+    '    }',
     '    status();',
     '  } else if (Object.prototype.hasOwnProperty.call(actionToCliArgs, slashInvocation.actionId)) {',
+    '    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {',
+    '      console.error(slashInvocation.deprecationMessage);',
+    '    }',
     '    const result = runCli(actionToCliArgs[slashInvocation.actionId]);',
     '    forwardResult(result);',
     '  } else {',
@@ -808,13 +1140,7 @@ function applySetupFiles(setupPlan, options = {}) {
 }
 
 function findGlobalRoadmapsmith() {
-  const probe = process.platform === 'win32'
-    ? require('child_process').spawnSync('where', ['roadmapsmith'], { encoding: 'utf8' })
-    : require('child_process').spawnSync('which', ['roadmapsmith'], { encoding: 'utf8' });
-  if (probe.status !== 0 || !probe.stdout) {
-    return null;
-  }
-  return probe.stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || null;
+  return findCommandPath('roadmapsmith');
 }
 
 function detectCliResolution(projectRoot) {
@@ -921,6 +1247,8 @@ function inspectHostSetup(projectRoot, options = {}) {
   const cli = detectCliResolution(projectRoot);
   const vscode = inspectVsCodeTasks(projectRoot);
   const claude = inspectClaudeSetup(projectRoot);
+  const bundle = inspectSharedBundleSurface();
+  const codexNative = inspectCodexPluginState(projectRoot, options);
   const codexReady = cli.ready && vscode.tasks.ready && runtime.ready;
   let codexMessage = 'VS Code tasks are ready for Codex/manual host workflows';
   if (!cli.ready) {
@@ -931,10 +1259,20 @@ function inspectHostSetup(projectRoot, options = {}) {
     codexMessage = 'Install Node.js or set ROADMAPSMITH_NODE so VS Code tasks can launch the wrapper';
   }
 
+  const claudeBundleMessage = bundle.ready
+    ? 'The full Claude slash bundle is present in this repo/package. Install or update it in Claude Code, then reload skills to verify host registration.'
+    : 'The shared RoadmapSmith bundle is incomplete, so Claude cannot expose the full native slash set.';
+  const codexCliMessage = codexNative.commandPath
+    ? (codexNative.ready
+      ? 'Codex can resolve the installed RoadmapSmith plugin. Bare slash execution should still be manually verified in the interactive host.'
+      : codexNative.message)
+    : 'Codex CLI is not installed on this machine, so native Codex CLI slash verification is unavailable.';
+
   return {
     projectRoot,
     cli,
     runtime,
+    bundle,
     roadmap: {
       path: roadmapFile,
       exists: roadmapFile ? fs.existsSync(roadmapFile) : false
@@ -945,6 +1283,52 @@ function inspectHostSetup(projectRoot, options = {}) {
     },
     vscode,
     claude,
+    surfaces: {
+      claudeGui: createSurfaceStatus({
+        name: 'claudeGui',
+        source: `${bundle.kind}-bundle`,
+        message: claudeBundleMessage,
+        expectedCommands: bundle.expectedCommands,
+        availableCommands: bundle.availableCommands,
+        missingCommands: bundle.missingCommands,
+        duplicates: [],
+        ready: bundle.ready,
+        verification: 'bundle-declared'
+      }),
+      claudeCli: createSurfaceStatus({
+        name: 'claudeCli',
+        source: `${bundle.kind}-bundle`,
+        message: 'Claude CLI uses the same shared bundle contract as Claude GUI. Host registration still needs manual verification in the real Claude environment.',
+        expectedCommands: bundle.expectedCommands,
+        availableCommands: bundle.availableCommands,
+        missingCommands: bundle.missingCommands,
+        duplicates: [],
+        ready: bundle.ready,
+        verification: 'bundle-declared'
+      }),
+      codexGui: createSurfaceStatus({
+        name: 'codexGui',
+        source: codexNative.source,
+        message: codexNative.message,
+        expectedCommands: codexNative.expectedCommands,
+        availableCommands: codexNative.availableCommands,
+        missingCommands: codexNative.missingCommands,
+        duplicates: codexNative.duplicates,
+        ready: codexNative.ready,
+        verification: 'host-install-detected'
+      }),
+      codexCli: createSurfaceStatus({
+        name: 'codexCli',
+        source: codexNative.source,
+        message: codexCliMessage,
+        expectedCommands: codexNative.expectedCommands,
+        availableCommands: codexNative.availableCommands,
+        missingCommands: codexNative.missingCommands,
+        duplicates: codexNative.duplicates,
+        ready: codexNative.ready && Boolean(codexNative.commandPath),
+        verification: 'host-install-detected'
+      })
+    },
     hosts: {
       codex: {
         ready: codexReady,
@@ -962,13 +1346,17 @@ function inspectHostSetup(projectRoot, options = {}) {
 
 module.exports = {
   CLAUDE_HOOK_COMMAND,
+  EXPECTED_NATIVE_SKILL_NAMES,
+  EXPECTED_NATIVE_SLASH_COMMANDS,
   ROADMAPSMITH_TASK_LABELS,
   applySetupFiles,
   assertSupportedEditor,
   buildSetupFiles,
   detectNodeRuntime,
   detectCliResolution,
+  inspectCodexPluginState,
   inspectHostSetup,
+  inspectSharedBundleSurface,
   mergeClaudeSettings,
   mergeVsCodeTasks,
   parseHosts,

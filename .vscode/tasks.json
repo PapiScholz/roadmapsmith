@@ -55,7 +55,7 @@
         "panel": "shared",
         "clear": true
       },
-      "detail": "Run the default existing-repo flow: generate, sync, and audit in one command."
+      "detail": "Run the preserve-first existing-repo flow: generate, sync, and audit in one command."
     },
     {
       "label": "RoadmapSmith: Status",
@@ -83,7 +83,7 @@
         "panel": "shared",
         "clear": true
       },
-      "detail": "Inspect readiness and learn the slash entrypoints like /road and /roadmap-sync <action>."
+      "detail": "Inspect readiness and learn the slash entrypoints like /roadmap, /roadmap-update, and legacy /roadmap-sync <action>."
     },
     {
       "label": "RoadmapSmith: Explain Workflow",
@@ -167,7 +167,7 @@
         "panel": "shared",
         "clear": true
       },
-      "detail": "Rebuild the managed roadmap block from repository context."
+      "detail": "Update ROADMAP.md and refuse destructive replacement unless rerun with --full-regen."
     },
     {
       "label": "RoadmapSmith: Validate",
@@ -308,6 +308,34 @@
         "clear": true
       },
       "detail": "Reapply RoadmapSmith VS Code and host integration files."
+    },
+    {
+      "label": "RoadmapSmith: Regenerate",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "regenerate"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "regenerate"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Explicitly rebuild the managed roadmap block from repository context."
     }
   ]
 }

@@ -126,14 +126,55 @@ function detectLanguages(files) {
     '.sh': 'Shell'
   };
 
-  const languages = new Set();
+  const languageScores = new Map();
+
+  function scoreLanguageFile(file) {
+    if (/^(scripts|tools|fixtures|examples)\//.test(file)) {
+      return 0.4;
+    }
+    if (/(^|\/)(__tests__|tests)\//.test(file) || /\.test\.|\.spec\.|_test\./.test(file)) {
+      return 0.8;
+    }
+    if (/^(src|app|electron|pages|components|lib|cmd|internal)\//.test(file)) {
+      return 4;
+    }
+    if (/^(packages|apps)\/[^/]+\/(src|app|electron|lib)\//.test(file)) {
+      return 4;
+    }
+    if (/^(packages|apps)\/[^/]+\//.test(file)) {
+      return 2.5;
+    }
+    return 1.5;
+  }
+
   for (const file of files) {
     const ext = path.extname(file).toLowerCase();
-    if (languageByExtension[ext]) {
-      languages.add(languageByExtension[ext]);
+    const language = languageByExtension[ext];
+    if (!language) {
+      continue;
     }
+
+    const nextScore = (languageScores.get(language) || 0) + scoreLanguageFile(file);
+    languageScores.set(language, nextScore);
   }
-  return Array.from(languages).sort((left, right) => left.localeCompare(right));
+
+  const ranked = Array.from(languageScores.entries()).sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+    return left[0].localeCompare(right[0]);
+  });
+
+  if (ranked.length === 0) {
+    return [];
+  }
+
+  const maxScore = ranked[0][1];
+  const inclusionThreshold = Math.max(1, maxScore * 0.35);
+
+  return ranked
+    .filter(([, score]) => score >= inclusionThreshold)
+    .map(([language]) => language);
 }
 
 function detectTestFrameworks(projectRoot, files) {

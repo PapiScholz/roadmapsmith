@@ -133,6 +133,7 @@ function parseArgv(argv) {
 module.exports = {
   escapeRegExp,
   ensureTrailingNewline,
+  normalizeText,
   parseArgv,
   similarityScore,
   slugify,

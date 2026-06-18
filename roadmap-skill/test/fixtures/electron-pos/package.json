@@ -1,0 +1,9 @@
+{
+  "name": "electron-pos",
+  "version": "1.0.0",
+  "dependencies": {
+    "electron": "^32.0.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0"
+  }
+}

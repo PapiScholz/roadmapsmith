@@ -1,6 +1,6 @@
 'use strict';
 
-const { similarityScore, slugify, tokenize, uniqueBy } = require('./utils');
+const { normalizeText, similarityScore, slugify, tokenize, uniqueBy } = require('./utils');
 const { PHASE_ORDER } = require('./model');
 
 function canonicalSignature(text) {
@@ -17,10 +17,26 @@ function inferPriorityWeight(priority) {
   return 4;
 }
 
-function findBestTaskMatch(candidate, existingTasks, minScore = 0.55) {
+function normalizeTaskText(text) {
+  return normalizeText(String(text || '').replace(/`?\[P[0-3]\]`?\s*/gi, ' '));
+}
+
+function findBestTaskMatch(candidate, existingTasks, options = {}) {
+  const minScore = typeof options.minScore === 'number' ? options.minScore : 0.55;
+  const allowFuzzy = options.allowFuzzy !== false;
   const direct = existingTasks.find((task) => task.id === candidate.id);
   if (direct) {
     return { task: direct, score: 1 };
+  }
+
+  const normalizedCandidateText = normalizeTaskText(candidate.text);
+  const exactText = existingTasks.find((task) => normalizeTaskText(task.text) === normalizedCandidateText);
+  if (exactText) {
+    return { task: exactText, score: 0.95 };
+  }
+
+  if (!allowFuzzy) {
+    return null;
   }
 
   let best = null;

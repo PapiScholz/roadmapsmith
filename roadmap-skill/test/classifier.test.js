@@ -6,7 +6,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { classifyProject } = require('../src/classifier');
-const { walkFiles } = require('../src/io');
+const { detectLanguages, walkFiles } = require('../src/io');
 
 function setupFixture(name) {
   const source = path.resolve(__dirname, 'fixtures', name);
@@ -37,6 +37,16 @@ test('classifier identifies monorepo fixture as monorepo', () => {
   const files = walkFiles(projectRoot);
   const result = classifyProject({ projectRoot, files });
   assert.equal(result.type, 'monorepo');
+});
+
+test('classifier identifies Electron fixtures as electron-app instead of web', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const files = walkFiles(projectRoot);
+  const result = classifyProject({ projectRoot, files });
+
+  assert.equal(result.type, 'electron-app');
+  assert.notEqual(result.type, 'frontend-web');
+  assert.notEqual(result.type, 'landing-site');
 });
 
 test('classifier returns unknown-generic for empty project', () => {
@@ -119,6 +129,23 @@ test('generator with node fixture does NOT emit web-specific tasks', () => {
   const output = generateRoadmapDocument({ projectRoot, existingContent: '', config, plugins: [] });
   assert.doesNotMatch(output, /OpenGraph/i, 'node fixture should not have OpenGraph task');
   assert.doesNotMatch(output, /Lighthouse/i, 'node fixture should not have Lighthouse task');
+});
+
+test('detectLanguages ignores stray Python helper noise when TypeScript app files dominate', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-lang-weighting-'));
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'main.ts'), 'export const main = true;\n');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'renderer.tsx'), 'export const renderer = true;\n');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'db.ts'), 'export const db = true;\n');
+  fs.writeFileSync(path.join(projectRoot, 'scripts', 'healthcheck.py'), 'print("helper only")\n');
+
+  const files = walkFiles(projectRoot);
+  const languages = detectLanguages(files);
+
+  assert.equal(languages.includes('TypeScript'), true);
+  assert.equal(languages.includes('Python'), false);
 });
 
 test('generated web/landing tasks are all unchecked in generateRoadmapDocument output', () => {

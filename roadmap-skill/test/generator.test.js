@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { generateRoadmapDocument } = require('../src/generator');
+const { generateRoadmapDocument, scanProject } = require('../src/generator');
 const { loadConfig } = require('../src/config');
 const { renderBody } = require('../src/renderer');
 const { createRoadmapModel } = require('../src/model');
@@ -111,13 +111,95 @@ test('generator outputs deterministic managed roadmap', () => {
     roadmapPath: path.join(projectRoot, 'ROADMAP.md'),
     existingContent: first,
     config,
-    plugins: []
+    plugins: [],
+    forceFullRegenerate: true
   });
 
   assert.equal(first, second);
   assert.match(first, /## Product North Star/);
   assert.match(first, /## Phased Roadmap/);
   assert.match(first, /<!-- rs:task=/);
+});
+
+test('scanProject prioritizes the Electron application surface over a stray Python helper', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const scan = scanProject(projectRoot);
+
+  assert.equal(scan.projectType, 'electron-app');
+  assert.equal(scan.languages.includes('TypeScript'), true);
+  assert.equal(scan.languages.includes('Python'), false);
+});
+
+test('fresh generate for Electron desktop does not inject web-only roadmap tasks', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const config = loadConfig({ projectRoot });
+
+  const output = generateRoadmapDocument({
+    projectRoot,
+    existingContent: '',
+    config,
+    plugins: []
+  });
+
+  assert.doesNotMatch(output, /Add SEO metadata/i);
+  assert.doesNotMatch(output, /Lighthouse performance score/i);
+  assert.doesNotMatch(output, /responsive and mobile-first layout/i);
+  assert.doesNotMatch(output, /accessibility baseline/i);
+});
+
+test('generate refuses to replace a substantive custom managed block without --full-regen', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const config = loadConfig({ projectRoot });
+  const existingContent = fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8');
+
+  assert.throws(() => generateRoadmapDocument({
+    projectRoot,
+    existingContent,
+    config,
+    plugins: []
+  }), /Rerun with --full-regen/);
+});
+
+test('maintain preserve mode keeps authored north star, phase headings, and evidence lines', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const config = loadConfig({ projectRoot });
+  const existingContent = fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8');
+
+  const output = generateRoadmapDocument({
+    projectRoot,
+    existingContent,
+    config,
+    plugins: [],
+    preserveManagedBlock: true
+  });
+
+  assert.match(output, /Convertir el POS actual en una app Electron offline-first con SQLite embebido/);
+  assert.match(output, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
+  assert.match(output, /Evidence: electron\/main\.ts/);
+  assert.match(output, /falta cobertura sobre recuperacion offline/);
+  assert.match(output, /Migrar autenticacion local para operar 100% offline/);
+  assert.doesNotMatch(output, /Ship validated, high-impact increments with deterministic delivery/);
+  assert.doesNotMatch(output, /Add SEO metadata/i);
+  assert.doesNotMatch(output, /Lighthouse performance score/i);
+});
+
+test('regenerate intentionally rebuilds a substantive custom managed block', () => {
+  const projectRoot = setupFixture('electron-pos');
+  const config = loadConfig({ projectRoot });
+  const existingContent = fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8');
+
+  const output = generateRoadmapDocument({
+    projectRoot,
+    existingContent,
+    config,
+    plugins: [],
+    forceFullRegenerate: true
+  });
+
+  assert.match(output, /## Product North Star/);
+  assert.match(output, /### Phase P0 \(Critical\)/);
+  assert.doesNotMatch(output, /Convertir el POS actual en una app Electron offline-first con SQLite embebido/);
+  assert.doesNotMatch(output, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
 });
 
 test('compact profile preserves current expected output structure', () => {
@@ -206,7 +288,13 @@ test('checked task state survives regeneration in compact mode', () => {
     `- [x] $1 <!-- rs:task=${taskId} -->`
   );
 
-  const regenerated = generateRoadmapDocument({ projectRoot, existingContent: withChecked, config, plugins: [] });
+  const regenerated = generateRoadmapDocument({
+    projectRoot,
+    existingContent: withChecked,
+    config,
+    plugins: [],
+    forceFullRegenerate: true
+  });
   assert.match(regenerated, new RegExp(`- \\[x\\] .*<!-- rs:task=${taskId} -->`));
 });
 
@@ -224,7 +312,13 @@ test('checked task state survives regeneration in professional mode', () => {
     `- [x] $1 <!-- rs:task=${taskId} -->`
   );
 
-  const regenerated = generateRoadmapDocument({ projectRoot, existingContent: withChecked, config, plugins: [] });
+  const regenerated = generateRoadmapDocument({
+    projectRoot,
+    existingContent: withChecked,
+    config,
+    plugins: [],
+    forceFullRegenerate: true
+  });
   assert.match(regenerated, new RegExp(`- \\[x\\] .*<!-- rs:task=${taskId} -->`));
 });
 
@@ -420,7 +514,13 @@ test('root ROADMAP.md Section 6 does not show generic placeholder', () => {
     try { return fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8'); } catch { return ''; }
   })();
   const config = { ...loadConfig({ projectRoot }), roadmapProfile: 'professional' };
-  const output = generateRoadmapDocument({ projectRoot, existingContent, config, plugins: [] });
+  const output = generateRoadmapDocument({
+    projectRoot,
+    existingContent,
+    config,
+    plugins: [],
+    forceFullRegenerate: true
+  });
 
   assert.doesNotMatch(output, /Identify command\/module boundaries for the next increment/,
     'Section 6 must list real modules, not the generic placeholder');

@@ -1,14 +1,22 @@
 {
   "name": "roadmapsmith",
   "version": "0.9.16",
-  "description": "One-command evidence-backed ROADMAP.md generator and sync tool for AI coding agents.",
+  "description": "One-command evidence-backed ROADMAP.md generator and sync tool for AI coding agents, with shared RoadmapSmith plugin skills for Codex and Claude.",
   "main": "src/index.js",
   "bin": {
     "roadmapsmith": "bin/cli.js"
   },
   "type": "commonjs",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node scripts/run-tests.js",
+    "validate:qa-regression": "node scripts/pre-push-gate.js qa-regression",
+    "validate:functional-smoke": "node scripts/pre-push-gate.js functional-smoke",
+    "validate:pre-push": "node scripts/pre-push-gate.js all",
+    "sync-bundle-metadata": "node scripts/sync-bundle-metadata.js --write",
+    "check-bundle-metadata": "node scripts/sync-bundle-metadata.js",
+    "verify-pack-surface": "node scripts/verify-pack-surface.js",
+    "prepack": "node scripts/sync-bundle-metadata.js && node scripts/stage-claude-bundle.js",
+    "postpack": "node scripts/clean-staged-claude-bundle.js"
   },
   "keywords": [
     "roadmap",
@@ -51,6 +59,11 @@
     "bin",
     "src",
     "templates",
-    "README.md"
+    "README.md",
+    "skills",
+    "skills.json",
+    ".claude-plugin",
+    ".codex-plugin",
+    "assets"
   ]
 }

@@ -6,14 +6,14 @@ Developers using Claude Code (the Anthropic CLI) as their primary AI coding agen
 - Solo developers running multi-session Claude Code projects
 - Teams using Claude Code with agent hooks for automated workflows
 - Anyone who wants the roadmap to stay honest across many agent sessions
-- Anyone who wants native Claude GUI slash commands instead of relying on a single legacy `/roadmap-sync` entrypoint
+- Anyone who wants native Claude GUI slash commands instead of relying on a single legacy `/roadmap-sync` root
 
 ## When to use it
 
 Use the Claude Code integration when:
 
 - You run Claude Code sessions that implement tasks and want an optional repo-local hook after each session
-- You want the Claude GUI slash list to expose `/road`, `/zero`, `/maintain`, `/status`, `/sync`, and the rest of the RoadmapSmith surface directly
+- You want the Claude GUI slash list to expose `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-update`, and the rest of the RoadmapSmith surface directly
 - You want a pre-commit hook that validates roadmap state before every commit
 - You are using the `roadmap-sync` skill inside Claude Code and want it to stay evidence-backed
 - You want to resume a previous session and need ground truth on what is actually done
@@ -22,10 +22,10 @@ Use the Claude Code integration when:
 
 This repository now has two Claude-facing layers:
 
-- Native Claude GUI skills that expose slash commands like `/road`, `/zero`, `/maintain`, `/status`, `/sync`, and `/setup`
+- Native Claude GUI skills that expose slash commands like `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-update`, and `/roadmap-setup`
 - An optional repo-local `.claude/hooks/roadmap-sync.js` hook that fires after writes and runs `roadmapsmith sync`
 
-The native slash list comes from the installed skill bundle, not from the CLI slash router by itself. The CLI still executes the real actions.
+Codex now has its own native plugin surface through `.codex-plugin/plugin.json`, but this document stays focused on the Claude-specific install path and hook behavior. The native Claude slash list comes from the installed skill bundle, not from the CLI slash router by itself. The CLI still executes the real actions. Published RoadmapSmith package/plugin artifacts now mirror the same shared bundle on disk for both hosts, but each host still has to load its own surface before the GUI changes.
 
 The write-time hook is best-effort today. It depends on the Claude host environment being able to resolve `node` for the child process launched by the hook script.
 
@@ -63,19 +63,18 @@ Then refresh the current Claude session:
 
 This exposes the native Claude GUI slash commands:
 
-- `/road`
-- `/zero`
-- `/maintain`
-- `/status`
-- `/init`
-- `/generate`
-- `/validate`
-- `/sync`
-- `/audit`
-- `/setup`
-- `/roadmap-sync`
+- `/roadmap`
+- `/roadmap-zero`
+- `/roadmap-maintain`
+- `/roadmap-status`
+- `/roadmap-init`
+- `/roadmap-generate`
+- `/roadmap-validate`
+- `/roadmap-update`
+- `/roadmap-audit`
+- `/roadmap-setup`
 
-It still does not install the CLI; the CLI must be installed separately for those commands to execute.
+It still does not install the CLI; the CLI must be installed separately for those commands to execute. That same bundle is now also present in the published package/plugin artifact alongside the Codex plugin manifest for downstream host installers that do not fetch directly from the GitHub working tree.
 
 ### Option 3: Install only the legacy compatibility skill
 
@@ -83,7 +82,7 @@ It still does not install the CLI; the CLI must be installed separately for thos
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This installs only the legacy namespaced slash command `/roadmap-sync` plus the policy instructions. It does not expose the full Claude GUI command list.
+This installs only the legacy namespaced slash root `/roadmap-sync` plus the policy instructions. It does not expose the full Claude GUI command list.
 
 ### Option 4: Manual hook setup
 
@@ -128,7 +127,7 @@ roadmapsmith sync --audit
 git commit -m "feat: implement task X"
 ```
 
-Then, inside Claude Code, run `/reload-skills` and, if applicable, `/reload-plugins`. Start the session with `/road` for discovery or jump straight to `/zero`, `/maintain`, `/sync`, and the other native slash commands.
+Then, inside Claude Code, run `/reload-skills` and, if applicable, `/reload-plugins`. Start the session with `/roadmap` for discovery or jump straight to `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-update`, and the other native slash commands.
 
 ## Skill integration
 
@@ -170,7 +169,9 @@ Use `validate --json` when you want to inspect per-task evidence before taking a
 
 **Hook not firing:** Verify the hook is registered in `.claude/settings.json` and the file path is correct.
 
-**Slash commands not visible in Claude GUI:** Install the full skill bundle with `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`, then run `/reload-skills` and, if applicable, `/reload-plugins`. Installing only `--skill roadmap-sync` exposes only `/roadmap-sync`.
+**Slash commands not visible in Claude GUI:** Install or update the full skill bundle with `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`, then run `/reload-skills` and, if applicable, `/reload-plugins`. Installing only `--skill roadmap-sync` exposes only `/roadmap-sync`. If you are consuming a published package/plugin artifact instead of a GitHub-source install, confirm that your Claude host is actually loading the bundled `skills.json` plus `skills/*` surface rather than only the Codex plugin metadata.
+
+`roadmapsmith doctor --json` now separates the native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the repo-local VS Code task and Claude hook layer. Use that output when you need to distinguish “the bundle exists” from “the host actually loaded it.”
 
 **Hook runs but ROADMAP does not update:** Confirm the Claude hook environment can resolve `node`. Today the repo-local write-time hook is best-effort and depends on that host-level resolution.
 

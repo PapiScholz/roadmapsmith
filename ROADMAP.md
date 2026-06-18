@@ -17,16 +17,16 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 ### Implemented
 
-- [x] 44 implementation files across Go, JavaScript, Python, Rust <!-- rs:task=prof-state-impl-44-implementation-files-across-go-javascript-python-rust -->
+- [x] 60 implementation files across Go, JavaScript, Python, Rust <!-- rs:task=prof-state-impl-60-implementation-files-across-go-javascript-python-rust -->
 
 ### Scaffold / Partial
 
 - [ ] Module "classifier" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-classifier-partially-implemented-coverage-unknown -->
 - [ ] Module "config" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-config-partially-implemented-coverage-unknown -->
 - [ ] Module "generator" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-generator-partially-implemented-coverage-unknown -->
+- [ ] Module "host" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-host-partially-implemented-coverage-unknown -->
 - [ ] Module "io" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-io-partially-implemented-coverage-unknown -->
 - [ ] Module "match" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-match-partially-implemented-coverage-unknown -->
-- [ ] Module "parser" partially implemented — coverage unknown <!-- rs:task=prof-state-scaffold-module-parser-partially-implemented-coverage-unknown -->
 
 ### Known Limitations
 
@@ -51,6 +51,7 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P0]` Preserve compact backward compatibility <!-- rs:task=prof-task-preserve-compact-backward-compatibility -->
 - [ ] `[P1]` Extract compact renderer to renderer/compact.js <!-- rs:task=prof-task-extract-compact-renderer -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): renderer/compact.js; no code, test, or artifact evidence found
 - [ ] `[P2]` Add renderer dispatcher (renderBody) <!-- rs:task=prof-task-add-renderer-dispatcher -->
 
 **Exit Criteria:**
@@ -69,12 +70,14 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P0]` Add phasesDetailed model field <!-- rs:task=prof-task-add-phasesdetailed-model-field -->
 - [ ] `[P1]` Filter code vs doc TODOs in Known Limitations inference <!-- rs:task=prof-task-filter-code-vs-doc-todos -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Add task-level priority rendering with [P0]/[P1] labels <!-- rs:task=prof-task-add-task-priority-rendering -->
 
 **Exit Criteria:**
 
 - [ ] `[P0]` A P0 task inside a P2 step renders with [P0] label in correct step position <!-- rs:task=prof-ph1-st2-exit-a-p0-task-inside-a-p2-step-renders-with-p0-label-in-correct-step-position -->
 - [ ] `[P1]` Known Limitations no longer includes doc-only TODO mentions <!-- rs:task=prof-ph1-st2-exit-known-limitations-no-longer-includes-doc-only-todo-mentions -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 ### Phase 2: Validation Quality
 
@@ -135,11 +138,14 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P0]` Publish stable semver to npm <!-- rs:task=prof-task-publish-stable-semver-to-npm -->
 - [ ] `[P1]` Tag git release aligned with npm publish <!-- rs:task=prof-task-tag-git-release-aligned-with-npm -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document npm global and npx install instructions <!-- rs:task=prof-task-document-npx-install-instructions -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 **Exit Criteria:**
 
 - [ ] `[P0]` npm publish succeeds and package is installable via npx roadmapsmith <!-- rs:task=prof-ph3-st2-exit-npm-publish-succeeds-and-package-is-installable-via-npx-roadmapsmith -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Git tag matches npm version <!-- rs:task=prof-ph3-st2-exit-git-tag-matches-npm-version -->
 
 ## 5. Versioned Milestones
@@ -151,12 +157,14 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 **What Must Exist:**
 
 - [ ] `[P0]` CLI binary with init, generate, sync, validate commands <!-- rs:task=prof-ms-v0-1-exist-cli-binary-with-init-generate-sync-validate-commands -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P0]` Parser correctly extracts rs:task IDs and checked state <!-- rs:task=prof-ms-v0-1-exist-parser-correctly-extracts-rs-task-ids-and-checked-state -->
 - [ ] `[P0]` Managed block preserved across regeneration <!-- rs:task=prof-ms-v0-1-exist-managed-block-preserved-across-regeneration -->
 
 **What Must Be Stable:**
 
 - [ ] `[P1]` rs:task ID slugification algorithm — _Stable as of v0.5.1 — locked by test/utils.test.js. Meta-declaration: not evidence-scannable by sync._ <!-- rs:task=prof-ms-v0-1-stable-rs-task-id-slugification-algorithm -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): test/utils.test.js; no code, test, or artifact evidence found
 - [ ] `[P1]` managed block start/end marker format <!-- rs:task=prof-ms-v0-1-stable-managed-block-start-end-marker-format -->
 
 **Intentionally Out of Scope:**
@@ -173,6 +181,7 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P0]` Evidence-based validation (code, test, artifact) <!-- rs:task=prof-ms-v0-2-exist-evidence-based-validation-code-test-artifact -->
 - [ ] `[P0]` Plugin hook system (registerTaskDetectors, registerValidators) <!-- rs:task=prof-ms-v0-2-exist-plugin-hook-system-registertaskdetectors-registervalidators -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P0]` Multi-language fixture test suite (Node, Python, Go, Rust) <!-- rs:task=prof-ms-v0-2-exist-multi-language-fixture-test-suite-node-python-go-rust -->
 
 **What Must Be Stable:**
@@ -224,6 +233,7 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P1]` All CLI commands <!-- rs:task=prof-ms-v1-0-stable-all-cli-commands -->
 - [ ] `[P1]` Config schema (roadmapProfile, product, milestones, phaseTemplates) <!-- rs:task=prof-ms-v1-0-stable-config-schema-roadmapprofile-product-milestones-phasetemplates -->
 - [ ] `[P1]` Plugin hook signatures <!-- rs:task=prof-ms-v1-0-stable-plugin-hook-signatures -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 **Intentionally Out of Scope:**
 
@@ -254,6 +264,12 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P0]` Improve Phase→Step→Task model inference quality <!-- rs:task=prof-mat-generator-improve-phase-step-task-inference -->
 - [ ] `[P1]` Add scan-driven task suggestions per detected module <!-- rs:task=prof-mat-generator-scan-driven-task-suggestions -->
 
+### host
+
+**Current state:** module detected in scan.
+
+- [ ] `[P1]` Define maturity criteria and testability gates for host <!-- rs:task=prof-mat-host-define-maturity-criteria -->
+
 ### io
 
 **Current state:** Scans files, detects languages, test frameworks, commands, modules.
@@ -280,18 +296,6 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P0]` Add snapshot regression fixtures for compact and professional <!-- rs:task=prof-mat-renderer-snapshot-regression-fixtures -->
 - [ ] `[P1]` Harden priority label rendering for edge cases <!-- rs:task=prof-mat-renderer-priority-label-edge-cases -->
 
-### sync
-
-**Current state:** Applies validation outcomes to ROADMAP.md and can append warning lines for failed attempts.
-
-- [ ] `[P0]` Define explicit contract for sync, sync --audit, and future promote-only flows <!-- rs:task=prof-mat-sync-define-command-contract -->
-- [ ] `[P0]` Separate mutating sync behavior from future read-only audit mode <!-- rs:task=prof-mat-sync-separate-mutation-from-read-only-audit -->
-- [ ] `[P1]` Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output <!-- rs:task=prof-mat-sync-expose-rich-audit-findings -->
-- [ ] `[P0]` Claude PostToolUse hook must invoke the CLI without relying on bare "node" in PATH <!-- rs:task=prof-mat-sync-claude-hook-avoid-bare-node-path -->
-- [ ] `[P0]` Claude PostToolUse hook must fail visibly when sync execution fails <!-- rs:task=prof-mat-sync-claude-hook-fail-visibly-on-sync-error -->
-- [ ] `[P1]` Claude PostToolUse hook must keep lock-file cleanup on both success and failure <!-- rs:task=prof-mat-sync-claude-hook-cleanup-lockfile-on-both-paths -->
-- [ ] `[P1]` Differentiate write-time hook sync from commit-time pre-commit sync in the command contract <!-- rs:task=prof-mat-sync-differentiate-write-time-and-pre-commit-sync -->
-
 ## 7. Output Contract Roadmap
 
 ### Output Format
@@ -317,9 +321,11 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P0]` Unit test coverage for all core modules <!-- rs:task=prof-test-unit-test-coverage-for-all-core-modules -->
 - [ ] `[P0]` Integration tests covering the full generate → sync → validate pipeline <!-- rs:task=prof-test-integration-tests-covering-the-full-generate-sync-validate-pipeline -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Regression fixtures for compact and professional profile output <!-- rs:task=prof-test-regression-fixtures-for-compact-and-professional-profile-output -->
 - [ ] `[P1]` Edge case coverage: empty repo, no config, large monorepo scan <!-- rs:task=prof-test-edge-case-coverage-empty-repo-no-config-large-monorepo-scan -->
 - [ ] `[P1]` Add direct tests for .claude/hooks/roadmap-sync.js payload parsing <!-- rs:task=prof-test-add-direct-tests-for-claude-hooks-roadmap-sync-js-payload-parsing -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): .claude/hooks/roadmap-sync.js; no code, test, or artifact evidence found; missing test evidence
 - [ ] `[P1]` Add direct tests for ROADMAP.md self-edit skip behavior <!-- rs:task=prof-test-add-direct-tests-for-roadmap-md-self-edit-skip-behavior -->
 - [ ] `[P1]` Add direct tests for lock-file reentry guard <!-- rs:task=prof-test-add-direct-tests-for-lock-file-reentry-guard -->
 - [ ] `[P0]` Add direct tests for sync failure surfacing when the child process cannot be spawned <!-- rs:task=prof-test-add-direct-tests-for-sync-failure-surfacing-when-the-child-process-cannot-be-spawned -->
@@ -343,29 +349,39 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 
 - [ ] `[P1]` Tag git releases aligned with npm publish <!-- rs:task=prof-dist-tag-git-releases-aligned-with-npm-publish -->
 - [ ] `[P1]` Document install instructions for npm global and npx usage <!-- rs:task=prof-dist-document-install-instructions-for-npm-global-and-npx-usage -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 ## 10. Documentation Roadmap
 
 ### Core Docs
 
 - [ ] `[P0]` README.md covers install, commands, and profile selection <!-- rs:task=prof-doc-readme-md-covers-install-commands-and-profile-selection -->
+  - ⚠️ attempted but validation failed: missing test evidence
 - [ ] `[P0]` SKILL.md reflects current feature set and guardrails <!-- rs:task=prof-doc-skill-md-reflects-current-feature-set-and-guardrails -->
 - [x] `[P1]` CHANGELOG.md maintained for each release <!-- rs:task=prof-doc-changelog-md-maintained-for-each-release -->
 - [ ] `[P0]` README.md documents current sync --audit semantics without claiming read-only behavior <!-- rs:task=prof-doc-readme-md-documents-current-sync-audit-semantics-without-claiming-read-only-behavior -->
 - [ ] `[P1]` README.md includes host matrix for Claude Code, Codex/Codex CLI, CI, and manual workflows <!-- rs:task=prof-doc-readme-md-includes-host-matrix-for-claude-code-codex-codex-cli-ci-and-manual-workflows -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document distinction between supported Claude hooks and manual workflows on other hosts <!-- rs:task=prof-doc-document-distinction-between-supported-claude-hooks-and-manual-workflows-on-other-hosts -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document Codex/Codex CLI manual fallback workflow <!-- rs:task=prof-doc-document-codex-codex-cli-manual-fallback-workflow -->
 - [ ] `[P1]` Document Windows shell caveats: roadmapsmith.cmd, npm.cmd, and PowerShell policy differences <!-- rs:task=prof-doc-document-windows-shell-caveats-roadmapsmith-cmd-npm-cmd-and-powershell-policy-differences -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Skill instructions require extending existing phases before adding new ones <!-- rs:task=prof-doc-skill-instructions-require-extending-existing-phases-before-adding-new-ones -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P1]` Document that Claude write-time autoupdate currently depends on Node resolution in the hook environment <!-- rs:task=prof-doc-document-that-claude-write-time-autoupdate-currently-depends-on-node-resolution-in-the-hook-environment -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document the difference between the Claude PostToolUse hook and the git pre-commit hook <!-- rs:task=prof-doc-document-the-difference-between-the-claude-posttooluse-hook-and-the-git-pre-commit-hook -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document current autoupdate reliability boundaries: write-time hook is best-effort, pre-commit is stricter <!-- rs:task=prof-doc-document-current-autoupdate-reliability-boundaries-write-time-hook-is-best-effort-pre-commit-is-stricter -->
 - [ ] `[P1]` Document troubleshooting for hook failure when node is missing from PATH <!-- rs:task=prof-doc-document-troubleshooting-for-hook-failure-when-node-is-missing-from-path -->
 - [ ] `[P1]` Document that Codex/Codex CLI remains manual and does not share the Claude repo-local hook path <!-- rs:task=prof-doc-document-that-codex-codex-cli-remains-manual-and-does-not-share-the-claude-repo-local-hook-path -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 ### Showcase
 
 - [ ] `[P1]` docs/ use-cases cover compact and professional profiles <!-- rs:task=prof-doc-docs-use-cases-cover-compact-and-professional-profiles -->
+  - ⚠️ attempted but validation failed: missing referenced file(s): docs/; weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Generated ROADMAP.md showcases professional Phase→Step→Task output <!-- rs:task=prof-doc-generated-roadmap-md-showcases-professional-phase-step-task-output -->
 
 ## 11. Risks, Constraints, and Anti-Goals
@@ -390,6 +406,7 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P0]` professional mode renders all 12 required sections without errors <!-- rs:task=prof-sc-professional-mode-renders-all-12-required-sections-without-errors -->
 - [ ] `[P0]` checked task state survives regeneration across both profiles <!-- rs:task=prof-sc-checked-task-state-survives-regeneration-across-both-profiles -->
 - [ ] `[P0]` RoadmapSmith's own ROADMAP.md is generated entirely by RoadmapSmith itself <!-- rs:task=prof-sc-roadmapsmith-s-own-roadmap-md-is-generated-entirely-by-roadmapsmith-itself -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P0]` npm test passes with no failures on all fixture languages <!-- rs:task=prof-sc-npm-test-passes-with-no-failures-on-all-fixture-languages -->
 
 ## 13. Extended Phases
@@ -412,15 +429,19 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P0]` Improve package.json keywords and description for discoverability <!-- rs:task=mkt-p0-improve-package-json-keywords-description -->
 - [x] `[P1]` Add demo.gif or placeholder to README <!-- rs:task=mkt-p0-add-demo-gif-placeholder -->
 - [ ] `[P1]` Move Quick Start section to top of README <!-- rs:task=mkt-p0-move-quick-start-to-top-readme -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [x] `[P1]` Add badges (npm version, CI status, license) to README <!-- rs:task=mkt-p0-add-badges-npm-ci-license -->
 - [x] `[P1]` Add comparison table (vs TODO.md, GitHub Issues, etc.) to README <!-- rs:task=mkt-p0-add-comparison-table -->
 - [ ] `[P2]` Add GitHub Actions audit template example <!-- rs:task=mkt-p0-add-github-actions-audit-template -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P2]` Add SECURITY.md <!-- rs:task=mkt-p0-add-security-md -->
+  - ⚠️ attempted but validation failed: missing test evidence
 
 **Exit Criteria:**
 
 - [ ] `[P0]` All version strings match across package.json, skills.json, plugin.json <!-- rs:task=mkt-ph4-st1-exit-version-strings-aligned -->
 - [ ] `[P1]` README Quick Start is the first user-facing section <!-- rs:task=mkt-ph4-st1-exit-quick-start-at-top -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 ### Phase 5: Reliability Hardening
 
@@ -439,14 +460,19 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 - [ ] `[P0]` Add validation confidence levels (design or scaffold if not implemented) <!-- rs:task=mkt-p1-add-validation-confidence-levels -->
 - [ ] `[P0]` Add config option: validation.minimumConfidence <!-- rs:task=mkt-p1-add-config-validation-minimum-confidence -->
 - [ ] `[P1]` Add `roadmapsmith doctor` command (scaffold or planned) <!-- rs:task=mkt-p1-add-roadmapsmith-doctor-command -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P1]` Add docs/use-cases/ci-audit.md <!-- rs:task=mkt-p1-add-docs-use-cases-ci-audit -->
+  - ⚠️ attempted but validation failed: file reference shows implementation location, not confirmed completion
 - [ ] `[P1]` Add docs/use-cases/claude-code.md <!-- rs:task=mkt-p1-add-docs-use-cases-claude-code -->
+  - ⚠️ attempted but validation failed: file reference shows implementation location, not confirmed completion
 - [ ] `[P2]` Add docs/limitations.md (consolidate existing known limitations) <!-- rs:task=mkt-p1-add-docs-limitations -->
+  - ⚠️ attempted but validation failed: file reference shows implementation location, not confirmed completion
 
 **Exit Criteria:**
 
 - [ ] `[P0]` validation.minimumConfidence config field accepted without errors <!-- rs:task=mkt-ph5-st1-exit-minimum-confidence-config-accepted -->
 - [ ] `[P1]` roadmapsmith doctor exits 0 on a healthy repo <!-- rs:task=mkt-ph5-st1-exit-doctor-exits-zero-healthy-repo -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 
 ### Phase 6: Distribution
 
@@ -463,16 +489,23 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 **Tasks:**
 
 - [ ] `[P0]` Prepare and cut GitHub release v0.6.0 <!-- rs:task=mkt-p2-github-release-v060 -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P0]` Publish npm release v0.6.0 <!-- rs:task=mkt-p2-npm-release-v060 -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
+- [ ] `[P1]` Update GitHub Actions workflow actions for Node 24 runner compatibility <!-- rs:task=mkt-p2-update-github-actions-node24-compat -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Publish or update skills.sh entry <!-- rs:task=mkt-p2-publish-skills-sh-entry -->
 - [ ] `[P1]` Evaluate MCP Market and skill.fish publishing <!-- rs:task=mkt-p2-evaluate-mcp-market-skill-fish -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P2]` Create launch post (LinkedIn) <!-- rs:task=mkt-p2-create-launch-post-linkedin -->
 - [ ] `[P2]` Add GitHub issue templates (bug, feature, false-positive) <!-- rs:task=mkt-p2-add-issue-templates -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match; missing test evidence
 
 **Exit Criteria:**
 
 - [ ] `[P0]` npm install -g roadmapsmith@0.6.0 succeeds <!-- rs:task=mkt-ph6-st1-exit-npm-install-v060-succeeds -->
 - [ ] `[P0]` GitHub release v0.6.0 published with release notes <!-- rs:task=mkt-ph6-st1-exit-github-release-v060-published -->
+  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` skills.sh entry updated or submitted <!-- rs:task=mkt-ph6-st1-exit-skills-sh-entry-updated -->
 
 ## Detected Project Profile
