@@ -29,6 +29,7 @@ Release work is not ready until the docs, host UX, and changelog all reflect tha
 - Installing only `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` exposes only the legacy `/roadmap-sync` root.
 - Patch versions advance on every successful push to `main`, regardless of whether the merged change was code, docs, or release-ops only.
 - Because `main` is PR-only, the release workflow writes that version back through an automated `release/vX.Y.Z` PR that squashes into `main` as `chore(release): vX.Y.Z [skip ci]`.
+- If GitHub blocks `GITHUB_TOKEN` from creating or merging PRs, the workflow must use a dedicated secret such as `RELEASE_BOT_TOKEN` with `repo` scope.
 - `roadmapsmith doctor --json` must report `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` separately from the VS Code task/hook layer.
 - If a legacy `~/.agents/skills/roadmap-sync` install coexists with the `roadmapsmith` Codex plugin, `doctor` should flag `/roadmap-sync` as a duplicate instead of silently calling the surface healthy.
 - The published `roadmapsmith` package now mirrors the shared Codex and Claude bundle files for downstream plugin/distribution surfaces, but CLI install alone still does not auto-register either host surface.

@@ -115,7 +115,7 @@ jobs:
 
       - name: Auto-patch release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN || secrets.GITHUB_TOKEN }}
         run: node roadmap-skill/scripts/auto-release.js
 
   merge-release-pr:
@@ -131,5 +131,5 @@ jobs:
     steps:
       - name: Merge automated release PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN || secrets.GITHUB_TOKEN }}
         run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch

@@ -357,6 +357,7 @@ Repository-specific release note:
 - The canonical release automation lives in `.github/workflows/ci.yml`.
 - Every successful push to `main` now bumps `PATCH` through an automated `release/vX.Y.Z` PR, writes the version back with the squashed bot commit `chore(release): vX.Y.Z [skip ci]`, and then the follow-up `main` run publishes npm plus the GitHub Release.
 - Repair reruns on the bot release commit do not bump again; they only publish/create any missing artifacts left behind by a partial failure.
+- On repos where GitHub blocks `GITHUB_TOKEN` from creating or merging PRs, provide a dedicated secret such as `RELEASE_BOT_TOKEN` so the protected-branch release PR flow can complete.
 - Before any push, run the dual validation gate with separate owners: `QA/Regression` uses `npm run validate:qa-regression` and `Functional/Smoke` uses `npm run validate:functional-smoke`.
 - The release gate now includes packed-artifact verification for `skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and the referenced Codex assets so the published surface matches the GitHub-source bundle for both hosts.
 - Before merging to `main`, verify the UX/release gate in `docs/release-ux-gate.md` and keep `CHANGELOG.md` ready for CI-managed version section generation.
