@@ -156,7 +156,7 @@ test('prepareReleaseVersion keeps release commits in repair mode without bumping
   const result = prepareReleaseVersion({
     repoRoot: fixture.repoRoot,
     packageRoot: fixture.packageRoot,
-    commitMessage: 'chore(release): v1.2.4',
+    commitMessage: 'chore(release): v1.2.4 (#99)',
     write: true
   });
 
@@ -280,7 +280,7 @@ test('runAutoRelease repair mode republishes missing artifacts without a second 
 
   const calls = [];
   const runner = createRunner({
-    'git log -1 --pretty=%s': { stdout: 'chore(release): v1.2.4\n' },
+    'git log -1 --pretty=%s': { stdout: 'chore(release): v1.2.4 (#99)\n' },
     'git rev-parse -q --verify refs/tags/v1.2.4': { stdout: 'refs/tags/v1.2.4\n' },
     'npm view roadmapsmith version': { stdout: '1.2.3\n' },
     'gh release view v1.2.4': { status: 1, stderr: 'missing release\n' }
