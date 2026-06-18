@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Published as the `roadmapsmith` npm package. Every successful push to `main` now publishes a new patch release automatically, including docs-only merges.
+Published as the `roadmapsmith` npm package. Every successful push to `main` now advances toward a new patch release automatically, including docs-only merges, through a protected-branch-safe release PR flow.
 
 ## Canonical Checklist
 
@@ -28,6 +28,7 @@ Release work is not ready until the docs, host UX, and changelog all reflect tha
 - Recommended Claude install path is the full bundle: `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`.
 - Installing only `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` exposes only the legacy `/roadmap-sync` root.
 - Patch versions advance on every successful push to `main`, regardless of whether the merged change was code, docs, or release-ops only.
+- Because `main` is PR-only, the release workflow writes that version back through an automated `release/vX.Y.Z` PR that squashes into `main` as `chore(release): vX.Y.Z [skip ci]`.
 - `roadmapsmith doctor --json` must report `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` separately from the VS Code task/hook layer.
 - If a legacy `~/.agents/skills/roadmap-sync` install coexists with the `roadmapsmith` Codex plugin, `doctor` should flag `/roadmap-sync` as a duplicate instead of silently calling the surface healthy.
 - The published `roadmapsmith` package now mirrors the shared Codex and Claude bundle files for downstream plugin/distribution surfaces, but CLI install alone still does not auto-register either host surface.
@@ -61,7 +62,7 @@ Before merging to `main`:
    - invalid host config
    - `zero` in non-interactive mode
 4. Existing `.vscode/tasks.json` and `.claude/settings.json` survive additive merge.
-5. Commit subjects are ready for CI-managed changelog generation; versioned sections are no longer maintained by hand.
+5. Commit subjects are ready for CI-managed changelog generation; versioned sections are no longer maintained by hand, and the protected-branch release PR is allowed to merge after checks pass.
 6. Packed artifact is self-consistent:
    - `npm run verify-pack-surface`
    - extract the tarball and confirm `package/skills.json`, `package/.codex-plugin/plugin.json`, `package/.claude-plugin/plugin.json`, every manifest-listed `package/skills/<name>/SKILL.md`, and the Codex manifest assets exist
@@ -103,4 +104,4 @@ Before merging to `main`:
 - `README.md` and `roadmap-skill/README.md` must recommend `setup`, `zero`, and `maintain` first.
 - `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and `skills.json` must stay aligned on shared metadata and the full bundle surface, while `skills/roadmap-sync/agents/openai.yaml` stays aligned on the policy/governance layer.
 - The packed npm artifact must contain the same Codex and Claude bundle files advertised in those manifests.
-- `roadmap-skill/CHANGELOG.md` must keep `## Unreleased` present with its empty placeholder so CI can generate the next `## vX.Y.Z - YYYY-MM-DD` section automatically.
+- `roadmap-skill/CHANGELOG.md` must keep `## Unreleased` present with its empty placeholder so CI can generate the next `## vX.Y.Z - YYYY-MM-DD` section automatically when the automated release PR is prepared.

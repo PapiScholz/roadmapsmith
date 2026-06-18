@@ -87,6 +87,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -116,3 +117,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node roadmap-skill/scripts/auto-release.js
+
+  merge-release-pr:
+    name: Merge release PR
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/v')
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Merge automated release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
