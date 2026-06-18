@@ -27,6 +27,9 @@ function parseHeadingLine(line) {
   if (content.startsWith('### ')) {
     return content.slice(4).trim();
   }
+  if (content.startsWith('#### ')) {
+    return content.slice(5).trim();
+  }
   return null;
 }
 
@@ -206,6 +209,15 @@ function findManagedRange(lines) {
   return null;
 }
 
+function tasksInManagedBlock(parsedRoadmap) {
+  if (!parsedRoadmap || !parsedRoadmap.managedRange) {
+    return parsedRoadmap && Array.isArray(parsedRoadmap.tasks) ? parsedRoadmap.tasks : [];
+  }
+
+  const { start, end } = parsedRoadmap.managedRange;
+  return parsedRoadmap.tasks.filter((task) => task.lineIndex > start && task.lineIndex < end);
+}
+
 function upsertManagedBlock(existingContent, managedBody) {
   const existing = String(existingContent || '');
   const lines = existing.split(/\r?\n/);
@@ -227,5 +239,6 @@ function upsertManagedBlock(existingContent, managedBody) {
 module.exports = {
   findManagedRange,
   parseRoadmap,
+  tasksInManagedBlock,
   upsertManagedBlock
 };

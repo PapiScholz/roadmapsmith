@@ -14,18 +14,28 @@ Use this document for context and command runbook notes only.
 - `roadmapsmith setup` creates the visible VS Code host UX and optional Claude hook wiring.
 - `roadmapsmith zero` is the one-command empty-repo flow.
 - `roadmapsmith maintain` is the one-command existing-repo flow.
-- Native Claude GUI slash commands come from the full skill bundle: `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, `/setup`, plus legacy `/roadmap-sync`.
+- Native Codex plugin support comes from `.codex-plugin/plugin.json` plus the repo-local marketplace at `.agents/plugins/marketplace.json`.
+- Native Claude GUI slash commands come from the full skill bundle: `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`.
 - `roadmap-sync` remains the legacy/namespaced policy skill; installing only that skill is not full product activation.
+- Published npm/plugin artifacts must carry the same shared bundle files as the GitHub-source install path: `skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and the Codex manifest assets they reference.
 
 Release work is not ready until the docs, host UX, and changelog all reflect that contract consistently.
 
 ## Naming and Install Intent
 
 - Primary end-user install path is the CLI: `npm install -g roadmapsmith`.
+- Native Codex install/enable flows use the plugin directory and the repo-local marketplace surface; for this checkout, the repo-root verification path is `codex plugin marketplace add .`.
 - Recommended Claude install path is the full bundle: `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`.
-- Installing only `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` exposes only the legacy `/roadmap-sync` entrypoint.
+- Installing only `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` exposes only the legacy `/roadmap-sync` root.
 - The `roadmapsmith` CLI and the `roadmap-sync` skill are versioned and updated independently.
+- `roadmapsmith doctor --json` must report `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` separately from the VS Code task/hook layer.
+- If a legacy `~/.agents/skills/roadmap-sync` install coexists with the `roadmapsmith` Codex plugin, `doctor` should flag `/roadmap-sync` as a duplicate instead of silently calling the surface healthy.
+- The published `roadmapsmith` package now mirrors the shared Codex and Claude bundle files for downstream plugin/distribution surfaces, but CLI install alone still does not auto-register either host surface.
 - `roadmapsmith setup` must be rerun when the generated VS Code task layer, launcher, wrappers, or Claude hook template changes.
+- Before any push from this repo, run the broad pre-push validation gate through two independent subagents:
+  - `QA/Regression`: `npm run validate:qa-regression`
+  - `Functional/Smoke`: `npm run validate:functional-smoke`
+  - do not push until both results are reconciled back into the main workspace
 
 ## Release UX Gate
 
@@ -33,7 +43,9 @@ Before publishing:
 
 1. Fresh install path is understandable:
    - `npm install -g roadmapsmith`
+   - from repo root: `codex plugin marketplace add .`
    - `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`
+   - install/enable RoadmapSmith from the Codex plugin directory
    - `/reload-skills` and, if applicable, `/reload-plugins`
    - `roadmapsmith setup`
    - `roadmapsmith zero` in an empty repo
@@ -45,30 +57,43 @@ Before publishing:
 3. Failure states are actionable:
    - CLI missing
    - Node runtime missing
-   - skill-only legacy install (`/roadmap-sync` only)
+   - skill-only legacy install (`/roadmap-sync` root only)
    - invalid host config
    - `zero` in non-interactive mode
 4. Existing `.vscode/tasks.json` and `.claude/settings.json` survive additive merge.
 5. Changelog entry explains the user-visible changes, not just internal refactors.
+6. Packed artifact is self-consistent:
+   - `npm run verify-pack-surface`
+   - extract the tarball and confirm `package/skills.json`, `package/.codex-plugin/plugin.json`, `package/.claude-plugin/plugin.json`, every manifest-listed `package/skills/<name>/SKILL.md`, and the Codex manifest assets exist
+7. Native Codex plugin discovery works:
+   - the repo-local marketplace exposes RoadmapSmith in Codex
+   - the installed plugin resolves the shared `skills/` bundle
+8. Pre-push validation is green before git transport:
+   - one subagent owns `QA/Regression` and runs `npm run validate:qa-regression`
+   - one subagent owns `Functional/Smoke` and runs `npm run validate:functional-smoke`
+   - neither push nor publish proceeds while either gate is red or ambiguous
 
 ## Verification Commands
 
 ```bash
 cd roadmap-skill
 npm ci
-node --test test/*.test.js
+npm run validate:qa-regression
+npm run validate:functional-smoke
 node bin/cli.js --help
+codex plugin marketplace add ..
 node bin/cli.js setup --project-root .. --dry-run
 node bin/cli.js zero --project-root ..   # interactive terminal required
 node bin/cli.js maintain --project-root ..
 node bin/cli.js doctor --project-root .. --json
-npm pack --dry-run
+npm pack --json
 ```
 
 On this Windows machine, prefer the absolute Node executable when PATH resolution is unreliable:
 
 ```powershell
-& 'C:\Program Files\nodejs\node.exe' --test roadmap-skill\test\*.test.js
+& 'C:\Program Files\nodejs\node.exe' scripts\pre-push-gate.js qa-regression
+& 'C:\Program Files\nodejs\node.exe' scripts\pre-push-gate.js functional-smoke
 ```
 
 ## Release Notes Expectations
@@ -76,5 +101,6 @@ On this Windows machine, prefer the absolute Node executable when PATH resolutio
 Before publish:
 
 - `README.md` and `roadmap-skill/README.md` must recommend `setup`, `zero`, and `maintain` first.
-- `skills.json` and `.claude-plugin/plugin.json` must enumerate the full Claude GUI slash bundle, while `skills/roadmap-sync/agents/openai.yaml` stays aligned on the policy/governance layer.
-- `roadmap-skill/CHANGELOG.md` must include the user-visible CLI, Claude GUI slash, VS Code, and runtime changes for the next version.
+- `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and `skills.json` must stay aligned on shared metadata and the full bundle surface, while `skills/roadmap-sync/agents/openai.yaml` stays aligned on the policy/governance layer.
+- The packed npm artifact must contain the same Codex and Claude bundle files advertised in those manifests.
+- `roadmap-skill/CHANGELOG.md` must include the user-visible CLI, Codex plugin, Claude GUI slash, VS Code, and runtime changes for the next version.

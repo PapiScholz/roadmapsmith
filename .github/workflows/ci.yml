@@ -37,29 +37,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
+      - name: Pre-push QA/Regression gate
+        run: npm run validate:qa-regression
 
-      - name: CLI help smoke test
-        run: node bin/cli.js --help
+      - name: Pre-push Functional/Smoke gate
+        run: npm run validate:functional-smoke
 
-      - name: CLI init dry-run smoke test
-        run: node bin/cli.js init --dry-run
+      - name: Extract packed artifact and verify Codex plus Claude bundle files
+        run: |
+          rm -rf /tmp/roadmapsmith-pack-check
+          mkdir -p /tmp/roadmapsmith-pack-check /tmp/roadmapsmith-pack-dist
+          TARBALL=$(node scripts/pack-artifact.js /tmp/roadmapsmith-pack-dist)
+          tar -xzf "$TARBALL" -C /tmp/roadmapsmith-pack-check
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const pkgRoot = '/tmp/roadmapsmith-pack-check/package';
+          const skillsManifest = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'skills.json'), 'utf8'));
+          const codexPlugin = JSON.parse(fs.readFileSync(path.join(pkgRoot, '.codex-plugin', 'plugin.json'), 'utf8'));
+          const requiredPaths = [
+            path.join(pkgRoot, '.claude-plugin', 'plugin.json'),
+            path.join(pkgRoot, '.codex-plugin', 'plugin.json'),
+            ...skillsManifest.skills.map((skill) => path.join(pkgRoot, skill.path, 'SKILL.md')),
+            ...[codexPlugin.interface.composerIcon, codexPlugin.interface.logo]
+              .filter((assetPath) => typeof assetPath === 'string' && assetPath.startsWith('./'))
+              .map((assetPath) => path.join(pkgRoot, assetPath.replace(/^\.\//, '')))
+          ];
 
-      - name: CLI generate dry-run smoke test
-        run: node bin/cli.js generate --project-root . --dry-run --audit
-
-      - name: CLI validate JSON smoke test
-        run: node bin/cli.js validate --json --project-root .. --task prof-task-add-roadmap-excerpt-to-readme
-
-      - name: CLI sync dry-run audit smoke test
-        run: node bin/cli.js sync --dry-run --audit --project-root ..
-
-      - name: CLI doctor smoke test
-        run: node bin/cli.js doctor --project-root ..
-
-      - name: npm pack dry-run
-        run: npm pack --dry-run
+          for (const requiredPath of requiredPaths) {
+            if (!fs.existsSync(requiredPath)) {
+              throw new Error(`Missing packed artifact path: ${requiredPath}`);
+            }
+          }
+          EOF
+          rm -f "$TARBALL"
 
       - name: CLI --version smoke test
         run: node bin/cli.js --version

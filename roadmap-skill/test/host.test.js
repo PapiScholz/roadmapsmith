@@ -8,7 +8,10 @@ const assert = require('node:assert/strict');
 const {
   buildSetupFiles,
   detectNodeRuntime,
+  EXPECTED_NATIVE_SLASH_COMMANDS,
+  inspectCodexPluginState,
   inspectHostSetup,
+  inspectSharedBundleSurface,
   mergeClaudeSettings,
   mergeVsCodeTasks,
   parseHosts,
@@ -103,6 +106,57 @@ test('detectNodeRuntime accepts an explicit ROADMAPSMITH_NODE override', () => {
   assert.equal(runtime.path, process.execPath);
 });
 
+test('inspectSharedBundleSurface reports the full native slash bundle', () => {
+  const bundle = inspectSharedBundleSurface();
+
+  assert.equal(bundle.ready, true);
+  assert.deepEqual(bundle.expectedCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(bundle.availableCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(bundle.missingCommands, []);
+});
+
+test('inspectCodexPluginState reports duplicate /roadmap-sync when legacy skill and plugin coexist', () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-host-home-'));
+  const legacySkillPath = path.join(homeDir, '.agents', 'skills', 'roadmap-sync', 'SKILL.md');
+  fs.mkdirSync(path.dirname(legacySkillPath), { recursive: true });
+  fs.writeFileSync(legacySkillPath, '---\nname: roadmap-sync\ndescription: legacy\n---\n', 'utf8');
+
+  const state = inspectCodexPluginState(process.cwd(), {
+    homeDir,
+    codexCommandPath: process.platform === 'win32' ? 'C:\\codex.exe' : '/usr/bin/codex',
+    codexPluginList: {
+      installed: [
+        {
+          pluginId: 'roadmapsmith@local-marketplace',
+          name: 'roadmapsmith',
+          marketplaceName: 'local-marketplace',
+          installed: true,
+          enabled: true,
+          source: {
+            source: 'local',
+            path: path.join(process.cwd(), 'plugins', 'roadmapsmith')
+          }
+        }
+      ]
+    },
+    codexMarketplaceList: {
+      marketplaces: [
+        {
+          name: 'local-marketplace',
+          root: process.cwd()
+        }
+      ]
+    }
+  });
+
+  assert.equal(state.ready, false);
+  assert.deepEqual(state.availableCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(state.missingCommands, []);
+  assert.equal(state.duplicates.length, 1);
+  assert.equal(state.duplicates[0].command, '/roadmap-sync');
+  assert.equal(state.duplicates[0].sources.includes(legacySkillPath), true);
+});
+
 test('inspectHostSetup downgrades Codex readiness when task runtime is missing', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-host-runtime-missing-'));
   fs.mkdirSync(path.join(projectRoot, '.vscode'), { recursive: true });
@@ -135,4 +189,6 @@ test('inspectHostSetup downgrades Codex readiness when task runtime is missing',
   assert.equal(hostStatus.runtime.ready, false);
   assert.equal(hostStatus.hosts.codex.ready, false);
   assert.equal(hostStatus.hosts.claude.ready, true);
+  assert.deepEqual(Object.keys(hostStatus.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
+  assert.deepEqual(hostStatus.surfaces.claudeGui.expectedCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
 });

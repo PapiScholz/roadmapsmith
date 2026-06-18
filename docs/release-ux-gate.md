@@ -11,11 +11,13 @@ The public entrypoints must stay consistent across CLI help, VS Code tasks, laun
 - `roadmapsmith setup`
 - `roadmapsmith zero`
 - `roadmapsmith maintain`
-- `roadmapsmith /road`
-- Native Claude GUI slash commands: `/road`, `/zero`, `/maintain`, `/status`, `/init`, `/generate`, `/validate`, `/sync`, `/audit`, `/setup`
+- `roadmapsmith /roadmap`
+- Native Codex plugin install/discovery via `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json`
+- Native Claude GUI slash commands: `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, `/roadmap-setup`
 
 The skill bundle remains a GUI/policy layer distinct from the CLI:
 
+- from repo root: `codex plugin marketplace add .`
 - `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`
 - `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` remains the legacy compatibility path
 
@@ -71,19 +73,24 @@ And when `RoadmapSmith: Status` explains:
 - tasks/config ready or missing
 - skill install alone does not expose CLI behavior
 
+Pass when Codex plugin discovery shows at least:
+
+- the repo-local marketplace named `RoadmapSmith Local Plugins`
+- a `roadmapsmith` plugin entry that installs from the repo-local Codex plugin mirror
+- a resolved shared `skills/` bundle after install
+
 Pass when Claude GUI slash discovery shows at least:
 
-- `/road`
-- `/zero`
-- `/maintain`
-- `/status`
-- `/init`
-- `/generate`
-- `/validate`
-- `/sync`
-- `/audit`
-- `/setup`
-- `/roadmap-sync`
+- `/roadmap`
+- `/roadmap-zero`
+- `/roadmap-maintain`
+- `/roadmap-status`
+- `/roadmap-init`
+- `/roadmap-generate`
+- `/roadmap-validate`
+- `/roadmap-update`
+- `/roadmap-audit`
+- `/roadmap-setup`
 
 ### 4. Failure clarity
 
@@ -112,6 +119,8 @@ Pass when:
 - unrelated Claude hooks/settings are preserved
 - invalid host config causes a hard failure
 - invalid host config leaves no partial writes behind
+- `roadmapsmith doctor --json` separates `claudeGui`, `claudeCli`, `codexGui`, and `codexCli`
+- `roadmapsmith doctor --json` reports `/roadmap-sync` as duplicated when a legacy `~/.agents/skills/roadmap-sync` install coexists with the Codex plugin
 
 ### 6. Docs and release notes
 
@@ -119,9 +128,11 @@ Pass when:
 
 - `README.md` recommends `setup`, `zero`, and `maintain` first
 - `roadmap-skill/README.md` matches the same contract
+- Codex docs explain that native plugin install/enable is separate from the VS Code task fallback
 - Claude docs explain that native GUI slash commands come from the installed skill bundle, not from the CLI slash router alone
 - `docs/release-readiness.md` matches the actual release workflow
 - `roadmap-skill/CHANGELOG.md` includes the user-visible UX/runtime changes
+- the repo documents the dual pre-push subagent gate and the same command surfaces used by CI
 
 ## Evidence To Capture
 
@@ -130,24 +141,28 @@ For each release candidate, capture:
 - terminal transcript or screenshots of the empty-repo flow
 - terminal transcript or screenshots of the existing-repo flow
 - screenshot of the VS Code task list
+- screenshot or log of Codex plugin marketplace discovery/install
 - screenshot or log of the friendly Node-runtime failure message
 - result of the package test suite
+- separate outputs for the `QA/Regression` and `Functional/Smoke` subagent gates
 
 ## Recommended Verification Commands
 
 ```bash
 cd roadmap-skill
 npm ci
-node --test test/*.test.js
+npm run validate:qa-regression
+npm run validate:functional-smoke
+codex plugin marketplace add ..
 node bin/cli.js --help
 node bin/cli.js setup --project-root .. --dry-run
 node bin/cli.js maintain --project-root ..
 node bin/cli.js doctor --project-root .. --json
-npm pack --dry-run
 ```
 
 On Windows, use the absolute Node path when PATH resolution is unreliable:
 
 ```powershell
-& 'C:\Program Files\nodejs\node.exe' --test roadmap-skill\test\*.test.js
+& 'C:\Program Files\nodejs\node.exe' scripts\pre-push-gate.js qa-regression
+& 'C:\Program Files\nodejs\node.exe' scripts\pre-push-gate.js functional-smoke
 ```

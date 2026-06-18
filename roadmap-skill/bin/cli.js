@@ -11,7 +11,7 @@ const { buildSetupFiles, applySetupFiles, inspectHostSetup, parseHosts, assertSu
 const { getSlashAction, renderSlashPalette, resolveSlashInvocation } = require('../src/slash');
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
 const { generateRoadmapDocument } = require('../src/generator');
-const { parseRoadmap } = require('../src/parser');
+const { parseRoadmap, tasksInManagedBlock } = require('../src/parser');
 const { buildValidationContext, validateTasks, auditValidation, CONFIDENCE_RANK, applyMinimumConfidence } = require('../src/validator');
 const { applySync } = require('../src/sync');
 const { buildZeroModeConfigPatch, buildZeroModeDefaults, collectZeroModeAnswers, isInteractiveTerminal } = require('../src/zero');
@@ -20,14 +20,15 @@ function printHelp() {
   console.log([
     'Usage:',
     '  roadmapsmith zero [--project-root <path>] [--config <path>]',
-    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>]',
-    '  roadmapsmith /road',
-    '  roadmapsmith /road <action>',
-    '  roadmapsmith /roadmap-sync <action>',
-    '  roadmapsmith /zero | /maintain | /status | /init | /generate | /validate | /sync | /audit | /setup',
+    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--full-regen]',
+    '  roadmapsmith /roadmap',
+    '  roadmapsmith /roadmap <action>',
+    '  roadmapsmith /roadmap-zero | /roadmap-maintain | /roadmap-status | /roadmap-init | /roadmap-generate | /roadmap-validate | /roadmap-update | /roadmap-audit | /roadmap-setup',
+    '  roadmapsmith /road <action>              # deprecated compatibility alias',
+    '  roadmapsmith /roadmap-sync <action>      # deprecated legacy compatibility root',
     '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
     '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
-    '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit]',
+    '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
     '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]'
@@ -55,14 +56,6 @@ function maybeFilterTasks(tasks, filterValue) {
   });
 }
 
-function tasksInManagedBlock(parsedRoadmap) {
-  if (!parsedRoadmap.managedRange) {
-    return parsedRoadmap.tasks;
-  }
-  const { start, end } = parsedRoadmap.managedRange;
-  return parsedRoadmap.tasks.filter((task) => task.lineIndex > start && task.lineIndex < end);
-}
-
 function printAudit(audit) {
   console.log(`Audit summary: ${audit.checkedWithoutEvidence.length} checked-without-evidence, ${audit.readyButUnchecked.length} ready-but-unchecked.`);
   if (audit.checkedWithoutEvidence.length > 0) {
@@ -76,6 +69,35 @@ function printAudit(audit) {
     audit.readyButUnchecked.forEach((item) => {
       console.log(`- [${item.task.id}] ${item.task.text}`);
     });
+  }
+}
+
+function formatSurfaceLabel(surfaceKey) {
+  return surfaceKey
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (character) => character.toUpperCase());
+}
+
+function printNativeSurfaceStatus(surfaces) {
+  if (!surfaces || typeof surfaces !== 'object') {
+    return;
+  }
+
+  console.log('\nNative slash surfaces:');
+  for (const [surfaceKey, surface] of Object.entries(surfaces)) {
+    const label = formatSurfaceLabel(surfaceKey);
+    console.log(`- ${label}: ${surface.ready ? 'ready' : 'needs attention'} (${surface.message})`);
+    console.log(`  Source: ${surface.source}`);
+    console.log(`  Verification: ${surface.verification}`);
+    if (Array.isArray(surface.missingCommands) && surface.missingCommands.length > 0) {
+      console.log(`  Missing commands: ${surface.missingCommands.join(', ')}`);
+    }
+    if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {
+      const duplicateSummary = surface.duplicates
+        .map((duplicate) => `${duplicate.command}${duplicate.reason ? ` (${duplicate.reason})` : ''}`)
+        .join(', ');
+      console.log(`  Duplicates: ${duplicateSummary}`);
+    }
   }
 }
 
@@ -128,7 +150,9 @@ function runGenerateCommand(projectRoot, config, flags, options = {}) {
     roadmapPath: roadmapFile,
     existingContent,
     config,
-    plugins
+    plugins,
+    preserveManagedBlock: options.preserveManagedBlock === true,
+    forceFullRegenerate: options.forceFullRegenerate === true || isEnabled(flags['full-regen'])
   });
 
   const writeResult = writeText(roadmapFile, document, { dryRun });
@@ -149,6 +173,13 @@ function runGenerateCommand(projectRoot, config, flags, options = {}) {
     const audit = auditValidation(parsedRoadmap.tasks, results);
     printAudit(audit);
   }
+}
+
+function runRegenerateCommand(projectRoot, config, flags, options = {}) {
+  runGenerateCommand(projectRoot, config, flags, {
+    ...options,
+    forceFullRegenerate: true
+  });
 }
 
 function runSyncCommand(projectRoot, config, flags, options = {}) {
@@ -201,6 +232,7 @@ function printHumanStatus(payload) {
   }
   console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
   console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
+  printNativeSurfaceStatus(payload.surfaces);
   console.log('\nRecommended entrypoints: roadmapsmith zero (empty repo), roadmapsmith maintain (existing repo).');
   if (!payload.cli.ready) {
     console.log('\nInstalling the skill alone does not expose the CLI in VS Code. Install the CLI and rerun roadmapsmith setup.');
@@ -258,7 +290,11 @@ async function runZeroCommand(projectRoot, flags) {
 
 function runMaintainCommand(projectRoot, flags) {
   const config = loadConfig({ projectRoot, configPath: flags.config });
-  runGenerateCommand(projectRoot, config, flags);
+  const fullRegen = isEnabled(flags['full-regen']);
+  runGenerateCommand(projectRoot, config, flags, {
+    preserveManagedBlock: !fullRegen,
+    forceFullRegenerate: fullRegen
+  });
   runSyncCommand(projectRoot, config, { ...flags, audit: true }, { audit: true });
 }
 
@@ -290,6 +326,10 @@ async function run() {
     if (!slashAction) {
       process.stdout.write(renderSlashPalette(slashInvocation) + '\n');
       return;
+    }
+
+    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {
+      process.stderr.write(`${slashInvocation.deprecationMessage}\n`);
     }
 
     if (slashAction.id === 'status') {
@@ -330,6 +370,13 @@ async function run() {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
     runGenerateCommand(projectRoot, config, flags);
+    return;
+  }
+
+  if (effectiveCommand === 'regenerate') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    const config = loadConfig({ projectRoot, configPath: flags.config });
+    runRegenerateCommand(projectRoot, config, flags);
     return;
   }
 
@@ -483,6 +530,17 @@ async function run() {
       } else {
         logError(`[fail] Claude hook incomplete: ${hostStatus.hosts.claude.message}`);
         ok = false;
+      }
+
+      if (hostStatus.surfaces) {
+        Object.entries(hostStatus.surfaces).forEach(([surfaceKey, surface]) => {
+          const prefix = surface.ready ? '[ok]' : '[warn]';
+          log(`${prefix} ${formatSurfaceLabel(surfaceKey)}: ${surface.message}`);
+          if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {
+            const duplicateSummary = surface.duplicates.map((duplicate) => duplicate.command).join(', ');
+            log(`[warn] ${formatSurfaceLabel(surfaceKey)} duplicates: ${duplicateSummary}`);
+          }
+        });
       }
     }
 

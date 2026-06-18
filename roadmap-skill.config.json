@@ -209,6 +209,7 @@
           "tasks": [
             { "id": "mkt-p2-github-release-v060", "text": "Prepare and cut GitHub release v0.6.0", "priority": "P0" },
             { "id": "mkt-p2-npm-release-v060", "text": "Publish npm release v0.6.0", "priority": "P0" },
+            { "id": "mkt-p2-update-github-actions-node24-compat", "text": "Update GitHub Actions workflow actions for Node 24 runner compatibility", "priority": "P1" },
             { "id": "mkt-p2-publish-skills-sh-entry", "text": "Publish or update skills.sh entry", "priority": "P1" },
             { "id": "mkt-p2-evaluate-mcp-market-skill-fish", "text": "Evaluate MCP Market and skill.fish publishing", "priority": "P1" },
             { "id": "mkt-p2-create-launch-post-linkedin", "text": "Create launch post (LinkedIn)", "priority": "P2" },

@@ -1,24 +1,34 @@
 {
   "name": "roadmapsmith",
-  "version": "0.7.0",
-  "description": "Generate and maintain deterministic project roadmaps for AI coding agents. Provides native Claude GUI slash skills like /road, /zero, /maintain, /status, /sync, and /setup, plus the legacy /roadmap-sync skill and setup-generated VS Code host UX.",
+  "version": "0.9.16",
+  "description": "One-command evidence-backed ROADMAP.md generator and sync tool for AI coding agents, with shared RoadmapSmith plugin skills for Codex and Claude.",
   "author": {
     "name": "PapiScholz"
   },
-  "homepage": "https://github.com/PapiScholz/roadmapsmith",
+  "homepage": "https://github.com/PapiScholz/roadmapsmith#readme",
   "repository": "https://github.com/PapiScholz/roadmapsmith",
   "license": "MIT",
   "keywords": [
     "roadmap",
-    "agent",
-    "skill",
     "planning",
-    "sync",
-    "validation",
+    "agent",
     "cli",
+    "validation",
+    "sync",
+    "task-tracking",
+    "evidence-based",
+    "deterministic",
+    "monorepo",
     "claude-code",
-    "slash-commands",
-    "zero-mode",
-    "maintain"
+    "ai-agent",
+    "project-management",
+    "coding-agents",
+    "agent-skills",
+    "roadmap-generator",
+    "roadmap-sync",
+    "task-validation",
+    "developer-tools",
+    "markdown",
+    "agent-workflow"
   ]
 }

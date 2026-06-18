@@ -8,19 +8,9 @@ const { spawnSync } = require('child_process');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const RAW_ARGS = process.argv.slice(2);
 const ACTION = RAW_ARGS[0] || 'explain';
-const SLASH_ACTIONS = [{"id":"zero","description":"Interview the developer in terminal and generate the first roadmap for an empty or low-context repo.","classicCliExample":"roadmapsmith zero","slashExamples":["/zero","/road zero","/roadmap-sync zero"],"taskLabel":"RoadmapSmith: Zero Mode"},{"id":"maintain","description":"Regenerate, sync, and audit the roadmap for an existing repository.","classicCliExample":"roadmapsmith maintain","slashExamples":["/maintain","/road maintain","/roadmap-sync maintain"],"taskLabel":"RoadmapSmith: Maintain"},{"id":"status","description":"Inspect CLI, roadmap, VS Code task, and Claude hook readiness.","classicCliExample":"roadmapsmith doctor --json","slashExamples":["/status","/road status","/roadmap-sync status"],"taskLabel":"RoadmapSmith: Status"},{"id":"init","description":"Create ROADMAP.md and AGENTS.md when they are missing.","classicCliExample":"roadmapsmith init","slashExamples":["/init","/road init","/roadmap-sync init"],"taskLabel":"RoadmapSmith: Init"},{"id":"generate","description":"Rebuild the managed roadmap block from repository context.","classicCliExample":"roadmapsmith generate --project-root .","slashExamples":["/generate","/road generate","/roadmap-sync generate"],"taskLabel":"RoadmapSmith: Generate"},{"id":"validate","description":"Inspect per-task evidence status as JSON.","classicCliExample":"roadmapsmith validate --json --project-root .","slashExamples":["/validate","/road validate","/roadmap-sync validate"],"taskLabel":"RoadmapSmith: Validate"},{"id":"sync","description":"Apply evidence-backed checklist sync to ROADMAP.md.","classicCliExample":"roadmapsmith sync --project-root .","slashExamples":["/sync","/road sync","/roadmap-sync sync"],"taskLabel":"RoadmapSmith: Sync"},{"id":"audit","description":"Run sync and print the post-sync mismatch summary.","classicCliExample":"roadmapsmith sync --audit --project-root .","slashExamples":["/audit","/road audit","/roadmap-sync audit"],"taskLabel":"RoadmapSmith: Sync Audit"},{"id":"setup","description":"Generate visible VS Code tasks and optional Claude hook wiring.","classicCliExample":"roadmapsmith setup","slashExamples":["/setup","/road setup","/roadmap-sync setup"],"taskLabel":"RoadmapSmith: Refresh Setup"}];
-const SLASH_ROOT_ALIASES = new Set(['/road', '/roadmap-sync']);
-const DIRECT_SLASH_ALIAS_TO_ACTION = {
-  '/zero': 'zero',
-  '/maintain': 'maintain',
-  '/status': 'status',
-  '/init': 'init',
-  '/generate': 'generate',
-  '/validate': 'validate',
-  '/sync': 'sync',
-  '/audit': 'audit',
-  '/setup': 'setup'
-};
+const SLASH_ACTIONS = [{"id":"zero","description":"Interview the developer in terminal and generate the first roadmap for an empty or low-context repo.","classicCliExample":"roadmapsmith zero","taskLabel":"RoadmapSmith: Zero Mode","directSlash":"/roadmap-zero","routerSlash":"/roadmap zero","legacyRouterSlash":"/roadmap-sync zero"},{"id":"maintain","description":"Preserve-first existing-repo flow: update, sync, and audit the roadmap without rebuilding substantive domain content.","classicCliExample":"roadmapsmith maintain","taskLabel":"RoadmapSmith: Maintain","directSlash":"/roadmap-maintain","routerSlash":"/roadmap maintain","legacyRouterSlash":"/roadmap-sync maintain"},{"id":"status","description":"Inspect CLI, roadmap, VS Code task, Codex, and Claude readiness.","classicCliExample":"roadmapsmith doctor --json","taskLabel":"RoadmapSmith: Status","directSlash":"/roadmap-status","routerSlash":"/roadmap status","legacyRouterSlash":"/roadmap-sync status"},{"id":"init","description":"Create ROADMAP.md and AGENTS.md when they are missing.","classicCliExample":"roadmapsmith init","taskLabel":"RoadmapSmith: Init","directSlash":"/roadmap-init","routerSlash":"/roadmap init","legacyRouterSlash":"/roadmap-sync init"},{"id":"generate","description":"Generate or update ROADMAP.md, refusing destructive replacement unless rerun with --full-regen.","classicCliExample":"roadmapsmith generate --project-root .","taskLabel":"RoadmapSmith: Generate","directSlash":"/roadmap-generate","routerSlash":"/roadmap generate","legacyRouterSlash":"/roadmap-sync generate"},{"id":"validate","description":"Inspect per-task evidence status as JSON.","classicCliExample":"roadmapsmith validate --json --project-root .","taskLabel":"RoadmapSmith: Validate","directSlash":"/roadmap-validate","routerSlash":"/roadmap validate","legacyRouterSlash":"/roadmap-sync validate"},{"id":"sync","description":"Apply evidence-backed checklist sync to ROADMAP.md.","classicCliExample":"roadmapsmith sync --project-root .","taskLabel":"RoadmapSmith: Sync","directSlash":"/roadmap-update","routerSlash":"/roadmap sync","legacyRouterSlash":"/roadmap-sync update"},{"id":"audit","description":"Run sync and print the post-sync mismatch summary.","classicCliExample":"roadmapsmith sync --audit --project-root .","taskLabel":"RoadmapSmith: Sync Audit","directSlash":"/roadmap-audit","routerSlash":"/roadmap audit","legacyRouterSlash":"/roadmap-sync audit"},{"id":"setup","description":"Generate visible VS Code tasks and optional Claude hook wiring.","classicCliExample":"roadmapsmith setup","taskLabel":"RoadmapSmith: Refresh Setup","directSlash":"/roadmap-setup","routerSlash":"/roadmap setup","legacyRouterSlash":"/roadmap-sync setup"}];
+const SLASH_ROOT_ALIASES = new Set(['/roadmap', '/road']);
+const LEGACY_ROUTER_ALIAS = '/roadmap-sync';
 const LOCAL_DEV_CLI = path.join(PROJECT_ROOT, 'roadmap-skill', 'bin', 'cli.js');
 const LOCAL_PACKAGE_CLI = path.join(PROJECT_ROOT, 'node_modules', 'roadmapsmith', 'bin', 'cli.js');
 
@@ -53,8 +43,26 @@ function resolveCli() {
   return null;
 }
 
+function getNamespacedDirectSlash(actionId) {
+  return actionId === 'sync' ? '/roadmap-update' : `/roadmap-${actionId}`;
+}
+
+const DIRECT_HOST_NATIVE_ALIAS_TO_ACTION = Object.fromEntries(
+  SLASH_ACTIONS.map((action) => [getNamespacedDirectSlash(action.id), action.id])
+);
+const DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION = Object.fromEntries(
+  SLASH_ACTIONS.map((action) => [`/${action.id}`, action.id])
+);
+
 function normalizeActionId(value) {
-  return String(value || '').trim().toLowerCase().replace(/^\/+/g, '');
+  let normalized = String(value || '').trim().toLowerCase().replace(/^\/+/g, '');
+  if (normalized.startsWith('roadmap-')) {
+    normalized = normalized.slice('roadmap-'.length);
+  }
+  if (normalized === 'update') {
+    normalized = 'sync';
+  }
+  return normalized;
 }
 
 function getSlashSuggestions(query) {
@@ -68,12 +76,16 @@ function getSlashSuggestions(query) {
 }
 
 function renderSlashPalette(route) {
-  const source = route && route.source ? route.source : '/road';
+  const source = route && route.source ? route.source : '/roadmap';
   const query = normalizeActionId(route && route.query);
   const suggestions = route && Array.isArray(route.suggestions) ? route.suggestions : getSlashSuggestions(query);
   const lines = [];
   lines.push('RoadmapSmith slash palette');
   lines.push('');
+  if (route && route.deprecated && route.deprecationMessage) {
+    lines.push(`Deprecated alias: ${route.deprecationMessage}`);
+    lines.push('');
+  }
   if (query) {
     lines.push(`Input: ${source} ${query}`);
     lines.push(suggestions.length > 0 ? 'No exact slash match was executed. Related actions:' : 'No exact slash match was executed.');
@@ -86,22 +98,36 @@ function renderSlashPalette(route) {
     lines.push('No related slash actions found.');
   } else {
     suggestions.forEach((action) => {
-      lines.push(`- /${action.id}: ${action.description}`);
+      lines.push(`- ${action.directSlash}: ${action.description}`);
+      lines.push(`  Router form: ${action.routerSlash}`);
+      lines.push(`  Legacy router: ${action.legacyRouterSlash}`);
       lines.push(`  Classic CLI: ${action.classicCliExample}`);
-      lines.push(`  Skill form: /roadmap-sync ${action.id}`);
       lines.push(`  VS Code task: ${action.taskLabel}`);
     });
   }
   lines.push('');
   lines.push('Examples:');
-  lines.push('- roadmapsmith zero');
-  lines.push('- roadmapsmith maintain');
-  lines.push('- roadmapsmith /road');
-  lines.push('- roadmapsmith /maintain');
-  lines.push('- roadmapsmith /roadmap-sync maintain');
+  lines.push('- roadmapsmith /roadmap');
+  lines.push('- roadmapsmith /roadmap maintain');
+  lines.push('- roadmapsmith /roadmap-maintain');
+  lines.push('- roadmapsmith /roadmap-update');
+  lines.push('- roadmapsmith /roadmap-sync validate');
   lines.push('');
   lines.push('Installing the skill alone does not expose CLI behavior in VS Code. Use roadmapsmith setup for the visible task/launcher layer.');
   return lines.join('\n');
+}
+
+function getSlashAction(actionId) {
+  const normalized = normalizeActionId(actionId);
+  return SLASH_ACTIONS.find((action) => action.id === normalized) || null;
+}
+
+function paletteResponse(source, query, deprecated = false, deprecationMessage = '') {
+  return { kind: 'palette', query, source, suggestions: getSlashSuggestions(query), deprecated, deprecationMessage };
+}
+
+function executeResponse(source, actionId, query, deprecated = false, deprecationMessage = '') {
+  return { kind: 'execute', actionId, query, source, suggestions: getSlashSuggestions(query), deprecated, deprecationMessage };
 }
 
 function resolveSlashInvocation(command, args) {
@@ -109,39 +135,60 @@ function resolveSlashInvocation(command, args) {
     return null;
   }
   const normalizedCommand = command.trim().toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(DIRECT_SLASH_ALIAS_TO_ACTION, normalizedCommand)) {
-    return {
-      kind: 'execute',
-      actionId: DIRECT_SLASH_ALIAS_TO_ACTION[normalizedCommand],
-      query: normalizeActionId(normalizedCommand),
-      source: normalizedCommand,
-      suggestions: getSlashSuggestions(normalizedCommand)
-    };
+  if (normalizedCommand === LEGACY_ROUTER_ALIAS) {
+    if (args.length === 0) {
+      return paletteResponse(normalizedCommand, '');
+    }
+    const queryToken = normalizeActionId(args[0]);
+    const deprecationMessage = 'Legacy CLI compatibility root /roadmap-sync <action> is deprecated. Use /roadmap <action> or the direct /roadmap-* commands.';
+    const exactAction = getSlashAction(queryToken);
+    if (exactAction) {
+      return executeResponse(normalizedCommand, exactAction.id, queryToken, true, deprecationMessage);
+    }
+    return paletteResponse(normalizedCommand, queryToken, true, deprecationMessage);
+  }
+  if (Object.prototype.hasOwnProperty.call(DIRECT_HOST_NATIVE_ALIAS_TO_ACTION, normalizedCommand)) {
+    return executeResponse(normalizedCommand, DIRECT_HOST_NATIVE_ALIAS_TO_ACTION[normalizedCommand], normalizeActionId(normalizedCommand));
+  }
+  if (Object.prototype.hasOwnProperty.call(DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION, normalizedCommand)) {
+    const actionId = DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION[normalizedCommand];
+    return executeResponse(
+      normalizedCommand,
+      actionId,
+      normalizeActionId(normalizedCommand),
+      true,
+      `CLI compatibility alias ${normalizedCommand} is deprecated. Use ${getNamespacedDirectSlash(actionId)} or /roadmap ${actionId}.`
+    );
   }
   if (SLASH_ROOT_ALIASES.has(normalizedCommand)) {
     const queryToken = args.length > 0 ? normalizeActionId(args[0]) : '';
+    const deprecated = normalizedCommand === '/road';
+    const deprecationMessage = deprecated ? 'CLI compatibility alias /road is deprecated. Use /roadmap.' : '';
     if (!queryToken) {
-      return { kind: 'palette', query: '', source: normalizedCommand, suggestions: getSlashSuggestions('') };
+      return paletteResponse(normalizedCommand, '', deprecated, deprecationMessage);
     }
-    const exactAction = SLASH_ACTIONS.find((action) => action.id === queryToken);
+    const exactAction = getSlashAction(queryToken);
     if (exactAction) {
-      return { kind: 'execute', actionId: exactAction.id, query: queryToken, source: normalizedCommand, suggestions: getSlashSuggestions(queryToken) };
+      return executeResponse(normalizedCommand, exactAction.id, queryToken, deprecated, deprecationMessage);
     }
-    return { kind: 'palette', query: queryToken, source: normalizedCommand, suggestions: getSlashSuggestions(queryToken) };
+    return paletteResponse(normalizedCommand, queryToken, deprecated, deprecationMessage);
   }
-  return { kind: 'palette', query: normalizeActionId(normalizedCommand), source: normalizedCommand, suggestions: getSlashSuggestions(normalizedCommand) };
+  if (normalizedCommand.startsWith('/roadmap-')) {
+    return paletteResponse(normalizedCommand, normalizeActionId(normalizedCommand));
+  }
+  return paletteResponse(normalizedCommand, normalizeActionId(normalizedCommand));
 }
 
 function explain() {
   console.log('RoadmapSmith layers:\n');
   console.log('1. The roadmap-sync skill guides the agent. It does not add VS Code buttons or install the CLI.');
-  console.log('2. The roadmapsmith CLI executes zero/maintain plus the lower-level init/generate/validate/sync/setup/doctor commands.');
+  console.log('2. The roadmapsmith CLI executes zero/maintain plus init/generate/validate/sync/setup/doctor, with --full-regen reserved for destructive replacement.');
   console.log('3. roadmapsmith setup makes the CLI visible in VS Code through tasks and optional Claude hook wiring.\n');
   console.log('Typical VS Code workflow:');
   console.log('- Run "RoadmapSmith: Status" to inspect readiness.');
-  console.log('- For empty repos, run "RoadmapSmith: Zero Mode" or use "/road zero".');
-  console.log('- For existing repos, run "RoadmapSmith: Maintain" or use "/road maintain".');
-  console.log('- Use the lower-level Init, Generate, Validate, and Sync tasks only when you want manual control.\n');
+  console.log('- For empty repos, run "RoadmapSmith: Zero Mode" or use "/roadmap zero".');
+  console.log('- For existing repos, run "RoadmapSmith: Maintain" or use "/roadmap maintain".');
+  console.log('- Use Init, Generate, Validate, and Sync when you want manual control.\n');
   console.log('If you installed only the skill, install the CLI as well and then run "RoadmapSmith: Refresh Setup".');
 }
 
@@ -168,6 +215,21 @@ function printStatusFromDoctor(payload) {
   }
   console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
   console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
+  if (payload.surfaces && typeof payload.surfaces === 'object') {
+    console.log('\nNative slash surfaces:');
+    Object.entries(payload.surfaces).forEach(([surfaceKey, surface]) => {
+      const label = surfaceKey.replace(/([A-Z])/g, ' $1').replace(/^./, (character) => character.toUpperCase());
+      console.log(`- ${label}: ${surface.ready ? 'ready' : 'needs attention'} (${surface.message})`);
+      console.log(`  Source: ${surface.source}`);
+      console.log(`  Verification: ${surface.verification}`);
+      if (Array.isArray(surface.missingCommands) && surface.missingCommands.length > 0) {
+        console.log(`  Missing commands: ${surface.missingCommands.join(', ')}`);
+      }
+      if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {
+        console.log(`  Duplicates: ${surface.duplicates.map((duplicate) => duplicate.command).join(', ')}`);
+      }
+    });
+  }
   if (!payload.cli.ready) {
     console.log('\nThe CLI is missing. Installing the skill alone does not expose RoadmapSmith actions in VS Code.');
     console.log('Install the CLI, then run "RoadmapSmith: Refresh Setup".');
@@ -176,7 +238,7 @@ function printStatusFromDoctor(payload) {
     console.log('\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun "RoadmapSmith: Status".');
   }
   console.log('\nRecommended entrypoints: roadmapsmith zero, roadmapsmith maintain');
-  console.log('Slash entrypoints: /road, /zero, /maintain, /status, /generate, /validate, /sync, /audit, /setup, /roadmap-sync <action>');
+  console.log('Slash entrypoints: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, /roadmap-setup, plus legacy /roadmap-sync <action>.');
 }
 
 function printMissingCliStatus() {
@@ -187,7 +249,7 @@ function printMissingCliStatus() {
   console.log('Installing the skill alone does not expose the CLI in VS Code.');
   console.log('Install the roadmapsmith package, then run "RoadmapSmith: Refresh Setup".');
   console.log('The launcher looks for, in order: workspace dev copy, workspace dependency, global command.');
-  console.log('Slash discovery still works here: try /road for the local palette.');
+  console.log('Slash discovery still works here: try /roadmap for the local palette.');
 }
 
 function runCli(args, options = {}) {
@@ -254,8 +316,14 @@ if (slashInvocation) {
   if (slashInvocation.kind === 'palette') {
     console.log(renderSlashPalette(slashInvocation));
   } else if (slashInvocation.actionId === 'status') {
+    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {
+      console.error(slashInvocation.deprecationMessage);
+    }
     status();
   } else if (Object.prototype.hasOwnProperty.call(actionToCliArgs, slashInvocation.actionId)) {
+    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {
+      console.error(slashInvocation.deprecationMessage);
+    }
     const result = runCli(actionToCliArgs[slashInvocation.actionId]);
     forwardResult(result);
   } else {

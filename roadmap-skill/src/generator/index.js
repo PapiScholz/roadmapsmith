@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { walkFiles, detectLanguages, detectTestFrameworks, detectWorkspaces } = require('../io');
 const { createRoadmapModel, PHASE_ORDER } = require('../model');
-const { slugify, ensureTrailingNewline } = require('../utils');
-const { parseRoadmap, upsertManagedBlock } = require('../parser');
+const { slugify } = require('../utils');
+const { parseRoadmap, tasksInManagedBlock, upsertManagedBlock } = require('../parser');
 const { findBestTaskMatch, dedupeTasks } = require('../match');
 const { collectPluginContributions } = require('../config');
 const { renderBody } = require('../renderer');
@@ -13,6 +13,8 @@ const { classifyProject } = require('../classifier');
 
 const IMPL_PATTERN_RE = /[/|]TODO|TODO[|/]|[/|]FIXME|FIXME[|/]/;
 const COMMENT_TODO_RE = /(?:\/\/|#|\*\s*).*\b(?:TODO|FIXME)\b/;
+const ADDITIONS_SECTION_TITLE = 'RoadmapSmith Additions';
+const PHASE_LABEL_RE = /`?\[(P[0-2])\]`?/i;
 
 function isTodoMarker(line) {
   return COMMENT_TODO_RE.test(line) && !IMPL_PATTERN_RE.test(line);
@@ -181,6 +183,54 @@ function toCandidate(text, phase, priority, source = 'default') {
   };
 }
 
+function hasSubstantiveManagedBlock(parsedRoadmap) {
+  if (!parsedRoadmap || !parsedRoadmap.managedRange) {
+    return false;
+  }
+
+  const managedLines = parsedRoadmap.lines.slice(
+    parsedRoadmap.managedRange.start + 1,
+    parsedRoadmap.managedRange.end
+  );
+  return managedLines.some((line) => line.trim().length > 0);
+}
+
+function stripTrailingBlankLines(lines) {
+  const next = Array.isArray(lines) ? lines.slice() : [];
+  while (next.length > 0 && !next[next.length - 1].trim()) {
+    next.pop();
+  }
+  return next;
+}
+
+function renderAdditionTask(task) {
+  return `- [ ] ${task.text} <!-- rs:task=${task.id} -->`;
+}
+
+function buildManagedAdditionsLines(tasks, options = {}) {
+  const groups = groupByPhase(tasks);
+  const lines = [];
+  const includeSectionHeading = options.includeSectionHeading !== false;
+
+  if (includeSectionHeading) {
+    lines.push(`## ${ADDITIONS_SECTION_TITLE}`);
+    lines.push('');
+  }
+
+  for (const phase of PHASE_ORDER) {
+    if (!groups[phase] || groups[phase].length === 0) {
+      continue;
+    }
+    lines.push(`### Phase ${phase}`);
+    for (const task of groups[phase]) {
+      lines.push(renderAdditionTask(task));
+    }
+    lines.push('');
+  }
+
+  return stripTrailingBlankLines(lines);
+}
+
 const WEB_CANDIDATES_COMMON = [
   { text: 'Add SEO metadata: title, description, and canonical URL for all pages', phase: 'P0' },
   { text: 'Implement responsive and mobile-first layout across all breakpoints', phase: 'P0' },
@@ -285,6 +335,9 @@ function applyTaskMatchers(scan, config) {
 }
 
 function inferPhase(existingTask) {
+  const textPhaseMatch = String(existingTask.text || '').match(PHASE_LABEL_RE);
+  if (textPhaseMatch) return textPhaseMatch[1].toUpperCase();
+
   const section = String(existingTask.section || '').toUpperCase();
   if (section.includes('P0')) return 'P0';
   if (section.includes('P1')) return 'P1';
@@ -292,12 +345,134 @@ function inferPhase(existingTask) {
   return 'P1';
 }
 
-function mergeWithExisting(candidates, existingTasks) {
+function sortTasksByPhaseAndText(tasks) {
+  return tasks.slice().sort((left, right) => {
+    const leftPhaseIndex = PHASE_ORDER.indexOf(left.phase);
+    const rightPhaseIndex = PHASE_ORDER.indexOf(right.phase);
+    if (leftPhaseIndex !== rightPhaseIndex) {
+      return leftPhaseIndex - rightPhaseIndex;
+    }
+    return left.text.localeCompare(right.text);
+  });
+}
+
+function findPhaseSectionRange(lines, managedRange, phase) {
+  const headingPattern = /^(#{2,4})\s+(.*)$/;
+  const phasePattern = new RegExp(`\\b${phase}\\b`, 'i');
+  let sectionStart = -1;
+  let sectionLevel = 0;
+
+  for (let index = managedRange.start + 1; index < managedRange.end; index += 1) {
+    const match = lines[index].trim().match(headingPattern);
+    if (!match) {
+      continue;
+    }
+    if (!phasePattern.test(match[2])) {
+      continue;
+    }
+    sectionStart = index;
+    sectionLevel = match[1].length;
+  }
+
+  if (sectionStart < 0) {
+    return null;
+  }
+
+  let sectionEnd = managedRange.end;
+  for (let index = sectionStart + 1; index < managedRange.end; index += 1) {
+    const match = lines[index].trim().match(headingPattern);
+    if (!match) {
+      continue;
+    }
+    if (match[1].length <= sectionLevel) {
+      sectionEnd = index;
+      break;
+    }
+  }
+
+  return {
+    start: sectionStart,
+    end: sectionEnd
+  };
+}
+
+function buildPreserveModeInsertions(parsedRoadmap, tasks) {
+  const managedTasks = sortTasksByPhaseAndText(tasksInManagedBlock(parsedRoadmap));
+  const groups = groupByPhase(tasks);
+  const lines = parsedRoadmap.lines;
+  const insertions = [];
+  const fallbackTasks = [];
+
+  for (const phase of PHASE_ORDER) {
+    const phaseTasks = sortTasksByPhaseAndText(groups[phase] || []);
+    if (phaseTasks.length === 0) {
+      continue;
+    }
+
+    const samePhaseTasks = managedTasks.filter((task) => inferPhase(task) === phase);
+    if (samePhaseTasks.length > 0) {
+      const anchor = samePhaseTasks.reduce((latest, task) => {
+        if (!latest || task.lastChildLineIndex > latest.lastChildLineIndex) {
+          return task;
+        }
+        return latest;
+      }, null);
+      insertions.push({
+        index: anchor.lastChildLineIndex + 1,
+        lines: phaseTasks.map(renderAdditionTask)
+      });
+      continue;
+    }
+
+    const phaseSection = findPhaseSectionRange(lines, parsedRoadmap.managedRange, phase);
+    if (phaseSection) {
+      let insertionIndex = phaseSection.end;
+      while (insertionIndex > phaseSection.start + 1 && !lines[insertionIndex - 1].trim()) {
+        insertionIndex -= 1;
+      }
+      insertions.push({
+        index: insertionIndex,
+        lines: phaseTasks.map(renderAdditionTask)
+      });
+      continue;
+    }
+
+    fallbackTasks.push(...phaseTasks);
+  }
+
+  if (fallbackTasks.length > 0) {
+    const fallbackLines = buildManagedAdditionsLines(fallbackTasks, { includeSectionHeading: true });
+    insertions.push({
+      index: parsedRoadmap.managedRange.end,
+      lines: ['', ...fallbackLines]
+    });
+  }
+
+  return insertions.sort((left, right) => right.index - left.index);
+}
+
+function insertPreserveModeTasks(existingContent, parsedRoadmap, tasks) {
+  if (!parsedRoadmap || !parsedRoadmap.managedRange || tasks.length === 0) {
+    return existingContent;
+  }
+
+  const nextLines = parsedRoadmap.lines.slice();
+  const insertions = buildPreserveModeInsertions(parsedRoadmap, tasks);
+  for (const insertion of insertions) {
+    nextLines.splice(insertion.index, 0, ...insertion.lines);
+  }
+
+  return nextLines.join('\n');
+}
+
+function mergeWithExisting(candidates, existingTasks, options = {}) {
   const matchedExistingIds = new Set();
   const merged = [];
 
   for (const candidate of candidates) {
-    const match = findBestTaskMatch(candidate, existingTasks);
+    const match = findBestTaskMatch(candidate, existingTasks, {
+      allowFuzzy: options.allowFuzzy !== false
+    });
     if (match) {
       matchedExistingIds.add(match.task.id);
       merged.push({
@@ -311,20 +486,22 @@ function mergeWithExisting(candidates, existingTasks) {
     merged.push(candidate);
   }
 
-  for (const existing of existingTasks) {
-    if (matchedExistingIds.has(existing.id)) {
-      continue;
-    }
+  if (options.includeUnmatchedExisting) {
+    for (const existing of existingTasks) {
+      if (matchedExistingIds.has(existing.id)) {
+        continue;
+      }
 
-    const phase = inferPhase(existing);
-    merged.push({
-      id: existing.id,
-      text: existing.text,
-      phase,
-      priority: phase,
-      checked: existing.checked,
-      source: 'existing'
-    });
+      const phase = inferPhase(existing);
+      merged.push({
+        id: existing.id,
+        text: existing.text,
+        phase,
+        priority: phase,
+        checked: existing.checked,
+        source: 'existing'
+      });
+    }
   }
 
   return dedupeTasks(merged);
@@ -566,6 +743,8 @@ function generateRoadmapDocument(options) {
   const zeroModeConfig = config.zeroMode || {};
   const plugins = options.plugins || [];
   const existingContent = options.existingContent || '';
+  const preserveManagedBlock = options.preserveManagedBlock === true;
+  const forceFullRegenerate = options.forceFullRegenerate === true;
 
   const scan = scanProject(projectRoot);
   const existing = parseRoadmap(existingContent);
@@ -573,7 +752,7 @@ function generateRoadmapDocument(options) {
   for (const task of existing.tasks) {
     existingCheckedById[task.id] = task.checked;
   }
-  const existingPhaseTasks = existing.tasks.filter((task) => /^Phase P[0-2]/i.test(String(task.section || '')));
+  const existingManagedTasks = tasksInManagedBlock(existing);
 
   const pluginTaskCandidates = collectPluginContributions(plugins, 'registerTaskDetectors', {
     projectRoot,
@@ -627,7 +806,28 @@ function generateRoadmapDocument(options) {
 
   const baseCandidates = buildDefaultCandidates(scan, config);
   const matcherCandidates = applyTaskMatchers(scan, config);
-  const merged = mergeWithExisting([...baseCandidates, ...matcherCandidates, ...pluginTaskCandidates], existingPhaseTasks);
+  const allCandidates = dedupeTasks([...baseCandidates, ...matcherCandidates, ...pluginTaskCandidates]);
+
+  if (hasSubstantiveManagedBlock(existing) && preserveManagedBlock && !forceFullRegenerate) {
+    const unmatchedCandidates = allCandidates.filter((candidate) => {
+      return !findBestTaskMatch(candidate, existingManagedTasks, { allowFuzzy: false });
+    });
+
+    if (unmatchedCandidates.length === 0) {
+      return existingContent;
+    }
+
+    return insertPreserveModeTasks(existingContent, existing, unmatchedCandidates);
+  }
+
+  if (hasSubstantiveManagedBlock(existing) && !forceFullRegenerate) {
+    throw new Error('Refusing to regenerate a substantive managed roadmap block. Rerun with --full-regen to replace it explicitly.');
+  }
+
+  const merged = mergeWithExisting(allCandidates, existingManagedTasks, {
+    allowFuzzy: true,
+    includeUnmatchedExisting: false
+  });
   const model = createModel(scan, merged, config, [profileSection, ...generatedZeroModeSection, ...configSections, ...pluginSections], existingCheckedById);
   const profile = config.roadmapProfile || 'compact';
   const managedBody = renderBody(model, profile);
