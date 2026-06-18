@@ -29,67 +29,67 @@
       "name": "roadmap",
       "path": "skills/roadmap",
       "description": "Native slash palette for RoadmapSmith commands and recommended entrypoints across supported hosts.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-zero",
       "path": "skills/roadmap-zero",
       "description": "Native slash entrypoint for the one-command Zero Mode CLI workflow.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-maintain",
       "path": "skills/roadmap-maintain",
       "description": "Native slash entrypoint for the preserve-first generate + sync + audit flow.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-status",
       "path": "skills/roadmap-status",
       "description": "Native slash readiness check grounded in roadmapsmith doctor JSON.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-init",
       "path": "skills/roadmap-init",
       "description": "Native slash entrypoint for creating ROADMAP.md and AGENTS.md.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-generate",
       "path": "skills/roadmap-generate",
       "description": "Native slash entrypoint for managed roadmap updates that require --full-regen before destructive replacement.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-validate",
       "path": "skills/roadmap-validate",
       "description": "Native slash entrypoint for evidence-backed roadmap validation.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-update",
       "path": "skills/roadmap-update",
       "description": "Native slash entrypoint for applying evidence-backed checklist sync.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-sync",
       "path": "skills/roadmap-sync",
       "description": "Legacy namespaced root plus policy guidance for RoadmapSmith slash workflows.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-audit",
       "path": "skills/roadmap-audit",
       "description": "Native slash entrypoint for the current sync-plus-audit workflow.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     },
     {
       "name": "roadmap-setup",
       "path": "skills/roadmap-setup",
       "description": "Native slash entrypoint for generating RoadmapSmith host integration files.",
-      "version": "0.9.19"
+      "version": "0.9.20"
     }
   ]
 }
