@@ -8,6 +8,7 @@ const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..');
 const CLI_PATH = path.join(PACKAGE_ROOT, 'bin', 'cli.js');
 const LAUNCHER_PATH = path.join(REPO_ROOT, '.vscode', 'roadmapsmith-launcher.js');
+const TEST_RUNNER_PATH = path.join(PACKAGE_ROOT, 'scripts', 'run-tests.js');
 const ELECTRON_FIXTURE_ROOT = path.join(PACKAGE_ROOT, 'test', 'fixtures', 'electron-pos');
 const ELECTRON_FIXTURE_ROADMAP = path.join(ELECTRON_FIXTURE_ROOT, 'ROADMAP.md');
 const GATE_PROFILE = 'Amplio';
@@ -67,7 +68,7 @@ function buildQaRegressionChecks(nodePath = process.execPath) {
       id: 'full-test-suite',
       label: 'Full roadmap-skill test suite',
       command: nodePath,
-      args: ['--test', 'test/*.test.js'],
+      args: [TEST_RUNNER_PATH],
       cwd: PACKAGE_ROOT,
       covers: ['CLI contract', 'slash surface', 'bundle manifests', 'launcher/task surface', 'docs contract tests'],
       validate(result) {

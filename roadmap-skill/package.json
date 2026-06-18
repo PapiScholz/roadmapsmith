@@ -8,7 +8,7 @@
   },
   "type": "commonjs",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node scripts/run-tests.js",
     "validate:qa-regression": "node scripts/pre-push-gate.js qa-regression",
     "validate:functional-smoke": "node scripts/pre-push-gate.js functional-smoke",
     "validate:pre-push": "node scripts/pre-push-gate.js all",

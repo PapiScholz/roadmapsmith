@@ -26,7 +26,7 @@ test('qa-regression plan exposes the full-suite and packed-surface checks', () =
   assert.equal(report.gate, 'qa-regression');
   assert.equal(report.status, 'planned');
   assert.deepEqual(report.checks.map((check) => check.id), ['full-test-suite', 'packed-surface']);
-  assert.match(report.checks[0].command, /--test test\/\*\.test\.js/);
+  assert.match(report.checks[0].command, /scripts[\/\\]run-tests\.js/);
   assert.match(report.checks[1].command, /scripts\/verify-pack-surface\.js/);
 });
 
