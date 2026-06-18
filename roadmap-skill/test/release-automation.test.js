@@ -338,6 +338,7 @@ test('release workflow contract keeps auto-release on push to main with serializ
   assert.match(workflow, /merge-release-pr:/);
   assert.match(workflow, /if:\s*github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'release\/v'\)/);
   assert.match(workflow, /gh pr merge \$\{\{ github\.event\.pull_request\.number \}\} --squash --delete-branch/);
+  assert.match(workflow, /GH_TOKEN:\s*\$\{\{\s*secrets\.RELEASE_BOT_TOKEN \|\| secrets\.GITHUB_TOKEN\s*\}\}/);
 });
 
 test('release docs describe the protected-branch auto-release contract', () => {
