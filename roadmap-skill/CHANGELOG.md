@@ -4,6 +4,21 @@
 
 - None yet.
 
+## v0.9.19 - 2026-06-18
+
+### Added
+- harden plugin bundle surfaces, preserve roadmap maintenance, and namespace slash commands (#26)
+- automate patch releases on main pushes (#27)
+
+### Fixed
+- make auto-release respect protected main (#28)
+- use release bot token for automated release PRs (#29)
+- unblock release CI loop on main (#31)
+
+### Changed
+- (release) v0.9.17 [skip ci] (#30)
+- (release) v0.9.18 (#32)
+
 ## v0.9.18 - 2026-06-18
 
 ### Added
