@@ -6,7 +6,7 @@ const { syncBundleMetadata } = require('./plugin-bundle');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..');
-const RELEASE_COMMIT_PATTERN = /^chore\(release\): v(\d+\.\d+\.\d+)$/;
+const RELEASE_COMMIT_PATTERN = /^chore\(release\): v(\d+\.\d+\.\d+)(?: \(#\d+\))?$/;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
