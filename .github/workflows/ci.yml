@@ -80,79 +80,39 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
 
     permissions:
       contents: write
       id-token: write
 
-    defaults:
-      run:
-        working-directory: roadmap-skill
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
 
       - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: roadmap-skill/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+        working-directory: roadmap-skill
 
-      - name: Detectar estado de publicación
-        id: version_check
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Auto-patch release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          NPM_VIEW_ERROR=$(mktemp)
-          if PUBLISHED=$(npm view roadmapsmith version 2>"$NPM_VIEW_ERROR"); then
-            :
-          elif grep -q 'E404' "$NPM_VIEW_ERROR"; then
-            PUBLISHED="none"
-          else
-            echo "::error::Failed to query npm for the published roadmapsmith version."
-            cat "$NPM_VIEW_ERROR"
-            exit 1
-          fi
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
-          if [ "$CURRENT" != "$PUBLISHED" ]; then
-            echo "publish_needed=true" >> $GITHUB_OUTPUT
-          else
-            echo "publish_needed=false" >> $GITHUB_OUTPUT
-          fi
-          if gh release view "v$CURRENT" >/dev/null 2>&1; then
-            echo "github_release_needed=false" >> $GITHUB_OUTPUT
-          else
-            echo "github_release_needed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publicar en npm
-        if: steps.version_check.outputs.publish_needed == 'true'
-        run: npm publish --access public
-
-      - name: Extraer notas del release desde CHANGELOG.md
-        if: steps.version_check.outputs.publish_needed == 'true' || steps.version_check.outputs.github_release_needed == 'true'
-        run: |
-          VERSION=${{ steps.version_check.outputs.current }}
-          awk -v version="$VERSION" '
-            $0 ~ "^##[[:space:]]+([[]?v?" version "[]]?)([[:space:]]|$)" { found=1; next }
-            found && $0 ~ "^##[[:space:]]+" { exit }
-            found { print }
-          ' CHANGELOG.md > /tmp/release-notes.txt
-          if [ ! -s /tmp/release-notes.txt ]; then
-            echo "Release v$VERSION" > /tmp/release-notes.txt
-          fi
-
-      - name: Crear GitHub Release
-        if: steps.version_check.outputs.github_release_needed == 'true'
-        run: |
-          gh release create "v${{ steps.version_check.outputs.current }}" \
-            --title "v${{ steps.version_check.outputs.current }}" \
-            --notes-file /tmp/release-notes.txt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node roadmap-skill/scripts/auto-release.js

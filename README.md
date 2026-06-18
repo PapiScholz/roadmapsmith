@@ -513,7 +513,7 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 After updating the Claude skill bundle, run `/reload-skills` and, if applicable, `/reload-plugins`.
 After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, launcher behavior, or Claude hook template. Published npm/plugin artifacts now include the Codex and Claude bundle files for downstream host loaders, but native GUI visibility still depends on the host loading the correct surface.
 
-Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing:
+Fixes are available through `@latest` after the next successful push to `main`, because release automation now publishes a new patch version on every merge. Before that push lands, install from a local checkout or a packed tarball for testing:
 
 ```bash
 npm install C:\Users\ezesc\Github\roadmapsmith\roadmap-skill
@@ -549,7 +549,7 @@ Release and publication notes now live in:
 - [docs/release-readiness.md](docs/release-readiness.md)
 - [docs/release-ux-gate.md](docs/release-ux-gate.md)
 
-Before publishing, the docs, changelog, CLI help, slash routing, and VS Code task surface should all agree on the same public contract:
+Before merging to `main`, the docs, changelog placeholder, CLI help, slash routing, and VS Code task surface should all agree on the same public contract:
 
 - `roadmapsmith setup`
 - `roadmapsmith zero`
