@@ -56,7 +56,7 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 After updating the Claude skill bundle, run `/reload-skills` and, if applicable, `/reload-plugins`.
 After updating the CLI, rerun `roadmapsmith setup` in repositories where you want the latest VS Code tasks, task wrappers, launcher behavior, or Claude hook template. Published npm/plugin artifacts now include the Codex and Claude bundle files for downstream host loaders, but native UX still depends on the host loading the correct surface.
 
-Fixes are available through `@latest` only after a new npm package version has been published. Before publication, install from a local checkout or a packed tarball for testing.
+Fixes are available through `@latest` after the next successful push to `main`, because release automation now publishes a new patch version on every merge. Before that push lands, install from a local checkout or a packed tarball for testing.
 
 ## Operating Modes
 
@@ -350,18 +350,16 @@ If `npm test` fails in your shell with "`node` is not recognized", treat that as
 npm run validate:qa-regression
 npm run validate:functional-smoke
 npm test
-npm version patch   # or minor / major
-npm publish --access public
-git push origin main --follow-tags
 ```
 
 Repository-specific release note:
 
 - The canonical release automation lives in `.github/workflows/ci.yml`.
-- This repository publishes from GitHub Actions on `main`; local `npm publish` is a maintainer workflow, not the default repo release path.
+- Every successful push to `main` now bumps `PATCH`, writes the version back with `chore(release): vX.Y.Z [skip ci]`, publishes to npm, and creates the GitHub Release automatically.
+- Repair reruns on the bot release commit do not bump again; they only publish/create any missing artifacts left behind by a partial failure.
 - Before any push, run the dual validation gate with separate owners: `QA/Regression` uses `npm run validate:qa-regression` and `Functional/Smoke` uses `npm run validate:functional-smoke`.
 - The release gate now includes packed-artifact verification for `skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and the referenced Codex assets so the published surface matches the GitHub-source bundle for both hosts.
-- Before publishing, verify the UX/release gate in `docs/release-ux-gate.md` and update `CHANGELOG.md` with the user-visible behavior changes.
+- Before merging to `main`, verify the UX/release gate in `docs/release-ux-gate.md` and keep `CHANGELOG.md` ready for CI-managed version section generation.
 
 ## Versioning Strategy
 

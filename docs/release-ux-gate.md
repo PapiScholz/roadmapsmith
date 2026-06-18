@@ -1,8 +1,10 @@
 # Release UX Gate
 
-Use this document before publishing a new `roadmapsmith` version.
+Use this document before merging a change that will publish the next `roadmapsmith` version.
 
 The goal is simple: a new user must understand how to start, recover from common failures, and avoid damaging existing workspace config.
+
+Every successful push to `main` publishes a new patch release automatically, including docs-only merges.
 
 ## Required User Contract
 
@@ -131,7 +133,7 @@ Pass when:
 - Codex docs explain that native plugin install/enable is separate from the VS Code task fallback
 - Claude docs explain that native GUI slash commands come from the installed skill bundle, not from the CLI slash router alone
 - `docs/release-readiness.md` matches the actual release workflow
-- `roadmap-skill/CHANGELOG.md` includes the user-visible UX/runtime changes
+- `roadmap-skill/CHANGELOG.md` keeps the CI-managed `## Unreleased` placeholder intact so the workflow can generate the next version section
 - the repo documents the dual pre-push subagent gate and the same command surfaces used by CI
 
 ## Evidence To Capture

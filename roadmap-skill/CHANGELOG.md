@@ -2,23 +2,7 @@
 
 ## Unreleased
 
-### Added
-- Native Codex plugin surface at `.codex-plugin/plugin.json` plus a repo-local Codex marketplace entry at `.agents/plugins/marketplace.json`, both pointing at the same shared `skills/` bundle used by Claude.
-- `--full-regen` as the explicit destructive managed-block rebuild path for `roadmapsmith generate` and `roadmapsmith maintain`.
-- A dedicated pre-push validation runner with `qa-regression`, `functional-smoke`, and aggregate gate modes for subagent-owned verification.
-
-### Fixed
-- Published package surface now stages and ships the full dual-host bundle (`skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and referenced Codex assets) instead of publishing only the CLI files.
-- Bundle metadata versions and shared plugin metadata are now checked against `roadmap-skill/package.json` so the Codex and Claude manifests cannot silently drift behind the npm package version.
-- `skills/roadmap-sync/agents/openai.yaml` now parses cleanly as Codex metadata instead of being ignored by the loader.
-
-### Changed
-- Release verification now asserts the packed artifact contents, not just a passive `npm pack --dry-run`, and the release-readiness docs now require checking the packed Codex plus Claude bundle surfaces explicitly.
-- `roadmapsmith doctor --json` now separates `claudeGui`, `claudeCli`, `codexGui`, and `codexCli`, and warns when a legacy standalone `roadmap-sync` skill duplicates the plugin-provided `/roadmap-sync` entry.
-- Existing-roadmap updates are now preserve-first by default: `maintain` keeps substantive managed content in place, then syncs and audits, while `generate` refuses substantive replacement unless the caller passes `--full-regen`.
-- The preferred native slash surface is now `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`, while `/roadmap-sync <action>` remains only as a deprecated CLI compatibility root.
-- Existing-repo roadmap maintenance is now preserve-first by default, while destructive regeneration requires `--full-regen`; the visible slash namespace now uses `/roadmap*` commands with `/roadmap-update` as the direct sync command and `/roadmap-sync <action>` kept as the legacy root.
-- CI and maintainer runbooks now consume the same pre-push validation gate commands that local QA/Regression and Functional/Smoke subagents are expected to run before any push.
+- None yet.
 
 ## v0.9.16 - 2026-06-13
 
