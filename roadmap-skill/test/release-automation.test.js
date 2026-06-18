@@ -156,7 +156,7 @@ test('prepareReleaseVersion keeps release commits in repair mode without bumping
   const result = prepareReleaseVersion({
     repoRoot: fixture.repoRoot,
     packageRoot: fixture.packageRoot,
-    commitMessage: 'chore(release): v1.2.4 [skip ci]',
+    commitMessage: 'chore(release): v1.2.4',
     write: true
   });
 
@@ -176,7 +176,7 @@ test('buildReleaseSection groups commits and falls back to Changed while excludi
       'fix(ci): keep release idempotent',
       'docs: explain auto patching',
       'ship the docs cleanup',
-      'chore(release): v1.2.4 [skip ci]'
+      'chore(release): v1.2.4'
     ]
   });
 
@@ -232,7 +232,7 @@ test('runAutoRelease normal mode simulates bump, commit, publish, and GitHub Rel
     'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
     'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
     'gh pr list --state open --base main --head release/v1.2.4 --json number,url,title': { stdout: '[]\n' },
-    'gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 [skip ci] --body ## Summary\n- automated release PR for v1.2.4\n- bumps package metadata and resets the changelog through the protected-branch path\n- merges back into `main` as the bot release commit, then the follow-up `main` run publishes npm and the GitHub Release in repair mode\n\n## Notes\n## v1.2.4 - 2026-06-18\n\n### Added\n- auto patch releases\n\n### Fixed\n- keep release idempotent\n\n### Changed\n- explain main publish contract': {
+    'gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 --body ## Summary\n- automated release PR for v1.2.4\n- bumps package metadata and resets the changelog through the protected-branch path\n- merges back into `main` as the bot release commit, then the follow-up `main` run publishes npm and the GitHub Release in repair mode\n\n## Notes\n## v1.2.4 - 2026-06-18\n\n### Added\n- auto patch releases\n\n### Fixed\n- keep release idempotent\n\n### Changed\n- explain main publish contract': {
       stdout: 'https://github.com/PapiScholz/roadmapsmith/pull/99\n'
     }
   }, calls);
@@ -251,9 +251,9 @@ test('runAutoRelease normal mode simulates bump, commit, publish, and GitHub Rel
   assert.equal(report.publication, null);
   assert.equal(JSON.parse(fs.readFileSync(path.join(fixture.packageRoot, 'package.json'), 'utf8')).version, '1.2.4');
   assert.match(fs.readFileSync(path.join(fixture.packageRoot, 'CHANGELOG.md'), 'utf8'), /## v1\.2\.4 - 2026-06-18/);
-  assert.ok(calls.some((call) => call.key === 'git commit -m chore(release): v1.2.4 [skip ci]'));
+  assert.ok(calls.some((call) => call.key === 'git commit -m chore(release): v1.2.4'));
   assert.ok(calls.some((call) => call.key === 'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4'));
-  assert.ok(calls.some((call) => call.key.startsWith('gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 [skip ci] --body ')));
+  assert.ok(calls.some((call) => call.key.startsWith('gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 --body ')));
   assert.ok(!calls.some((call) => call.key === 'npm publish --access public'));
   assert.ok(!calls.some((call) => call.key.startsWith('gh release create v1.2.4 --title v1.2.4 --notes-file ')));
 });
@@ -280,7 +280,7 @@ test('runAutoRelease repair mode republishes missing artifacts without a second 
 
   const calls = [];
   const runner = createRunner({
-    'git log -1 --pretty=%s': { stdout: 'chore(release): v1.2.4 [skip ci]\n' },
+    'git log -1 --pretty=%s': { stdout: 'chore(release): v1.2.4\n' },
     'git rev-parse -q --verify refs/tags/v1.2.4': { stdout: 'refs/tags/v1.2.4\n' },
     'npm view roadmapsmith version': { stdout: '1.2.3\n' },
     'gh release view v1.2.4': { status: 1, stderr: 'missing release\n' }
@@ -312,7 +312,7 @@ test('runAutoRelease normal mode reuses an existing release PR when present', ()
     'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
     'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
     'gh pr list --state open --base main --head release/v1.2.4 --json number,url,title': {
-      stdout: '[{"number":99,"url":"https://github.com/PapiScholz/roadmapsmith/pull/99","title":"chore(release): v1.2.4 [skip ci]"}]\n'
+      stdout: '[{"number":99,"url":"https://github.com/PapiScholz/roadmapsmith/pull/99","title":"chore(release): v1.2.4"}]\n'
     }
   }, calls);
 
@@ -337,7 +337,7 @@ test('release workflow contract keeps auto-release on push to main with serializ
   assert.match(workflow, /node roadmap-skill\/scripts\/auto-release\.js/);
   assert.match(workflow, /merge-release-pr:/);
   assert.match(workflow, /if:\s*github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'release\/v'\)/);
-  assert.match(workflow, /gh pr merge \$\{\{ github\.event\.pull_request\.number \}\} --squash --delete-branch/);
+  assert.match(workflow, /merge-release-pr:[\s\S]*- name: Checkout[\s\S]*actions\/checkout@v4[\s\S]*gh pr merge \$\{\{ github\.event\.pull_request\.number \}\} --squash --delete-branch/);
   assert.match(workflow, /GH_TOKEN:\s*\$\{\{\s*secrets\.RELEASE_BOT_TOKEN \|\| secrets\.GITHUB_TOKEN\s*\}\}/);
 });
 
