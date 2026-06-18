@@ -4,7 +4,7 @@ Use this document before merging a change that will publish the next `roadmapsmi
 
 The goal is simple: a new user must understand how to start, recover from common failures, and avoid damaging existing workspace config.
 
-Every successful push to `main` publishes a new patch release automatically, including docs-only merges.
+Every successful push to `main` now prepares a new patch release automatically, including docs-only merges, by opening or refreshing an automated `release/vX.Y.Z` PR. When that PR passes checks it merges back into `main`, and the follow-up `main` run publishes npm plus the GitHub Release in repair mode.
 
 ## Required User Contract
 

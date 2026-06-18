@@ -115,6 +115,10 @@ function ensureLocalTag(runner, repoRoot, tag) {
   return true;
 }
 
+function buildReleaseBranchName(version) {
+  return `release/v${version}`;
+}
+
 function writeReleaseNotesFile(notes) {
   const filePath = path.join(os.tmpdir(), `roadmapsmith-release-notes-${process.pid}.md`);
   fs.writeFileSync(filePath, `${String(notes || '').trim()}\n`, 'utf8');
@@ -157,6 +161,83 @@ function ensurePublishedArtifacts(runner, options = {}) {
   };
 }
 
+function pushReleaseBranch(runner, repoRoot, branchName) {
+  runChecked(runner, 'git', ['push', '--force-with-lease', 'origin', `HEAD:refs/heads/${branchName}`], { cwd: repoRoot });
+}
+
+function findOpenPullRequest(runner, repoRoot, branchName) {
+  const result = runChecked(runner, 'gh', [
+    'pr',
+    'list',
+    '--state',
+    'open',
+    '--base',
+    'main',
+    '--head',
+    branchName,
+    '--json',
+    'number,url,title'
+  ], {
+    cwd: repoRoot,
+    env: process.env
+  });
+
+  const pullRequests = JSON.parse(result.stdout || '[]');
+  return pullRequests[0] || null;
+}
+
+function ensureReleasePullRequest(runner, options = {}) {
+  const {
+    repoRoot = REPO_ROOT,
+    branchName,
+    version,
+    notes
+  } = options;
+
+  const existing = findOpenPullRequest(runner, repoRoot, branchName);
+  if (existing) {
+    return {
+      number: existing.number,
+      url: existing.url,
+      title: existing.title,
+      created: false
+    };
+  }
+
+  const body = [
+    '## Summary',
+    `- automated release PR for ${buildReleaseTag(version)}`,
+    '- bumps package metadata and resets the changelog through the protected-branch path',
+    '- merges back into `main` as the bot release commit, then the follow-up `main` run publishes npm and the GitHub Release in repair mode',
+    '',
+    '## Notes',
+    notes || `Release ${buildReleaseTag(version)}`
+  ].join('\n');
+
+  const result = runChecked(runner, 'gh', [
+    'pr',
+    'create',
+    '--base',
+    'main',
+    '--head',
+    branchName,
+    '--title',
+    buildReleaseCommitMessage(version),
+    '--body',
+    body
+  ], {
+    cwd: repoRoot,
+    env: process.env
+  });
+
+  return {
+    number: null,
+    url: trimOutput(result.stdout),
+    title: buildReleaseCommitMessage(version),
+    created: true
+  };
+}
+
 function commitReleaseState(runner, repoRoot, version) {
   const files = [
     'roadmap-skill/package.json',
@@ -170,11 +251,6 @@ function commitReleaseState(runner, repoRoot, version) {
 
   runChecked(runner, 'git', ['add', '--', ...files], { cwd: repoRoot });
   runChecked(runner, 'git', ['commit', '-m', buildReleaseCommitMessage(version)], { cwd: repoRoot });
-}
-
-function pushReleaseState(runner, repoRoot, tag) {
-  runChecked(runner, 'git', ['push', 'origin', 'HEAD:main'], { cwd: repoRoot });
-  runChecked(runner, 'git', ['push', 'origin', `refs/tags/${tag}`], { cwd: repoRoot });
 }
 
 function runAutoRelease(options = {}) {
@@ -197,6 +273,9 @@ function runAutoRelease(options = {}) {
 
   let notes;
   let previousTag = null;
+  let releaseBranch = null;
+  let pullRequest = null;
+  let publication = null;
 
   if (versionResult.mode === 'normal') {
     previousTag = getPreviousTag(runner, repoRoot);
@@ -209,22 +288,28 @@ function runAutoRelease(options = {}) {
       write: true
     }).notes;
 
+    releaseBranch = buildReleaseBranchName(versionResult.version);
+    runChecked(runner, 'git', ['checkout', '-B', releaseBranch], { cwd: repoRoot });
     commitReleaseState(runner, repoRoot, versionResult.version);
-    ensureLocalTag(runner, repoRoot, versionResult.tag);
-    pushReleaseState(runner, repoRoot, versionResult.tag);
+    pushReleaseBranch(runner, repoRoot, releaseBranch);
+    pullRequest = ensureReleasePullRequest(runner, {
+      repoRoot,
+      branchName: releaseBranch,
+      version: versionResult.version,
+      notes
+    });
   } else {
     ensureLocalTag(runner, repoRoot, versionResult.tag);
     runChecked(runner, 'git', ['push', 'origin', `refs/tags/${versionResult.tag}`], { cwd: repoRoot });
     const changelogContent = fs.readFileSync(path.join(packageRoot, 'CHANGELOG.md'), 'utf8');
     notes = extractReleaseNotes(changelogContent, versionResult.version);
+    publication = ensurePublishedArtifacts(runner, {
+      repoRoot,
+      packageRoot,
+      version: versionResult.version,
+      notes
+    });
   }
-
-  const publication = ensurePublishedArtifacts(runner, {
-    repoRoot,
-    packageRoot,
-    version: versionResult.version,
-    notes
-  });
 
   return {
     mode: versionResult.mode,
@@ -232,6 +317,8 @@ function runAutoRelease(options = {}) {
     version: versionResult.version,
     tag: versionResult.tag,
     previousTag,
+    releaseBranch,
+    pullRequest,
     publication
   };
 }
@@ -260,12 +347,15 @@ module.exports = {
   createProcessRunner,
   ensureLocalTag,
   ensurePublishedArtifacts,
+  ensureReleasePullRequest,
+  findOpenPullRequest,
   getCommitSubjects,
   getHeadCommitSubject,
   getPreviousTag,
   hasGitHubRelease,
   main,
-  pushReleaseState,
+  buildReleaseBranchName,
+  pushReleaseBranch,
   runAutoRelease,
   runChecked,
   tryReadPublishedVersion,

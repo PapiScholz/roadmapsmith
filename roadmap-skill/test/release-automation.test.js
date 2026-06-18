@@ -229,9 +229,12 @@ test('runAutoRelease normal mode simulates bump, commit, publish, and GitHub Rel
     'git log --pretty=%s --reverse v1.2.3..HEAD': {
       stdout: 'feat: auto patch releases\nfix: keep release idempotent\ndocs: explain main publish contract\n'
     },
-    'git rev-parse -q --verify refs/tags/v1.2.4': { status: 1, stderr: 'missing\n' },
-    'npm view roadmapsmith version': { stdout: '1.2.3\n' },
-    'gh release view v1.2.4': { status: 1, stderr: 'missing release\n' }
+    'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
+    'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
+    'gh pr list --state open --base main --head release/v1.2.4 --json number,url,title': { stdout: '[]\n' },
+    'gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 [skip ci] --body ## Summary\n- automated release PR for v1.2.4\n- bumps package metadata and resets the changelog through the protected-branch path\n- merges back into `main` as the bot release commit, then the follow-up `main` run publishes npm and the GitHub Release in repair mode\n\n## Notes\n## v1.2.4 - 2026-06-18\n\n### Added\n- auto patch releases\n\n### Fixed\n- keep release idempotent\n\n### Changed\n- explain main publish contract': {
+      stdout: 'https://github.com/PapiScholz/roadmapsmith/pull/99\n'
+    }
   }, calls);
 
   const report = runAutoRelease({
@@ -243,11 +246,16 @@ test('runAutoRelease normal mode simulates bump, commit, publish, and GitHub Rel
 
   assert.equal(report.mode, 'normal');
   assert.equal(report.version, '1.2.4');
+  assert.equal(report.releaseBranch, 'release/v1.2.4');
+  assert.equal(report.pullRequest.url, 'https://github.com/PapiScholz/roadmapsmith/pull/99');
+  assert.equal(report.publication, null);
   assert.equal(JSON.parse(fs.readFileSync(path.join(fixture.packageRoot, 'package.json'), 'utf8')).version, '1.2.4');
   assert.match(fs.readFileSync(path.join(fixture.packageRoot, 'CHANGELOG.md'), 'utf8'), /## v1\.2\.4 - 2026-06-18/);
   assert.ok(calls.some((call) => call.key === 'git commit -m chore(release): v1.2.4 [skip ci]'));
-  assert.ok(calls.some((call) => call.key === 'npm publish --access public'));
-  assert.ok(calls.some((call) => call.key.startsWith('gh release create v1.2.4 --title v1.2.4 --notes-file ')));
+  assert.ok(calls.some((call) => call.key === 'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4'));
+  assert.ok(calls.some((call) => call.key.startsWith('gh pr create --base main --head release/v1.2.4 --title chore(release): v1.2.4 [skip ci] --body ')));
+  assert.ok(!calls.some((call) => call.key === 'npm publish --access public'));
+  assert.ok(!calls.some((call) => call.key.startsWith('gh release create v1.2.4 --title v1.2.4 --notes-file ')));
 });
 
 test('runAutoRelease repair mode republishes missing artifacts without a second bump or commit', () => {
@@ -294,6 +302,32 @@ test('runAutoRelease repair mode republishes missing artifacts without a second 
   assert.ok(calls.some((call) => call.key.startsWith('gh release create v1.2.4 --title v1.2.4 --notes-file ')));
 });
 
+test('runAutoRelease normal mode reuses an existing release PR when present', () => {
+  const fixture = createReleaseFixture('1.2.3');
+  const calls = [];
+  const runner = createRunner({
+    'git log -1 --pretty=%s': { stdout: 'feat: auto patch releases\n' },
+    'git describe --tags --abbrev=0': { stdout: 'v1.2.3\n' },
+    'git log --pretty=%s --reverse v1.2.3..HEAD': { stdout: 'feat: auto patch releases\n' },
+    'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
+    'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
+    'gh pr list --state open --base main --head release/v1.2.4 --json number,url,title': {
+      stdout: '[{"number":99,"url":"https://github.com/PapiScholz/roadmapsmith/pull/99","title":"chore(release): v1.2.4 [skip ci]"}]\n'
+    }
+  }, calls);
+
+  const report = runAutoRelease({
+    runner,
+    repoRoot: fixture.repoRoot,
+    packageRoot: fixture.packageRoot,
+    now: new Date('2026-06-18T10:00:00Z')
+  });
+
+  assert.equal(report.pullRequest.number, 99);
+  assert.equal(report.pullRequest.created, false);
+  assert.ok(!calls.some((call) => call.key.startsWith('gh pr create ')));
+});
+
 test('release workflow contract keeps auto-release on push to main with serialized release concurrency', () => {
   const workflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
 
@@ -301,9 +335,12 @@ test('release workflow contract keeps auto-release on push to main with serializ
   assert.match(workflow, /if:\s*github\.ref == 'refs\/heads\/main' && github\.event_name == 'push'/);
   assert.match(workflow, /concurrency:\s*\n\s*group:\s*release-main/);
   assert.match(workflow, /node roadmap-skill\/scripts\/auto-release\.js/);
+  assert.match(workflow, /merge-release-pr:/);
+  assert.match(workflow, /if:\s*github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'release\/v'\)/);
+  assert.match(workflow, /gh pr merge \$\{\{ github\.event\.pull_request\.number \}\} --squash --delete-branch/);
 });
 
-test('release docs describe automatic patch publishing on every main push', () => {
+test('release docs describe the protected-branch auto-release contract', () => {
   const docs = [
     fs.readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8'),
     fs.readFileSync(path.join(REPO_ROOT, 'roadmap-skill', 'README.md'), 'utf8'),
@@ -311,6 +348,6 @@ test('release docs describe automatic patch publishing on every main push', () =
     fs.readFileSync(path.join(REPO_ROOT, 'docs', 'release-ux-gate.md'), 'utf8')
   ].join('\n');
 
-  assert.match(docs, /every successful push to `main` publishes a new patch release/i);
+  assert.match(docs, /every successful push to `main`.*automated `release\/vX\.Y\.Z` PR|protected-branch-safe release PR flow/i);
   assert.doesNotMatch(docs, /npm version patch\s+# or minor \/ major/i);
 });
