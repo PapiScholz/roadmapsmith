@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.26 - 2026-06-19
+
+### Fixed
+- resolve validator path hints for routes and home refs (#45)
+
 ## v0.9.25 - 2026-06-19
 
 ### Fixed
