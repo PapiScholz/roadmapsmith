@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.25 - 2026-06-19
+
+### Fixed
+- tighten validator sync and status surface (#42)
+
 ## v0.9.24 - 2026-06-19
 
 ### Fixed
