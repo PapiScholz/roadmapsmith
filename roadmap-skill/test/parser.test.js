@@ -35,6 +35,22 @@ test('parseRoadmap associates Evidence lines and delayed warning with the same t
   assert.equal(parsed.tasks[0].lastChildLineIndex, 3);
 });
 
+test('parseRoadmap normalizes legacy and current warning prefixes to the same warning text', () => {
+  const content = [
+    '## Phase P0',
+    '- [ ] Legacy warning task <!-- rs:task=legacy-warning -->',
+    '  - ⚠️ attempted but validation failed: missing test evidence',
+    '- [ ] Current warning task <!-- rs:task=current-warning -->',
+    '  - ⚠️ no implementation evidence found yet: missing test evidence',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.equal(parsed.tasks.length, 2);
+  assert.equal(parsed.tasks[0].warningText, 'missing test evidence');
+  assert.equal(parsed.tasks[1].warningText, 'missing test evidence');
+});
+
 test('parseRoadmap extracts rs:no-test marker flag', () => {
   const content = '- [ ] Implement windows autostart <!-- rs:task=p0-windows-autostart rs:no-test -->';
   const parsed = parseRoadmap(content);

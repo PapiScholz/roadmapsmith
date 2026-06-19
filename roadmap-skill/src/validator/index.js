@@ -275,15 +275,29 @@ function isAsciiAlphaNumeric(char) {
   return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
 }
 
-function isPathTokenCharacter(char) {
-  return isAsciiAlphaNumeric(char) || char === '.' || char === '_' || char === '-' || char === '/' || char === '\\';
+function isPathTokenCharacter(char, current) {
+  if (char === '~') {
+    return !current;
+  }
+  return isAsciiAlphaNumeric(char) || char === '.' || char === '_' || char === '-' || char === '/' || char === '\\' || char === ':';
 }
 
 function stripTrailingPathPunctuation(token) {
   let result = String(token || '');
   while (result.length > 0) {
     const lastChar = result[result.length - 1];
-    if (lastChar !== '.' && lastChar !== ',' && lastChar !== ';' && lastChar !== ':' && lastChar !== '!' && lastChar !== '?' && lastChar !== ')') {
+    if (
+      lastChar !== '.' &&
+      lastChar !== ',' &&
+      lastChar !== ';' &&
+      lastChar !== ':' &&
+      lastChar !== '!' &&
+      lastChar !== '?' &&
+      lastChar !== ')' &&
+      lastChar !== ']' &&
+      lastChar !== '>' &&
+      lastChar !== '`'
+    ) {
       break;
     }
     result = result.slice(0, -1);
@@ -294,22 +308,41 @@ function stripTrailingPathPunctuation(token) {
 function collectPathishTokens(text) {
   const tokens = [];
   let current = '';
+  let tokenStart = -1;
   const source = String(text || '');
   for (let index = 0; index < source.length; index += 1) {
     const char = source[index];
-    if (isPathTokenCharacter(char)) {
+    if (isPathTokenCharacter(char, current)) {
+      if (!current) {
+        tokenStart = index;
+      }
       current += char;
       continue;
     }
     if (current) {
-      tokens.push(stripTrailingPathPunctuation(current));
+      const value = stripTrailingPathPunctuation(current);
+      if (value) {
+        tokens.push({
+          value,
+          start: tokenStart,
+          end: tokenStart + value.length
+        });
+      }
       current = '';
+      tokenStart = -1;
     }
   }
   if (current) {
-    tokens.push(stripTrailingPathPunctuation(current));
+    const value = stripTrailingPathPunctuation(current);
+    if (value) {
+      tokens.push({
+        value,
+        start: tokenStart,
+        end: tokenStart + value.length
+      });
+    }
   }
-  return tokens.filter(Boolean);
+  return tokens;
 }
 
 // LINE_REF_RE matches "path/file.ext:NN" or "path/file.ext:NN-MM" — indicates WHERE
@@ -317,56 +350,142 @@ function collectPathishTokens(text) {
 // to lineReferenceHints and excluded from hasDirectReferencePass scoring.
 const LINE_REF_RE = /^(.+?):(\d+)(?:-\d+)?$/;
 
-function normalizeExplicitPathCandidate(rawToken) {
-  const clean = stripTrailingPathPunctuation(String(rawToken || '').trim());
+function normalizePathCandidateToken(rawToken) {
+  const stripped = stripTrailingPathPunctuation(String(rawToken || '').trim());
+  if (!stripped) {
+    return '';
+  }
+  const normalized = stripped.replace(/\\/g, '/');
+  if (/^~\//.test(normalized)) {
+    return normalized;
+  }
+  return normalized.replace(/^~(?=\/)/, '~');
+}
+
+function isExternalPathToken(token) {
+  return /^~\//.test(String(token || '').trim().replace(/\\/g, '/'));
+}
+
+function classifyExplicitPathCandidate(rawToken) {
+  const clean = normalizePathCandidateToken(rawToken);
   if (!clean || clean.includes('*') || clean.includes('?')) {
     return null;
   }
 
   const lineMatch = LINE_REF_RE.exec(clean);
   if (lineMatch) {
-    const linePath = stripTrailingPathPunctuation(lineMatch[1]);
+    const linePath = normalizePathCandidateToken(lineMatch[1]);
+    if (isExternalPathToken(linePath)) {
+      return { path: linePath, kind: 'external', isLineReference: true };
+    }
     if (isRealFilePath(linePath)) {
-      return { path: linePath, isLineReference: true };
+      return { path: linePath, kind: 'repo', isLineReference: true };
     }
     return null;
+  }
+
+  if (isExternalPathToken(clean)) {
+    return { path: clean, kind: 'external', isLineReference: false };
   }
 
   if (!isRealFilePath(clean)) {
     return null;
   }
 
-  return { path: clean, isLineReference: false };
+  return { path: clean, kind: 'repo', isLineReference: false };
+}
+
+function addClassifiedPath(classified, results, externalPaths, lineReferenceHints) {
+  if (!classified) return;
+  if (classified.kind === 'external') {
+    externalPaths.add(classified.path);
+  } else {
+    results.add(classified.path);
+    if (classified.isLineReference) {
+      lineReferenceHints.add(classified.path);
+    }
+  }
+}
+
+function findHttpRequestRouteRanges(text) {
+  const ranges = [];
+  const pattern = /\b(?:GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`]+)/gi;
+  let match = pattern.exec(String(text || ''));
+  while (match) {
+    const routeToken = match[1];
+    const routeStart = match.index + match[0].length - routeToken.length;
+    ranges.push({ start: routeStart, end: routeStart + routeToken.length });
+    match = pattern.exec(String(text || ''));
+  }
+  return ranges;
+}
+
+function isTokenInsideRanges(token, ranges) {
+  return ranges.some((range) => token.start >= range.start && token.end <= range.end);
+}
+
+function addPathTokensFromPlainText(text, results, externalPaths, lineReferenceHints) {
+  const ignoredRanges = findHttpRequestRouteRanges(text);
+  for (const token of collectPathishTokens(text)) {
+    if (!token.value.includes('/') && !isExternalPathToken(token.value)) {
+      continue;
+    }
+    if (isTokenInsideRanges(token, ignoredRanges)) {
+      continue;
+    }
+    addClassifiedPath(classifyExplicitPathCandidate(token.value), results, externalPaths, lineReferenceHints);
+  }
+}
+
+function addPathTokensFromBacktickSpan(text, results, externalPaths, lineReferenceHints) {
+  const wholeSpan = classifyExplicitPathCandidate(text);
+  if (wholeSpan) {
+    addClassifiedPath(wholeSpan, results, externalPaths, lineReferenceHints);
+    return;
+  }
+
+  if (!/[;,]/.test(text)) {
+    return;
+  }
+
+  for (const part of text.split(/[;,]/)) {
+    addClassifiedPath(classifyExplicitPathCandidate(part), results, externalPaths, lineReferenceHints);
+  }
 }
 
 function extractExplicitPaths(text) {
   const results = new Set();
+  const externalPaths = new Set();
   const lineReferenceHints = new Set();
+  const source = String(text || '');
+  let cursor = 0;
 
-  const quoted = String(text).match(/`([^`]+)`/g) || [];
-  for (const token of quoted) {
-    const normalized = normalizeExplicitPathCandidate(token.slice(1, -1));
-    if (!normalized) continue;
-    results.add(normalized.path);
-    if (normalized.isLineReference) {
-      lineReferenceHints.add(normalized.path);
+  while (cursor < source.length) {
+    const openTick = source.indexOf('`', cursor);
+    if (openTick < 0) {
+      addPathTokensFromPlainText(source.slice(cursor), results, externalPaths, lineReferenceHints);
+      break;
     }
-  }
 
-  for (const word of String(text).split(/\s+/)) {
-    if (!word.includes('/')) continue;
-    const normalized = normalizeExplicitPathCandidate(word);
-    if (!normalized) continue;
-    results.add(normalized.path);
-    if (normalized.isLineReference) {
-      lineReferenceHints.add(normalized.path);
+    addPathTokensFromPlainText(source.slice(cursor, openTick), results, externalPaths, lineReferenceHints);
+    const closeTick = source.indexOf('`', openTick + 1);
+    if (closeTick < 0) {
+      addPathTokensFromPlainText(source.slice(openTick), results, externalPaths, lineReferenceHints);
+      break;
     }
+
+    addPathTokensFromBacktickSpan(source.slice(openTick + 1, closeTick), results, externalPaths, lineReferenceHints);
+    cursor = closeTick + 1;
   }
 
   const paths = Array.from(results)
     .filter((p) => !p.includes('*') && !p.includes('?'))
     .sort((left, right) => left.localeCompare(right));
-  return { paths, lineReferenceHints };
+  return {
+    paths,
+    externalPaths: Array.from(externalPaths).sort((left, right) => left.localeCompare(right)),
+    lineReferenceHints
+  };
 }
 
 // Standalone filenames (no slash) mentioned in task prose — e.g. "roadmap-skill.config.json",
@@ -434,10 +553,59 @@ function isImplementationTask(taskText) {
   return !isDocTask(taskText) && (isCodeTask(taskText) || taskDescribesChange(taskText));
 }
 
-function findFilesByPathHints(pathHints, fileIndex) {
+function deriveNextAppRouteAlias(relativePath) {
+  const normalized = normalizePathForMatch(relativePath);
+  const match = normalized.match(/^(?:src\/)?app(?:\/(.*))?\/(page|route)\.(?:js|jsx|ts|tsx)$/);
+  if (!match) {
+    return null;
+  }
+
+  const routePath = match[1] || '';
+  const segments = routePath ? routePath.split('/').filter(Boolean) : [];
+  const visibleSegments = [];
+  for (const segment of segments) {
+    if (/^\([^)]*\)$/.test(segment)) {
+      continue;
+    }
+    if (segment.includes('(') || segment.includes(')') || segment.includes('[') || segment.includes(']') || segment.startsWith('@')) {
+      return null;
+    }
+    visibleSegments.push(segment);
+  }
+
+  return visibleSegments.length > 0 ? `/${visibleSegments.join('/')}` : '/';
+}
+
+function buildPathHintResolver(fileIndex) {
+  const routeAliasIndex = new Map();
+  for (const file of fileIndex) {
+    const alias = deriveNextAppRouteAlias(file.relativePath);
+    if (!alias) {
+      continue;
+    }
+    const existing = routeAliasIndex.get(alias) || [];
+    existing.push(file.relativePath);
+    routeAliasIndex.set(alias, existing);
+  }
+
+  for (const [alias, matches] of routeAliasIndex.entries()) {
+    routeAliasIndex.set(alias, Array.from(new Set(matches)).sort((left, right) => left.localeCompare(right)));
+  }
+
+  return {
+    fileIndex,
+    routeAliasIndex
+  };
+}
+
+function findFilesByPathHints(pathHints, pathHintResolver) {
+  const resolver = Array.isArray(pathHintResolver)
+    ? buildPathHintResolver(pathHintResolver)
+    : pathHintResolver;
+  const fileIndex = resolver.fileIndex;
   const matches = [];
   for (const hint of pathHints) {
-    const normalizedHint = hint.replace(/\\/g, '/');
+    const normalizedHint = normalizePathCandidateToken(hint);
     const direct = fileIndex.find((file) => file.relativePath === normalizedHint);
     if (direct) {
       matches.push(direct.relativePath);
@@ -448,6 +616,11 @@ function findFilesByPathHints(pathHints, fileIndex) {
       if (file.relativePath.endsWith(normalizedHint)) {
         matches.push(file.relativePath);
       }
+    }
+
+    const routeMatches = resolver.routeAliasIndex.get(normalizedHint);
+    if (routeMatches && routeMatches.length > 0) {
+      matches.push(...routeMatches);
     }
   }
   return Array.from(new Set(matches)).sort((left, right) => left.localeCompare(right));
@@ -740,19 +913,12 @@ function isTestPath(relativePath) {
   return /(^|\/)(__tests__|tests)\//.test(relativePath) || /\.test\.|\.spec\.|_test\.go$/.test(relativePath);
 }
 
-function extractEvidencePaths(evidenceText) {
-  const paths = new Set();
-  for (const rawCandidate of collectPathishTokens(evidenceText)) {
-    const candidate = rawCandidate.split('\\').join('/');
-    if (!candidate.includes('/') || candidate.includes('*') || candidate.includes('?')) {
-      continue;
-    }
-    if (!hasKnownFileExtension(candidate)) {
-      continue;
-    }
-    paths.add(candidate.replace(/^\.\//, ''));
-  }
-  return Array.from(paths).sort((left, right) => left.localeCompare(right));
+function extractReferencedPaths(text) {
+  const extracted = extractExplicitPaths(text);
+  return {
+    repoPaths: extracted.paths,
+    externalPaths: extracted.externalPaths
+  };
 }
 
 function evidenceLineHasPassingSummary(evidenceText) {
@@ -771,7 +937,7 @@ function evidenceSummaryImpliesTests(evidenceText) {
     /\b(?:vitest|jest|npm test|pnpm test|yarn test|bun test)\b/i.test(String(evidenceText || ''));
 }
 
-function evaluateAuthoritativeEvidence(task, fileIndex) {
+function evaluateAuthoritativeEvidence(task, pathHintResolver) {
   const evidenceLines = Array.isArray(task.evidenceLines) ? task.evidenceLines : [];
   if (evidenceLines.length === 0) {
     return {
@@ -786,8 +952,9 @@ function evaluateAuthoritativeEvidence(task, fileIndex) {
     };
   }
 
-  const referencedPaths = unionArrays(...evidenceLines.map((line) => extractEvidencePaths(line.text)));
-  const matchedPaths = referencedPaths.length > 0 ? findFilesByPathHints(referencedPaths, fileIndex) : [];
+  const extractedReferences = evidenceLines.map((line) => extractReferencedPaths(line.text));
+  const referencedPaths = unionArrays(...extractedReferences.map((entry) => entry.repoPaths));
+  const matchedPaths = referencedPaths.length > 0 ? findFilesByPathHints(referencedPaths, pathHintResolver) : [];
   const summaryMatches = evidenceLines
     .filter((line) => evidenceLineHasPassingSummary(line.text))
     .map((line) => line.text);
@@ -1110,6 +1277,7 @@ function buildValidationContext(projectRoot, config, plugins) {
   const files = walkFiles(projectRoot);
   const fileIndex = readFileIndex(projectRoot, files, config);
   const testFrameworks = detectTestFrameworks(projectRoot, files);
+  const pathHintResolver = buildPathHintResolver(fileIndex);
 
   return {
     projectRoot,
@@ -1117,26 +1285,31 @@ function buildValidationContext(projectRoot, config, plugins) {
     plugins,
     files,
     fileIndex,
+    pathHintResolver,
     testFrameworks
   };
 }
 
 function validateTask(task, context, config, plugins) {
-  const { paths: pathHints, lineReferenceHints } = extractExplicitPaths(task.text);
+  const {
+    paths: pathHints,
+    externalPaths,
+    lineReferenceHints
+  } = extractExplicitPaths(task.text);
   // Paths that are line-reference hints (file.ts:NN) indicate WHERE to implement,
   // not that implementation exists. They are excluded from hasDirectReferencePass.
   const purePathHints = pathHints.filter((p) => !lineReferenceHints.has(p));
   const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
-  const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.fileIndex);
+  const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.pathHintResolver);
 
-  const filesFromPaths = findFilesByPathHints(pathHints, context.fileIndex);
-  const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.fileIndex);
+  const filesFromPaths = findFilesByPathHints(pathHints, context.pathHintResolver);
+  const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.pathHintResolver);
   const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
   // Combine path hints AND standalone filenames for token exclusion so that tokens
   // derived from any referenced filename (e.g. "roadmap-skill" from
   // "roadmap-skill.config.json") are excluded from code evidence scoring.
-  const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...standaloneFilenames]);
+  const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...externalPaths, ...standaloneFilenames]);
   const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
   const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens);
   const weakPathContentTokens = findWeakPathContentSpecificTokens(task.text, context.fileIndex, filesFromWeakPathTokens, pathDerivedTokens);
