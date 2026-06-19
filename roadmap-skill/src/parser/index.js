@@ -4,7 +4,12 @@ const { slugify } = require('../utils');
 
 const MANAGED_START = '<!-- rs:managed:start -->';
 const MANAGED_END = '<!-- rs:managed:end -->';
-const WARNING_PREFIX = '⚠️ attempted but validation failed:';
+const WARNING_PREFIX = '⚠️';
+const WARNING_REASON_PREFIXES = [
+  'attempted but validation failed:',
+  'no implementation evidence found yet:',
+  'validation failed:'
+];
 
 function getIndentWidth(text) {
   return String(text || '').replace(/\t/g, '    ').length;
@@ -86,7 +91,14 @@ function parseEvidenceLine(content) {
 
 function parseWarningLine(content) {
   if (!content.startsWith(WARNING_PREFIX)) return null;
-  return content.slice(WARNING_PREFIX.length).trim();
+  let normalized = content.slice(WARNING_PREFIX.length).trim();
+  for (const prefix of WARNING_REASON_PREFIXES) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length).trim();
+      break;
+    }
+  }
+  return normalized;
 }
 
 function parseBlockedByLine(content) {
@@ -98,6 +110,7 @@ function parseRoadmap(content) {
   const lines = String(content || '').split(/\r?\n/);
   const managedRange = findManagedRange(lines);
   const tasks = [];
+  const implicitIdCounts = new Map();
   let section = '';
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -162,7 +175,12 @@ function parseRoadmap(content) {
       }
     }
 
-    const id = markerId || slugify(text);
+    const baseId = markerId || slugify(text);
+    const nextImplicitCount = markerId ? 1 : (implicitIdCounts.get(baseId) || 0) + 1;
+    if (!markerId) {
+      implicitIdCounts.set(baseId, nextImplicitCount);
+    }
+    const id = markerId || (nextImplicitCount === 1 ? baseId : `${baseId}-${nextImplicitCount}`);
     tasks.push({
       id,
       text,

@@ -16,7 +16,7 @@ const SLASH_ACTIONS = [
   {
     id: 'status',
     description: 'Inspect CLI, roadmap, VS Code task, Codex, and Claude readiness.',
-    classicCliExample: 'roadmapsmith doctor --json',
+    classicCliExample: 'roadmapsmith status --json',
     taskLabel: 'RoadmapSmith: Status'
   },
   {

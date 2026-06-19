@@ -5,7 +5,8 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildValidationContext, validateTask, auditValidation, applyMinimumConfidence, CONFIDENCE_RANK, extractTaskNamespace, isAcceptanceCriteria } = require('../src/validator');
+const { parseRoadmap } = require('../src/parser');
+const { buildValidationContext, validateTask, validateTasks, auditValidation, applyMinimumConfidence, CONFIDENCE_RANK, extractTaskNamespace, isAcceptanceCriteria } = require('../src/validator');
 const { loadConfig } = require('../src/config');
 const { walkFiles, detectWorkspaces } = require('../src/io');
 
@@ -57,6 +58,26 @@ test('validator checks explicit file existence hints', () => {
   const fail = validateTask({ id: 'missing-file', text: 'Create parser in `src/missing.js`' }, context, config, []);
   assert.equal(fail.passed, false);
   assert.match(fail.reasons.join('; '), /missing referenced file/);
+});
+
+test('backticked HTTP routes, MIME types, and formulas do not become referenced file paths', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const cases = [
+    { id: 'http-backtick', text: 'Handle `GET /api/backup` gracefully' },
+    { id: 'mime-backtick', text: 'Support `image/png` uploads' },
+    { id: 'formula-backtick', text: 'Explain `margen = (precioVenta - costPrice) / precioVenta * 100` in docs' }
+  ];
+
+  for (const task of cases) {
+    const result = validateTask(task, context, config, []);
+    assert.ok(
+      !result.reasons.some((reason) => reason.includes('missing referenced file')),
+      `"${task.text}" must not produce missing referenced file reasons, got: ${result.reasons.join('; ')}`
+    );
+  }
 });
 
 test('Evidence line with existing test file passes with medium confidence', () => {
@@ -196,6 +217,24 @@ test('Partial implementation helper alone does not complete feature task', () =>
 
   assert.equal(result.evidence.code, true);
   assert.equal(result.passed, false);
+});
+
+test('token-overlap code evidence does not count as a concrete attempt by itself', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'billing.js'), 'export function billingModule() { return true; }\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    { id: 'future-billing', text: 'Implement billing module' },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.evidence.code, true);
+  assert.equal(result.attempted, false);
 });
 
 test('Negative implementation signals block authoritative Evidence completion when code is explicitly not implemented', () => {
@@ -1010,6 +1049,52 @@ test('rs:no-test disables test requirement for task', () => {
   );
   assert.equal(result.requiresTest, false);
   assert.ok(!result.reasons.includes('missing test evidence'));
+});
+
+test('HTTP expectation acceptance lines do not require standalone test evidence', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const cases = [
+    { id: 'http-400', text: 'POST con `stock: -1` -> HTTP 400' },
+    { id: 'http-401', text: 'GET /api/settings/modules sin sesión -> HTTP 401' }
+  ];
+
+  for (const task of cases) {
+    const result = validateTask(task, context, config, []);
+    assert.equal(result.requiresTest, false, `"${task.text}" must not require a standalone test`);
+    assert.ok(
+      !result.reasons.includes('missing test evidence'),
+      `"${task.text}" must not report missing test evidence, got: ${result.reasons.join('; ')}`
+    );
+  }
+});
+
+test('duplicate implicit task text gets independent validation results', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'lib', 'inventory-sync.ts'), 'export function syncInventory() {}\n', 'utf8');
+
+  const content = [
+    '## Phase P1',
+    '- [ ] Implement inventory sync',
+    '  - Evidence: src/lib/inventory-sync.ts',
+    '- [ ] Implement inventory sync',
+    '  - Evidence: src/lib/missing-inventory-sync.ts',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+
+  assert.equal(parsed.tasks[0].id, 'implement-inventory-sync');
+  assert.equal(parsed.tasks[1].id, 'implement-inventory-sync-2');
+  assert.equal(results[parsed.tasks[0].id].passed, true);
+  assert.equal(results[parsed.tasks[1].id].passed, false);
+  assert.match(results[parsed.tasks[1].id].reasons.join('; '), /missing-inventory-sync\.ts/);
 });
 
 test('i18n and translation files are excluded from evidence file index', () => {

@@ -529,15 +529,15 @@ test('cli sync preserves existing managed block structure on weak path-only fail
   run(['sync'], projectRoot);
 
   const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
-  const warningMatches = content.match(/⚠️ attempted but validation failed/g) || [];
+  const warningMatches = content.match(/⚠️ no implementation evidence found yet/g) || [];
 
-  assert.equal(warningMatches.length, 0);
+  assert.equal(warningMatches.length, 1);
   assert.match(content, /## Phase Alfa: Desktop Shell Comercial/);
   assert.match(content, /Contexto de negocio: el shell Electron mantiene Next\.js embebido para demos offline\./);
   assert.match(content, /### Criterio de avance/);
   assert.match(content, /La experiencia de escritorio debe iniciar sin depender de servicios externos\./);
   assert.match(content, /- \[ \] Configurar Electron con Next\.js como servidor embebido/);
-  assert.doesNotMatch(content, /weak path-only evidence lacks content-specific token match/);
+  assert.match(content, /weak path-only evidence lacks content-specific token match/);
   assert.match(content, /- \[ \] Implement app module <!-- rs:task=outside-implement-app-module -->/);
   assert.doesNotMatch(content, /Add SEO metadata/);
   assert.doesNotMatch(content, /Implement responsive/);
@@ -749,7 +749,8 @@ test('doctor --json reports missing integration state', () => {
   const payload = JSON.parse(result.stdout);
 
   assert.notEqual(result.status, 0);
-  assert.equal(payload.cli.ready, false);
+  assert.equal(payload.cli.ready, true);
+  assert.equal(payload.cli.kind, 'current-process');
   assert.equal(payload.vscode.tasks.ready, false);
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, false);
@@ -813,6 +814,21 @@ test('doctor --json reports missing task runtime without downgrading Claude read
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, true);
   assert.deepEqual(Object.keys(payload.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
+});
+
+test('status --json matches doctor --json payload and exit semantics', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-status-alias-'));
+  run(['init'], projectRoot);
+
+  const doctorResult = runResult(['doctor', '--json', '--project-root', projectRoot], projectRoot, {
+    env: buildNoCliEnv()
+  });
+  const statusResult = runResult(['status', '--json', '--project-root', projectRoot], projectRoot, {
+    env: buildNoCliEnv()
+  });
+
+  assert.equal(statusResult.status, doctorResult.status);
+  assert.deepEqual(JSON.parse(statusResult.stdout), JSON.parse(doctorResult.stdout));
 });
 
 test('launcher accepts /roadmap and prints the same conceptual palette', () => {

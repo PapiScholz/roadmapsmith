@@ -43,6 +43,24 @@ test('parseRoadmap extracts rs:no-test marker flag', () => {
   assert.equal(parsed.tasks[0].noTest, true);
 });
 
+test('parseRoadmap disambiguates repeated implicit task text while preserving explicit IDs', () => {
+  const content = [
+    '- [ ] Implement billing module',
+    '- [ ] Implement billing module',
+    '- [ ] Implement billing module <!-- rs:task=explicit-billing -->',
+    '- [ ] Implement billing module',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.deepEqual(parsed.tasks.map((task) => task.id), [
+    'implement-billing-module',
+    'implement-billing-module-2',
+    'explicit-billing',
+    'implement-billing-module-3'
+  ]);
+});
+
 test('parseRoadmap reports managed block range', () => {
   const content = [
     '# Notes',

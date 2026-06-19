@@ -58,7 +58,8 @@ An AI agent that marks a task `[x]` without calling `sync` is making an assertio
 
 When `sync` runs:
 - Tasks with passing evidence are marked `[x]`
-- Tasks without evidence emit `⚠️ attempted but validation failed: <reason>` in the roadmap
+- Tasks with concrete attempt evidence emit `⚠️ attempted but validation failed: <reason>` in the roadmap
+- Tasks without concrete attempt evidence emit `⚠️ no implementation evidence found yet: <reason>` in the roadmap
 - `--audit` surfaces tasks that claim completion but have no evidence, and tasks that have evidence but are still unchecked
 
 This means a PR reviewer can run `sync --audit` and see a factual mismatch report — not just the agent's word.

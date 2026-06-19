@@ -197,18 +197,9 @@ function hasFileExtension(token) {
 }
 
 function isLikelyPath(token) {
-  if (token.includes('*') || token.includes('?')) return false; // glob/wildcard
-  if (/^\/api\//i.test(token)) return false; // HTTP API route paths are not file paths
-  if (/^\.{1,2}\/|^\//.test(token)) {
-    // Bare "/" or "./" with nothing after is not a real path (e.g. "API / ESC-POS" → "/")
-    return /[A-Za-z0-9_]/.test(token);
-  }
-  if (hasFileExtension(token)) return true;
-  if (KNOWN_PATH_ROOTS.some((root) => token.startsWith(root))) return true;
-  // The ">= 2 slashes" rule was intentionally removed: it caused conceptual slash phrases
-  // like "code/test/artifact" or "build/test/deploy" to be treated as file paths.
-  // Real multi-segment paths are caught by the extension or known-root rules above.
-  return false;
+  if (isRealFilePath(token)) return true;
+  // Preserve the legacy extension-only fallback for standalone path-looking tokens.
+  return hasFileExtension(token);
 }
 
 // Matches standalone filenames without a slash — e.g. "roadmap-skill.config.json",
@@ -228,6 +219,54 @@ function hasKnownFileExtension(token) {
   const lastDot = token.lastIndexOf('.');
   if (lastDot < 0) return false;
   return KNOWN_FILE_EXTENSIONS.has(token.slice(lastDot).toLowerCase());
+}
+
+function startsWithKnownPathRoot(token) {
+  const normalized = String(token || '').replace(/\\/g, '/').toLowerCase();
+  return KNOWN_PATH_ROOTS.some((root) => normalized.startsWith(root.toLowerCase()));
+}
+
+function isHttpRouteToken(token) {
+  const normalized = String(token || '').trim();
+  if (!normalized) return false;
+  if (/^(GET|POST|PUT|PATCH|DELETE)\s+\/\S+$/i.test(normalized)) {
+    return true;
+  }
+  return /^\/api\//i.test(normalized);
+}
+
+function isMimeTypeToken(token) {
+  return /^[A-Za-z0-9.+-]+\/[A-Za-z0-9.+-]+$/.test(String(token || '').trim());
+}
+
+function looksLikeFormulaToken(token) {
+  return /[=×÷]/.test(String(token || '').trim());
+}
+
+function isRealFilePath(token) {
+  const normalized = String(token || '').trim().replace(/\\/g, '/');
+  if (!normalized) return false;
+  if (normalized.includes('*') || normalized.includes('?')) return false;
+  if (/\s/.test(normalized)) return false;
+  if (looksLikeFormulaToken(normalized)) return false;
+  if (isHttpRouteToken(normalized)) return false;
+
+  const looksLikePath =
+    hasKnownFileExtension(normalized) ||
+    startsWithKnownPathRoot(normalized) ||
+    /^\.{1,2}\//.test(normalized) ||
+    /^\//.test(normalized);
+  if (!looksLikePath) return false;
+
+  if (!hasKnownFileExtension(normalized) && !startsWithKnownPathRoot(normalized) && isMimeTypeToken(normalized)) {
+    return false;
+  }
+
+  if (/^\.{1,2}\/|^\//.test(normalized)) {
+    return /[A-Za-z0-9_]/.test(normalized);
+  }
+
+  return true;
 }
 
 function isAsciiAlphaNumeric(char) {
@@ -278,39 +317,49 @@ function collectPathishTokens(text) {
 // to lineReferenceHints and excluded from hasDirectReferencePass scoring.
 const LINE_REF_RE = /^(.+?):(\d+)(?:-\d+)?$/;
 
+function normalizeExplicitPathCandidate(rawToken) {
+  const clean = stripTrailingPathPunctuation(String(rawToken || '').trim());
+  if (!clean || clean.includes('*') || clean.includes('?')) {
+    return null;
+  }
+
+  const lineMatch = LINE_REF_RE.exec(clean);
+  if (lineMatch) {
+    const linePath = stripTrailingPathPunctuation(lineMatch[1]);
+    if (isRealFilePath(linePath)) {
+      return { path: linePath, isLineReference: true };
+    }
+    return null;
+  }
+
+  if (!isRealFilePath(clean)) {
+    return null;
+  }
+
+  return { path: clean, isLineReference: false };
+}
+
 function extractExplicitPaths(text) {
   const results = new Set();
   const lineReferenceHints = new Set();
 
   const quoted = String(text).match(/`([^`]+)`/g) || [];
   for (const token of quoted) {
-    const clean = token.slice(1, -1);
-    if (clean.includes('*') || clean.includes('?')) continue; // glob
-    const hasSlash = clean.includes('/') || clean.includes('\\');
-    // Require a slash or a known file extension — rejects property access like err.message,
-    // fs.readFileSync, error.stack (whose extensions are not in KNOWN_FILE_EXTENSIONS).
-    if (!hasSlash && !hasKnownFileExtension(clean)) continue;
-    const lineMatch = LINE_REF_RE.exec(clean);
-    if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
-      lineReferenceHints.add(lineMatch[1]);
-      results.add(lineMatch[1]);
-    } else {
-      results.add(clean);
+    const normalized = normalizeExplicitPathCandidate(token.slice(1, -1));
+    if (!normalized) continue;
+    results.add(normalized.path);
+    if (normalized.isLineReference) {
+      lineReferenceHints.add(normalized.path);
     }
   }
 
   for (const word of String(text).split(/\s+/)) {
     if (!word.includes('/')) continue;
-    const token = stripTrailingPathPunctuation(word);
-    if (token.includes('*') || token.includes('?')) continue; // glob
-    const lineMatch = LINE_REF_RE.exec(token);
-    if (lineMatch && hasKnownFileExtension(lineMatch[1])) {
-      if (isLikelyPath(lineMatch[1])) {
-        lineReferenceHints.add(lineMatch[1]);
-        results.add(lineMatch[1]);
-      }
-    } else if (isLikelyPath(token)) {
-      results.add(token);
+    const normalized = normalizeExplicitPathCandidate(word);
+    if (!normalized) continue;
+    results.add(normalized.path);
+    if (normalized.isLineReference) {
+      lineReferenceHints.add(normalized.path);
     }
   }
 
@@ -361,6 +410,14 @@ function extractSymbolHints(text) {
 function isCodeTask(taskText) {
   const normalized = String(taskText).toLowerCase();
   return CODE_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function isHttpExpectationTask(taskText) {
+  const text = String(taskText || '');
+  if (!/(?:->|→)/.test(text) || !/\bHTTP\s+\d{3}\b/i.test(text)) {
+    return false;
+  }
+  return /\b(?:GET|POST|PUT|PATCH|DELETE)\b/i.test(text) || /\/api\//i.test(text);
 }
 
 function isDocTask(taskText) {
@@ -1143,7 +1200,12 @@ function validateTask(task, context, config, plugins) {
     }
   }
 
-  const requiresTest = !task.noTest && context.testFrameworks.length > 0 && isCodeTask(task.text) && !isDocTask(task.text);
+  const requiresTest =
+    !task.noTest &&
+    context.testFrameworks.length > 0 &&
+    isCodeTask(task.text) &&
+    !isDocTask(task.text) &&
+    !isHttpExpectationTask(task.text);
   const configuredRules = Array.isArray(config.validators) ? config.validators : [];
   const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
   let overrideResult = null;
@@ -1181,13 +1243,14 @@ function validateTask(task, context, config, plugins) {
     uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
   }
 
-  const hasConcreteReferenceEvidence = filesFromPurePathHints.length > 0 || filesFromSymbols.length > 0;
-  const attempted = authoritativeEvidence.active
-    || hasRuleGrantedEvidence
-    || evidence.code
-    || evidence.test
-    || evidence.artifact
-    || hasConcreteReferenceEvidence;
+  const hasConcreteReferenceEvidence = filesFromPaths.length > 0 || filesFromSymbols.length > 0;
+  const hasConcreteAttemptEvidence =
+    authoritativeEvidence.active ||
+    hasRuleGrantedEvidence ||
+    filesFromTests.length > 0 ||
+    hasConcreteReferenceEvidence ||
+    (isDocTask(task.text) && filesFromArtifacts.length > 0);
+  const attempted = hasConcreteAttemptEvidence;
   const { categories: strongEvidenceCategories } = countStrongEvidenceCategories(task.text, evidence);
   const strongEvidenceCount = strongEvidenceCategories.length;
   // Only pure path hints (not line-reference hints like file.ts:169) count as direct evidence.

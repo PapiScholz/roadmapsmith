@@ -121,8 +121,8 @@ Pass when:
 - unrelated Claude hooks/settings are preserved
 - invalid host config causes a hard failure
 - invalid host config leaves no partial writes behind
-- `roadmapsmith doctor --json` separates `claudeGui`, `claudeCli`, `codexGui`, and `codexCli`
-- `roadmapsmith doctor --json` reports `/roadmap-sync` as duplicated when a legacy `~/.agents/skills/roadmap-sync` install coexists with the Codex plugin
+- `roadmapsmith status --json` separates `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` (`doctor --json` remains a compatibility alias)
+- `roadmapsmith status --json` reports `/roadmap-sync` as duplicated when a legacy `~/.agents/skills/roadmap-sync` install coexists with the Codex plugin
 
 ### 6. Docs and release notes
 

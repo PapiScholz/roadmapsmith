@@ -31,7 +31,8 @@ function printHelp() {
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
-    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]'
+    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
+    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]   # compatibility alias'
   ].join('\n'));
 }
 
@@ -245,7 +246,7 @@ function printHumanStatus(payload) {
 function runStatusCommand(projectRoot, config, flags, options = {}) {
   const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
   const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile });
+  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, currentCliPath: __filename });
 
   if (options.json) {
     process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
@@ -443,7 +444,7 @@ async function run() {
     return;
   }
 
-  if (effectiveCommand === 'doctor') {
+  if (effectiveCommand === 'status' || effectiveCommand === 'doctor') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     let ok = true;
     const jsonMode = isEnabled(flags.json);

@@ -22,7 +22,7 @@
     "command": "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
     "source": "PapiScholz/roadmapsmith",
     "skill": "*",
-    "notes": "Recommended Claude Code install path for native GUI slash commands like /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, and /roadmap-setup. The legacy /roadmap-sync root remains available for compatibility, especially as /roadmap-sync <action>. Install the roadmapsmith CLI separately for actual command execution, then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
+    "notes": "Recommended Claude Code install path for native GUI slash commands like /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, and /roadmap-setup. The legacy /roadmap-sync root remains available for compatibility, especially as /roadmap-sync <action>. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the visible readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
   },
   "skills": [
     {
@@ -46,7 +46,7 @@
     {
       "name": "roadmap-status",
       "path": "skills/roadmap-status",
-      "description": "Native slash readiness check grounded in roadmapsmith doctor JSON.",
+      "description": "Native slash readiness check grounded in roadmapsmith status JSON.",
       "version": "0.9.24"
     },
     {

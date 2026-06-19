@@ -120,7 +120,7 @@ roadmapsmith /roadmap-sync validate
 
 **`validate`** runs the multi-pass evidence scan. Each task is scored against: backtick-quoted paths in task text, symbol names, code token matching (threshold: 2+ matches for multi-token tasks), test file matching, and artifact presence. Results include the reason a task passed or failed.
 
-**`sync`** writes only within a `<!-- rs:managed:start/end -->` block, leaving the rest of your `ROADMAP.md` untouched. It marks passing tasks `[x]` and appends `⚠️ attempted but validation failed: <reason>` for failing ones. `sync --audit` currently runs that same mutation path and then prints a mismatch summary; it is not yet a separate read-only audit mode.
+**`sync`** writes only within a `<!-- rs:managed:start/end -->` block, leaving the rest of your `ROADMAP.md` untouched. It marks passing tasks `[x]` and appends warning lines for failing ones: `⚠️ attempted but validation failed: <reason>` when there is concrete attempt evidence, or `⚠️ no implementation evidence found yet: <reason>` when there is not. `sync --audit` currently runs that same mutation path and then prints a mismatch summary; it is not yet a separate read-only audit mode.
 
 ## Host Support Today
 
@@ -369,7 +369,8 @@ Do not use it if:
 | `roadmapsmith generate --project-root . --full-regen` | Explicit full managed-block rebuild |
 | `roadmapsmith validate --json` | Validate roadmap task evidence and emit JSON results |
 | `roadmapsmith sync --audit` | Apply sync and print a mismatch summary; currently mutates `ROADMAP.md` |
-| `roadmapsmith doctor --json` | Check repository plus host readiness, plus native slash surfaces for `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` |
+| `roadmapsmith status --json` | Check repository plus host readiness, plus native slash surfaces for `claudeGui`, `claudeCli`, `codexGui`, and `codexCli` |
+| `roadmapsmith doctor --json` | Compatibility alias for `roadmapsmith status --json` |
 | `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code` | Install the full Claude GUI skill bundle with native slash commands |
 | `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` | Install only the legacy `/roadmap-sync` skill |
 
@@ -473,7 +474,7 @@ Then restart Codex, open the plugin directory, install `roadmapsmith` from the `
 
 Codex native support means plugin install and enablement inside Codex. It does not reuse Claude's `/reload-skills` flow. If you are not using the plugin directory, the supported fallback remains `roadmapsmith setup` plus the VS Code task and launcher workflow.
 
-`roadmapsmith doctor --json` now separates native surfaces from the repo-local task layer:
+`roadmapsmith status --json` now separates native surfaces from the repo-local task layer (`doctor --json` remains a compatibility alias):
 
 - `claudeGui`
 - `claudeCli`
@@ -612,7 +613,7 @@ The validation pipeline combines multiple evidence signals with a configurable c
 This maps to a concrete safety principle: **autonomous execution requires traceable justification**. An agent that marks a task complete should point to the change. If it cannot, the task does not advance.
 
 Current guardrails built into the system:
-- Tasks with insufficient evidence emit `⚠️ attempted but validation failed: <reason>` in the roadmap
+- Tasks with insufficient evidence emit `⚠️ attempted but validation failed: <reason>` when there is concrete attempt evidence, or `⚠️ no implementation evidence found yet: <reason>` when there is not
 - `sync --audit` surfaces tasks marked complete without passing validation
 - `validate --json` traces exactly why each task passed or failed — every evidence signal is reported
 

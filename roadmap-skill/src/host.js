@@ -921,7 +921,7 @@ function renderVsCodeLauncher() {
     'function explain() {',
     '  console.log(\'RoadmapSmith layers:\\n\');',
     '  console.log(\'1. The roadmap-sync skill guides the agent. It does not add VS Code buttons or install the CLI.\');',
-    '  console.log(\'2. The roadmapsmith CLI executes zero/maintain plus init/generate/validate/sync/setup/doctor, with --full-regen reserved for destructive replacement.\');',
+    '  console.log(\'2. The roadmapsmith CLI executes zero/maintain plus init/generate/validate/sync/setup/status, with doctor kept as a compatibility alias and --full-regen reserved for destructive replacement.\');',
     '  console.log(\'3. roadmapsmith setup makes the CLI visible in VS Code through tasks and optional Claude hook wiring.\\n\');',
     '  console.log(\'Typical VS Code workflow:\');',
     '  console.log(\'- Run "RoadmapSmith: Status" to inspect readiness.\');',
@@ -1020,7 +1020,7 @@ function renderVsCodeLauncher() {
     '}',
     '',
     'function status() {',
-    '  const result = runCli([\'doctor\', \'--project-root\', PROJECT_ROOT, \'--json\'], { capture: true, allowMissingCli: true });',
+    '  const result = runCli([\'status\', \'--project-root\', PROJECT_ROOT, \'--json\'], { capture: true, allowMissingCli: true });',
     '  if (!result || result.missingCli) {',
     '    printMissingCliStatus();',
     '    return;',
@@ -1143,7 +1143,26 @@ function findGlobalRoadmapsmith() {
   return findCommandPath('roadmapsmith');
 }
 
-function detectCliResolution(projectRoot) {
+function isRoadmapsmithCliEntrypoint(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return normalized.endsWith('/roadmap-skill/bin/cli.js')
+    || normalized.endsWith('/roadmapsmith/bin/cli.js')
+    || /(?:^|[\\/])roadmapsmith(?:\.(?:cmd|exe|bat|ps1))?$/.test(normalized);
+}
+
+function detectCliResolution(projectRoot, options = {}) {
+  const currentCliPath = options.currentCliPath || process.argv[1] || null;
+  if (currentCliPath && isRoadmapsmithCliEntrypoint(currentCliPath)) {
+    return {
+      ready: true,
+      kind: 'current-process',
+      path: currentCliPath
+    };
+  }
+
   const workspaceDevCli = path.join(projectRoot, 'roadmap-skill', 'bin', 'cli.js');
   if (fs.existsSync(workspaceDevCli)) {
     return {
@@ -1244,7 +1263,7 @@ function inspectHostSetup(projectRoot, options = {}) {
   const roadmapFile = options.roadmapFile;
   const agentsFile = options.agentsFile;
   const runtime = detectNodeRuntime(options.env || process.env);
-  const cli = detectCliResolution(projectRoot);
+  const cli = detectCliResolution(projectRoot, { currentCliPath: options.currentCliPath });
   const vscode = inspectVsCodeTasks(projectRoot);
   const claude = inspectClaudeSetup(projectRoot);
   const bundle = inspectSharedBundleSurface();

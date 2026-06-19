@@ -3,14 +3,21 @@
 const { parseRoadmap } = require('../parser');
 const { ensureTrailingNewline } = require('../utils');
 
-const WARNING_REASON_PREFIX = 'attempted but validation failed:';
+const ATTEMPTED_WARNING_REASON_PREFIX = 'attempted but validation failed:';
+const NO_EVIDENCE_WARNING_REASON_PREFIX = 'no implementation evidence found yet:';
+const WARNING_REASON_PREFIXES = [
+  ATTEMPTED_WARNING_REASON_PREFIX,
+  NO_EVIDENCE_WARNING_REASON_PREFIX,
+  'validation failed:'
+];
 
 function setChecklistState(line, checked) {
   return line.replace(/- \[( |x|X)\]/, `- [${checked ? 'x' : ' '}]`);
 }
 
-function formatWarning(indent, reason) {
-  return `${indent}  - ⚠️ attempted but validation failed: ${reason}`;
+function formatWarning(indent, reason, attempted) {
+  const prefix = attempted ? ATTEMPTED_WARNING_REASON_PREFIX : NO_EVIDENCE_WARNING_REASON_PREFIX;
+  return `${indent}  - ⚠️ ${prefix} ${reason}`;
 }
 
 function isWhitespaceCharacter(char) {
@@ -72,9 +79,12 @@ function normalizeWarningReason(reason) {
   }
 
   normalized = stripLeadingWarningMarker(normalized).trim();
-  const prefixIndex = normalized.indexOf(WARNING_REASON_PREFIX);
-  if (prefixIndex >= 0) {
-    normalized = normalized.slice(prefixIndex + WARNING_REASON_PREFIX.length).trim();
+  for (const prefix of WARNING_REASON_PREFIXES) {
+    const prefixIndex = normalized.indexOf(prefix);
+    if (prefixIndex >= 0) {
+      normalized = normalized.slice(prefixIndex + prefix.length).trim();
+      break;
+    }
   }
 
   return normalized;
@@ -122,12 +132,12 @@ function applySync(content, parsedTasks, results) {
     lines[lineIndex] = setChecklistState(lines[lineIndex], result.passed);
 
     const reason = normalizeWarningReasons(result.reasons).join('; ');
-    const warningText = formatWarning(task.indent || '', reason || 'validation failed');
+    const warningText = formatWarning(task.indent || '', reason || 'validation failed', result.attempted);
     const hasWarning = task.warningLineIndex != null;
     const warningIndex = hasWarning ? task.warningLineIndex + offset : null;
     const lastChildLineIndex = (task.lastChildLineIndex != null ? task.lastChildLineIndex : task.lineIndex) + offset;
 
-    if (result.passed || !result.attempted) {
+    if (result.passed) {
       if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
         lines.splice(warningIndex, 1);
         offset -= 1;
@@ -136,7 +146,7 @@ function applySync(content, parsedTasks, results) {
     }
 
     if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
-      const existingReason = lines[warningIndex].split('validation failed:')[1];
+      const existingReason = normalizeWarningReason(lines[warningIndex]);
       const newReason = reason || 'validation failed';
       if (!shouldPreserveExistingWarning(existingReason, newReason)) {
         lines[warningIndex] = warningText;

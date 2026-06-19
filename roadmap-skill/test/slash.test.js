@@ -49,11 +49,11 @@ test('resolveSlashInvocation keeps unknown direct slash queries in palette mode'
 });
 
 test('renderSlashPalette includes direct, router, and task examples', () => {
-  const output = renderSlashPalette({ source: '/roadmap', suggestions: getSlashSuggestions('sync') });
+  const output = renderSlashPalette({ source: '/roadmap', suggestions: getSlashSuggestions('status') });
   assert.match(output, /RoadmapSmith slash palette/);
   assert.match(output, /Router form:/);
   assert.match(output, /Classic CLI:/);
-  assert.match(output, /\/roadmap-update/);
-  assert.match(output, /\/roadmap-sync/);
+  assert.match(output, /\/roadmap-status/);
+  assert.match(output, /roadmapsmith status --json/);
   assert.match(output, /VS Code task:/);
 });

@@ -120,7 +120,8 @@ roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]
 roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]
 roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]
 roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]
-roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]
+roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]
+roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]   # compatibility alias
 ```
 
 ## Claude Code native slash commands
@@ -153,7 +154,7 @@ Then restart Codex, open the plugin directory, install `roadmapsmith` from the `
 
 Codex native plugin support means install/enable discovery inside Codex. It is separate from Claude-specific `/reload-skills` behavior, and the VS Code task layer remains the fallback/manual workflow when you are not using the plugin directory.
 
-`roadmapsmith doctor --json` now reports native slash surfaces separately from the VS Code task layer:
+`roadmapsmith status --json` now reports native slash surfaces separately from the VS Code task layer (`doctor --json` remains a compatibility alias):
 
 - `claudeGui`
 - `claudeCli`
@@ -179,7 +180,8 @@ The repo does not remove user-global skills automatically. Use the `doctor` outp
   - code OR test OR artifact evidence required.
   - test evidence required for code tasks when test frameworks are detected.
 - Validation failures in sync write warning lines:
-  - `- ⚠️ attempted but validation failed: <reason>`
+  - `- ⚠️ attempted but validation failed: <reason>` when there is concrete attempt evidence
+  - `- ⚠️ no implementation evidence found yet: <reason>` when there is not
 - Preserves unmanaged markdown content by updating only the managed roadmap block.
 
 ## Defaults

@@ -18,6 +18,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Zero Mode and Sync/Audit Mode documentation now match the real CLI and VS Code task flows.
 - Host documentation now separates the native Codex plugin surface, the Claude skill-bundle surface, and the CLI plus VS Code fallback surface explicitly.
 - `roadmapsmith doctor --json` now separates native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the VS Code task plus Claude hook setup layer.
+- `roadmapsmith status` is now the visible classic readiness command, with `roadmapsmith doctor` kept as a compatibility alias to the same inspection payload.
 - `maintain` and `generate` are now documented as preserve-first updates for existing substantive managed blocks, while `/roadmap-update` replaces direct `/roadmap-sync` usage as the visible sync slash entrypoint.
 - The public slash namespace now prefers `/roadmap*` commands, uses `/roadmap-update` as the visible direct sync command, keeps `/roadmap-sync <action>` as the legacy root, and requires `--full-regen` before destructive regeneration.
 - Release and maintainer docs now require independent subagent-owned validation passes before push, and CI reuses the same gate commands.
@@ -25,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Codex loader metadata for `skills/roadmap-sync/agents/openai.yaml` now parses cleanly instead of being ignored as invalid YAML.
 - `doctor` now detects the common duplicate-`/roadmap-sync` case where a legacy `~/.agents/skills/roadmap-sync` install coexists with the full `roadmapsmith` Codex plugin.
+- Validator/sync now distinguish concrete implementation attempts from no-evidence tasks, ignore backticked HTTP/MIME/formula tokens as file paths, exempt HTTP expectation lines from standalone test requirements, and keep implicit duplicate task text deterministic via unique per-occurrence IDs.
 
 ## [0.7.0] — 2026-04-27
 
