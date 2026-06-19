@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.24 - 2026-06-19
+
+### Fixed
+- tighten roadmap sync warning semantics
+
 ## v0.9.23 - 2026-06-19
 
 ### Fixed
