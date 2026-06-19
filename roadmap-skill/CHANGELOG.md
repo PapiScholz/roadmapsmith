@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.27 - 2026-06-19
+
+### Changed
+- add cli black-box regression coverage (#47)
+
 ## v0.9.26 - 2026-06-19
 
 ### Fixed
