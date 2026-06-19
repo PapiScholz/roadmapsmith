@@ -13,13 +13,65 @@ function formatWarning(indent, reason) {
   return `${indent}  - ⚠️ attempted but validation failed: ${reason}`;
 }
 
+function isWhitespaceCharacter(char) {
+  return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f' || char === '\v';
+}
+
+function stripLeadingWarningMarker(value) {
+  let index = 0;
+  const source = String(value || '');
+  while (index < source.length && isWhitespaceCharacter(source[index])) {
+    index += 1;
+  }
+  if (source.slice(index, index + 2) === '⚠️') {
+    index += 2;
+  }
+  while (index < source.length && isWhitespaceCharacter(source[index])) {
+    index += 1;
+  }
+  return source.slice(index);
+}
+
+function splitWarningReasonSegments(value) {
+  const source = String(value || '');
+  const segments = [];
+  let current = '';
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index];
+    if (char === ';') {
+      const trimmed = current.trim();
+      if (trimmed) {
+        segments.push(trimmed);
+      }
+      current = '';
+      index += 1;
+      while (index < source.length && isWhitespaceCharacter(source[index])) {
+        index += 1;
+      }
+      continue;
+    }
+
+    current += char;
+    index += 1;
+  }
+
+  const trimmed = current.trim();
+  if (trimmed) {
+    segments.push(trimmed);
+  }
+
+  return segments;
+}
+
 function normalizeWarningReason(reason) {
   let normalized = String(reason || '').trim();
   if (!normalized) {
     return '';
   }
 
-  normalized = normalized.replace(/^⚠️\s*/, '').trim();
+  normalized = stripLeadingWarningMarker(normalized).trim();
   const prefixIndex = normalized.indexOf(WARNING_REASON_PREFIX);
   if (prefixIndex >= 0) {
     normalized = normalized.slice(prefixIndex + WARNING_REASON_PREFIX.length).trim();
@@ -32,7 +84,7 @@ function normalizeWarningReasons(reasons) {
   const normalized = [];
   const seen = new Set();
   for (const reason of Array.isArray(reasons) ? reasons : [reasons]) {
-    for (const chunk of String(reason || '').split(/\s*;\s*/)) {
+    for (const chunk of splitWarningReasonSegments(reason)) {
       const clean = normalizeWarningReason(chunk);
       if (!clean || seen.has(clean)) {
         continue;
