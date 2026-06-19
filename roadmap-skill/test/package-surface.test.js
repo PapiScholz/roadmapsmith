@@ -4,6 +4,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('child_process');
+const { buildNpmPackEnv } = require('../scripts/verify-pack-surface');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 
@@ -28,6 +29,12 @@ function resolveNpmRunInvocation() {
     args: ['run', 'verify-pack-surface', '--silent']
   };
 }
+
+test('verify-pack-surface forces npm pack to use a dedicated cache directory', () => {
+  const env = buildNpmPackEnv(path.join(PACKAGE_ROOT, '.tmp-pack-cache'));
+
+  assert.equal(env.npm_config_cache, path.join(PACKAGE_ROOT, '.tmp-pack-cache'));
+});
 
 test('npm pack includes the full Codex and Claude bundle surface', (t) => {
   if (!process.env.npm_execpath) {

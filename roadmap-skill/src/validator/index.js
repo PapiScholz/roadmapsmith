@@ -373,6 +373,10 @@ function isDocTask(taskText) {
   return /\b(add|create|write|update|init|initialize|introduce|setup|document)\b/.test(normalized);
 }
 
+function isImplementationTask(taskText) {
+  return !isDocTask(taskText) && (isCodeTask(taskText) || taskDescribesChange(taskText));
+}
+
 function findFilesByPathHints(pathHints, fileIndex) {
   const matches = [];
   for (const hint of pathHints) {
@@ -1177,7 +1181,13 @@ function validateTask(task, context, config, plugins) {
     uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
   }
 
-  const attempted = hasStrongEvidence || hasWeakEvidence || pathHints.length > 0 || symbolHints.length > 0 || authoritativeEvidence.active;
+  const hasConcreteReferenceEvidence = filesFromPurePathHints.length > 0 || filesFromSymbols.length > 0;
+  const attempted = authoritativeEvidence.active
+    || hasRuleGrantedEvidence
+    || evidence.code
+    || evidence.test
+    || evidence.artifact
+    || hasConcreteReferenceEvidence;
   const { categories: strongEvidenceCategories } = countStrongEvidenceCategories(task.text, evidence);
   const strongEvidenceCount = strongEvidenceCategories.length;
   // Only pure path hints (not line-reference hints like file.ts:169) count as direct evidence.
@@ -1220,6 +1230,7 @@ function validateTask(task, context, config, plugins) {
   // WHERE to implement, not that implementation is done. Unchecked tasks need authoritative
   // evidence, artifact evidence, or strong code+test threshold to pass.
   // Already-checked tasks with found path hints are preserved via shouldPreserveCheckedTask.
+  const hasHighConfidenceImplementationEvidence = meetsStrongThreshold && evidence.code && evidence.test;
   let passed = authoritativeEvidence.passed || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
 
   if (!passed && !task.checked && hasDirectReferencePass) {
@@ -1234,30 +1245,29 @@ function validateTask(task, context, config, plugins) {
   // human/agent judgment that the feature is incomplete.
   if (task.warningText && !task.checked && passed && !authoritativeEvidence.passed) {
     passed = false;
-    uniqueReasons.push(task.warningText);
-    uniqueReasons = Array.from(new Set(uniqueReasons));
+    if (uniqueReasons.length === 0) {
+      uniqueReasons.push('validation failed');
+    }
   }
   if (negativeSignalMatches.length > 0) {
     passed = false;
   }
 
-  // Action-verb gate (Causa 3): unchecked tasks that describe a change to be made
-  // (Agregar, Configurar, Add, Fix, Manejo, Recovery path, …) cannot pass on code token overlap alone.
-  // Requires either: an Evidence line (authoritativeEvidence.passed), high-confidence evidence
-  // (code + test), grant-evidence from config (hasTrustedRuleEvidencePass), or canonical artifact
-  // evidence (hasArtifactTaskPass — e.g. "Add SECURITY.md").
+  // Unchecked implementation tasks need explicit evidence or high-confidence implementation
+  // evidence. Weak token overlap, direct file references, or code-only matches are not enough.
   if (
     !task.checked &&
     passed &&
-    taskDescribesChange(task.text) &&
+    isImplementationTask(task.text) &&
     !authoritativeEvidence.passed &&
     !hasTrustedRuleEvidencePass &&
-    !hasArtifactTaskPass
+    !hasArtifactTaskPass &&
+    !hasHighConfidenceImplementationEvidence
   ) {
     passed = false;
-    const actionVerbReason = 'action task requires Evidence line or high-confidence evidence (code + test) to be marked complete';
-    if (!uniqueReasons.includes(actionVerbReason)) {
-      uniqueReasons.push(actionVerbReason);
+    const implementationReason = 'implementation task requires Evidence line or high-confidence evidence (code + test) to be marked complete';
+    if (!uniqueReasons.includes(implementationReason)) {
+      uniqueReasons.push(implementationReason);
     }
   }
 

@@ -961,7 +961,7 @@ test('weak path-token evidence finds files even without explicit path hints', ()
   const result = validateTask({ id: 'electron-main', text: 'Configurar Electron con Next.js como servidor embebido' }, context, config, []);
 
   assert.equal(result.passed, false);
-  assert.equal(result.attempted, true);
+  assert.equal(result.attempted, false);
   assert.equal(result.confidence, 'low');
   assert.ok(result.evidence.weakPathFiles.some((p) => p.includes('electron/main.ts')));
   assert.ok(result.reasons.includes('weak path-only evidence lacks content-specific token match'));
@@ -991,7 +991,7 @@ test('weak path-only evidence does not complete Mercado Pago Point integration t
   );
 
   assert.equal(result.passed, false);
-  assert.equal(result.attempted, true);
+  assert.equal(result.attempted, false);
   assert.equal(result.confidence, 'low');
   assert.ok(result.evidence.weakPathFiles.includes('src/app/api/mercadopago/preference/route.ts'));
   assert.deepEqual(result.evidence.weakPathContentTokens, []);
@@ -1346,7 +1346,7 @@ test('Action-verb task with path hint and code tokens stays unchecked without Ev
     context, config, []
   );
   assert.equal(result.passed, false, 'action-verb task without Evidence line must stay unchecked');
-  assert.ok(result.reasons.some((r) => r.includes('action task requires')), 'reason must indicate action task requirement');
+  assert.ok(result.reasons.some((r) => r.includes('implementation task requires')), 'reason must indicate implementation task requirement');
 });
 
 // Causa 3b: same action-verb task WITH Evidence line passes
@@ -1372,7 +1372,7 @@ test('Action-verb task WITH Evidence line passes despite no test evidence', () =
     context, config, []
   );
   assert.equal(result.passed, true, 'action-verb task WITH Evidence line must pass');
-  assert.ok(!result.reasons.some((r) => r.includes('action task requires')), 'action task reason must not appear when Evidence line is present');
+  assert.ok(!result.reasons.some((r) => r.includes('implementation task requires')), 'implementation task reason must not appear when Evidence line is present');
 });
 
 test('taskDescribesChange catches noun form "Manejo" and two-word "Recovery path"', () => {
@@ -1394,14 +1394,14 @@ test('taskDescribesChange catches noun form "Manejo" and two-word "Recovery path
     context, config, []
   );
   assert.equal(r1.passed, false, '"Manejo" must be caught as an action task');
-  assert.ok(r1.reasons.some((r) => r.includes('action task requires')));
+  assert.ok(r1.reasons.some((r) => r.includes('implementation task requires')));
 
   const r2 = validateTask(
     { id: 'recovery-cash', text: 'Recovery path para cash sessions huérfanas en src/lib/db.ts', checked: false },
     context, config, []
   );
   assert.equal(r2.passed, false, '"Recovery path" must be caught as an action task');
-  assert.ok(r2.reasons.some((r) => r.includes('action task requires')));
+  assert.ok(r2.reasons.some((r) => r.includes('implementation task requires')));
 });
 
 test('Action task without Evidence line stays unchecked despite token match in generic fixture', () => {
@@ -1422,7 +1422,7 @@ test('Action task without Evidence line stays unchecked despite token match in g
     context, config, []
   );
   assert.equal(result.passed, false, 'action task must stay unchecked even when file exists with matching tokens');
-  assert.ok(result.reasons.some((r) => r.includes('action task requires')), 'reason must mention Evidence line or high-confidence');
+  assert.ok(result.reasons.some((r) => r.includes('implementation task requires')), 'reason must mention Evidence line or high-confidence');
 });
 
 test('Action task WITH Evidence line is marked complete', () => {
@@ -1446,7 +1446,7 @@ test('Action task WITH Evidence line is marked complete', () => {
     context, config, []
   );
   assert.equal(result.passed, true, 'action task WITH Evidence line must pass');
-  assert.ok(!result.reasons.some((r) => r.includes('action task requires')));
+  assert.ok(!result.reasons.some((r) => r.includes('implementation task requires')));
 });
 
 test('Non-action task with token match can pass without Evidence line', () => {
@@ -1464,7 +1464,7 @@ test('Non-action task with token match can pass without Evidence line', () => {
     { id: 'stock-management', text: 'Stock management module in inventory/page.tsx', checked: false },
     context, config, []
   );
-  assert.ok(!result.reasons.some((r) => r.includes('action task requires')), 'non-action task must not be blocked by action gate');
+  assert.ok(!result.reasons.some((r) => r.includes('implementation task requires')), 'non-action task must not be blocked by implementation gate');
 });
 
 test('/api/* HTTP route paths do not produce missing-file failures', () => {
@@ -1487,7 +1487,7 @@ test('/api/* HTTP route paths do not produce missing-file failures', () => {
   }
 });
 
-test('action task stays unchecked even when BOTH code and test files match its tokens', () => {
+test('implementation task passes when BOTH code and test files match its tokens', () => {
   const projectRoot = setupFixture('generic');
 
   fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
@@ -1522,11 +1522,9 @@ test('action task stays unchecked even when BOTH code and test files match its t
   );
 
   assert.equal(
-    result.passed, false,
-    'action task must stay unchecked even when code + test files both match tokens'
+    result.passed, true,
+    'implementation task should pass when code + test files both match tokens'
   );
-  assert.ok(
-    result.reasons.some((r) => r.includes('action task requires')),
-    `expected "action task requires" in reasons, got: ${JSON.stringify(result.reasons)}`
-  );
+  assert.equal(result.confidence, 'high');
+  assert.ok(!result.reasons.some((r) => r.includes('implementation task requires')));
 });

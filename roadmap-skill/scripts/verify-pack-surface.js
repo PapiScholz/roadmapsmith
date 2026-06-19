@@ -52,18 +52,35 @@ function parsePackJson(raw) {
   }
 }
 
-function runNpmPackJson(packDestination) {
-  const npmInvocation = resolveNpmInvocation();
-  const raw = execFileSync(
-    npmInvocation.command,
-    [...npmInvocation.prefixArgs, 'pack', '--json', '--pack-destination', packDestination],
-    {
-      cwd: PACKAGE_ROOT,
-      encoding: 'utf8'
-    }
-  );
+function buildNpmPackEnv(cacheDirectory) {
+  return {
+    ...process.env,
+    npm_config_cache: cacheDirectory
+  };
+}
 
-  return parsePackJson(raw);
+function runNpmPackJson(packDestination, options = {}) {
+  const npmInvocation = resolveNpmInvocation();
+  const cacheDirectory = options.cacheDirectory || fs.mkdtempSync(path.join(os.tmpdir(), 'roadmapsmith-npm-cache-'));
+  const ownsCacheDirectory = !options.cacheDirectory;
+  fs.mkdirSync(cacheDirectory, { recursive: true });
+  try {
+    const raw = execFileSync(
+      npmInvocation.command,
+      [...npmInvocation.prefixArgs, 'pack', '--json', '--pack-destination', packDestination],
+      {
+        cwd: PACKAGE_ROOT,
+        encoding: 'utf8',
+        env: buildNpmPackEnv(cacheDirectory)
+      }
+    );
+
+    return parsePackJson(raw);
+  } finally {
+    if (ownsCacheDirectory) {
+      fs.rmSync(cacheDirectory, { recursive: true, force: true });
+    }
+  }
 }
 
 function assertPackSurface(files) {
@@ -125,6 +142,7 @@ if (require.main === module) {
 
 module.exports = {
   assertPackSurface,
+  buildNpmPackEnv,
   parsePackJson,
   resolveNpmInvocation,
   runNpmPackJson

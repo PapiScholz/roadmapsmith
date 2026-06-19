@@ -78,7 +78,7 @@ test('sync inserts warning after Evidence lines when validation fails', () => {
   assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/lib\/inventory-sync\.ts/);
 });
 
-test('sync leaves weak path-only Mercado Pago Point task unchecked with warning', () => {
+test('sync leaves weak path-only Mercado Pago Point task unchecked without warning', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
   fs.writeFileSync(
@@ -108,9 +108,9 @@ test('sync leaves weak path-only Mercado Pago Point task unchecked with warning'
   const second = applySync(first, secondParsed.tasks, results);
 
   const warningMatches = second.match(/⚠️ attempted but validation failed/g) || [];
-  assert.equal(warningMatches.length, 1);
+  assert.equal(warningMatches.length, 0);
   assert.match(second, /- \[ \] Integración Mercado Pago Point/);
-  assert.match(second, /weak path-only evidence lacks content-specific token match/);
+  assert.doesNotMatch(second, /weak path-only evidence lacks content-specific token match/);
 });
 
 test('sync pipeline: low-confidence task stays unchecked when minimumConfidence is medium', () => {
@@ -136,7 +136,7 @@ test('sync pipeline: high-confidence task gets checked when minimumConfidence is
   assert.ok(next.includes('- [x] implement xyzzy module'), 'Task should be checked');
 });
 
-test('sync does not overwrite an existing warning with checked state on weak evidence', () => {
+test('sync removes stale warning when the task has no real attempt signal', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
   fs.writeFileSync(
@@ -164,7 +164,7 @@ test('sync does not overwrite an existing warning with checked state on weak evi
   const next = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[ \] Integración Mercado Pago Point/);
-  assert.match(next, /⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match/);
+  assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
 });
 
 test('sync preserves an already checked task with no evidence or path hints', () => {
@@ -233,4 +233,28 @@ test('applySync preserves more specific existing warning over generic new messag
     /missing referenced file\(s\): src\/pos\/page\.tsx/,
     'specific existing warning must be preserved when new message is more generic'
   );
+});
+
+test('applySync deduplicates warning reasons from a prior /api route sync run', () => {
+  const projectRoot = setupFixture('warning-sync');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P1',
+    '- [ ] Implement backup database module for GET /api/backup <!-- rs:task=implement-backup-module -->',
+    '  - Evidence: src/missing-backup.js',
+    '  - ⚠️ attempted but validation failed: evidence file(s) not found: src/missing-backup.js; evidence file(s) not found: src/missing-backup.js',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  const warningMatches = next.match(/⚠️ attempted but validation failed/g) || [];
+  const missingEvidenceMatches = next.match(/evidence file\(s\) not found: src\/missing-backup\.js/g) || [];
+
+  assert.equal(warningMatches.length, 1);
+  assert.equal(missingEvidenceMatches.length, 1);
+  assert.doesNotMatch(next, /missing referenced file\(s\): \/api\/backup/);
 });
