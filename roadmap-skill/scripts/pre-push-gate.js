@@ -11,6 +11,7 @@ const LAUNCHER_PATH = path.join(REPO_ROOT, '.vscode', 'roadmapsmith-launcher.js'
 const TEST_RUNNER_PATH = path.join(PACKAGE_ROOT, 'scripts', 'run-tests.js');
 const ELECTRON_FIXTURE_ROOT = path.join(PACKAGE_ROOT, 'test', 'fixtures', 'electron-pos');
 const ELECTRON_FIXTURE_ROADMAP = path.join(ELECTRON_FIXTURE_ROOT, 'ROADMAP.md');
+const SELF_HOSTING_ROADMAP = path.join(REPO_ROOT, 'ROADMAP.md');
 const GATE_PROFILE = 'Amplio';
 
 function readText(filePath) {
@@ -109,6 +110,24 @@ function buildFunctionalSmokeChecks(nodePath = process.execPath) {
         assert(/Audit summary:/i.test(result.stdout), 'maintain --dry-run must still run sync/audit.');
         assert(!/Add SEO metadata|Lighthouse performance score/i.test(result.stdout), 'Electron fixture smoke must not surface web-only tasks.');
         assert(readText(ELECTRON_FIXTURE_ROADMAP) === context.roadmapBefore, 'maintain --dry-run must not mutate the Electron fixture roadmap.');
+      }
+    },
+    {
+      id: 'maintain-dry-run-self-hosting',
+      label: 'Maintain preserve-mode dry-run on the RoadmapSmith repo',
+      command: nodePath,
+      args: [CLI_PATH, 'maintain', '--project-root', REPO_ROOT, '--dry-run'],
+      cwd: PACKAGE_ROOT,
+      covers: ['self-hosting roadmap', 'preserve-mode no diff', 'generic backlog suppression'],
+      prepare() {
+        return { roadmapBefore: readText(SELF_HOSTING_ROADMAP) };
+      },
+      validate(result, context) {
+        assert(result.status === 0, 'maintain --dry-run must exit 0 on the RoadmapSmith repo.');
+        assert(/No changes for .*ROADMAP\.md/i.test(result.stdout), 'self-hosting maintain dry-run must report no roadmap changes.');
+        assert(/Audit summary:/i.test(result.stdout), 'self-hosting maintain dry-run must still run sync/audit.');
+        assert(!/Add SEO metadata|Lighthouse performance score|responsive and mobile-first layout|accessibility baseline/i.test(result.stdout), 'self-hosting maintain dry-run must not surface generic web backlog.');
+        assert(readText(SELF_HOSTING_ROADMAP) === context.roadmapBefore, 'self-hosting maintain --dry-run must not mutate the repo roadmap.');
       }
     },
     {

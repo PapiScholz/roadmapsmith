@@ -21,6 +21,7 @@ const ELECTRON_CONFIGS = [
   'forge.config.ts'
 ];
 const LANDING_ROUTE_RE = /(?:^|\/)(?:contact|services|about|pricing|hero|cta|landing)(?:\/|\.)/i;
+const FIXTURE_PATH_RE = /(^|\/)(?:test|tests)\/fixtures\//i;
 
 function readPackageDeps(projectRoot) {
   if (!projectRoot) return [];
@@ -52,6 +53,9 @@ function hasWorkspaces(projectRoot) {
 }
 
 function classifyProject({ projectRoot, files }) {
+  const candidateFiles = Array.isArray(files)
+    ? files.filter((file) => !FIXTURE_PATH_RE.test(String(file || '')))
+    : [];
   const signals = [];
 
   if (hasWorkspaces(projectRoot)) {
@@ -59,8 +63,8 @@ function classifyProject({ projectRoot, files }) {
     return { type: 'monorepo', confidence: 'high', signals };
   }
 
-  const hasPy = hasFilename(files, 'pyproject.toml') || hasFilename(files, 'setup.py');
-  if (hasPy && !files.some((f) => /\.[jt]sx?$/.test(f))) {
+  const hasPy = hasFilename(candidateFiles, 'pyproject.toml') || hasFilename(candidateFiles, 'setup.py');
+  if (hasPy && !candidateFiles.some((f) => /\.[jt]sx?$/.test(f))) {
     signals.push('pyproject.toml / setup.py, no JS files');
     return { type: 'python-package', confidence: 'high', signals };
   }
@@ -82,72 +86,72 @@ function classifyProject({ projectRoot, files }) {
   }
 
   for (const dir of WEB_DIRS) {
-    if (hasDir(files, dir)) {
+    if (hasDir(candidateFiles, dir)) {
       webScore += 2;
       signals.push(`directory: ${dir.replace(/\/$/, '')}`);
     }
   }
 
   for (const dir of ASSET_DIRS) {
-    if (hasDir(files, dir)) {
+    if (hasDir(candidateFiles, dir)) {
       webScore += 1;
       signals.push(`directory: ${dir.replace(/\/$/, '')}`);
     }
   }
 
-  if (hasDir(files, 'electron/')) {
+  if (hasDir(candidateFiles, 'electron/')) {
     electronScore += 3;
     signals.push('directory: electron');
   }
 
-  if (files.some((file) => /^electron\/.+\.(js|ts|cjs|mjs)$/.test(file))) {
+  if (candidateFiles.some((file) => /^electron\/.+\.(js|ts|cjs|mjs)$/.test(file))) {
     electronScore += 2;
     signals.push('electron main/preload sources');
   }
 
   for (const cfg of ELECTRON_CONFIGS) {
-    if (hasFilename(files, cfg)) {
+    if (hasFilename(candidateFiles, cfg)) {
       electronScore += 2;
       signals.push(`config: ${cfg}`);
     }
   }
 
   for (const cfg of WEB_CONFIGS) {
-    if (hasFilename(files, cfg)) {
+    if (hasFilename(candidateFiles, cfg)) {
       webScore += 3;
       signals.push(`config: ${cfg}`);
     }
   }
 
   for (const cfg of STYLE_CONFIGS) {
-    if (hasFilename(files, cfg)) {
+    if (hasFilename(candidateFiles, cfg)) {
       webScore += 1;
       signals.push(`config: ${cfg}`);
     }
   }
 
-  if (files.some((f) => /\.css$/.test(f))) {
+  if (candidateFiles.some((f) => /\.css$/.test(f))) {
     webScore += 1;
     signals.push('CSS files present');
   }
 
-  const landingRoutes = files.filter((f) => LANDING_ROUTE_RE.test(f));
+  const landingRoutes = candidateFiles.filter((f) => LANDING_ROUTE_RE.test(f));
   if (landingRoutes.length > 0) {
     landingScore += landingRoutes.length * 2;
     signals.push(`landing/service routes: ${landingRoutes.length}`);
   }
 
-  if (hasFilename(files, 'favicon.ico') || hasFilename(files, 'logo.png') || hasFilename(files, 'logo.svg')) {
+  if (hasFilename(candidateFiles, 'favicon.ico') || hasFilename(candidateFiles, 'logo.png') || hasFilename(candidateFiles, 'logo.svg')) {
     landingScore += 1;
     signals.push('branding asset in public/');
   }
 
-  if (webScore === 0 && (files.some((f) => f.startsWith('bin/')) || hasFilename(files, 'cli.js'))) {
+  if (webScore === 0 && (candidateFiles.some((f) => f.startsWith('bin/')) || hasFilename(candidateFiles, 'cli.js'))) {
     signals.push('bin/ directory or cli.js');
     return { type: 'cli-tool', confidence: 'medium', signals };
   }
 
-  if (webScore === 0 && hasFilename(files, 'package.json')) {
+  if (webScore === 0 && hasFilename(candidateFiles, 'package.json')) {
     signals.push('package.json, no web signals');
     return { type: 'npm-package', confidence: 'low', signals };
   }

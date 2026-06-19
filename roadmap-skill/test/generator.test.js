@@ -183,6 +183,26 @@ test('maintain preserve mode keeps authored north star, phase headings, and evid
   assert.doesNotMatch(output, /Lighthouse performance score/i);
 });
 
+test('maintain preserve mode leaves the RoadmapSmith repo roadmap unchanged', () => {
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  const config = loadConfig({ projectRoot });
+  const existingContent = fs.readFileSync(path.join(projectRoot, 'ROADMAP.md'), 'utf8');
+
+  const output = generateRoadmapDocument({
+    projectRoot,
+    existingContent,
+    config,
+    plugins: [],
+    preserveManagedBlock: true
+  });
+
+  assert.equal(output, existingContent);
+  assert.doesNotMatch(output, /Add SEO metadata/i);
+  assert.doesNotMatch(output, /Lighthouse performance score/i);
+  assert.doesNotMatch(output, /accessibility baseline/i);
+  assert.doesNotMatch(output, /responsive and mobile-first layout/i);
+});
+
 test('regenerate intentionally rebuilds a substantive custom managed block', () => {
   const projectRoot = setupFixture('electron-pos');
   const config = loadConfig({ projectRoot });

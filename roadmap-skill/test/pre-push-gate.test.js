@@ -38,6 +38,7 @@ test('functional-smoke plan covers preserve safety, slash flows, and launcher sm
   assert.equal(report.status, 'planned');
   assert.deepEqual(ids, [
     'maintain-dry-run-electron',
+    'maintain-dry-run-self-hosting',
     'doctor-json',
     'direct-slash-update-dry-run',
     'generate-refuses-without-full-regen',

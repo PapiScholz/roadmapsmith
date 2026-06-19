@@ -49,6 +49,23 @@ test('classifier identifies Electron fixtures as electron-app instead of web', (
   assert.notEqual(result.type, 'landing-site');
 });
 
+test('classifier ignores nested landing-site fixtures when scanning a repo-like project', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-classifier-nested-fixtures-'));
+  fs.mkdirSync(path.join(projectRoot, 'assets'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'test', 'fixtures', 'landing-site', 'app', 'contact'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ name: 'repo-like', version: '1.0.0' }, null, 2));
+  fs.writeFileSync(path.join(projectRoot, 'assets', 'palette.png'), 'asset\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'test', 'fixtures', 'landing-site', 'next.config.js'), 'module.exports = {};\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'test', 'fixtures', 'landing-site', 'tailwind.config.js'), 'module.exports = {};\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'test', 'fixtures', 'landing-site', 'app', 'contact', 'page.tsx'), 'export default function Page() { return null; }\n', 'utf8');
+
+  const files = walkFiles(projectRoot);
+  const result = classifyProject({ projectRoot, files });
+
+  assert.notEqual(result.type, 'landing-site');
+  assert.notEqual(result.type, 'frontend-web');
+});
+
 test('classifier returns unknown-generic for empty project', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-empty-'));
   const result = classifyProject({ projectRoot, files: [] });
