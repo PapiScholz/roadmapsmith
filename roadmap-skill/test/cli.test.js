@@ -79,6 +79,13 @@ function writePackageJson(projectRoot) {
   fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ name: 'x', version: '1.0.0' }, null, 2));
 }
 
+function setupFixture(name) {
+  const source = path.resolve(__dirname, 'fixtures', name);
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), `roadmap-skill-cli-${name}-`));
+  fs.cpSync(source, target, { recursive: true });
+  return target;
+}
+
 function writeWorkspaceCliShim(projectRoot) {
   const cliShimPath = path.join(projectRoot, 'roadmap-skill', 'bin', 'cli.js');
   fs.mkdirSync(path.dirname(cliShimPath), { recursive: true });
@@ -320,6 +327,34 @@ test('cli /roadmap-update --dry-run is stable for the RoadmapSmith repo roadmap'
   assert.equal(after, before);
 });
 
+test('cli /roadmap-update and /roadmap-sync update share stable warning output', () => {
+  const projectRoot = setupFixture('warning-sync');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P1',
+      '- [ ] Implement backup database module for GET /api/backup <!-- rs:task=implement-backup-module -->',
+      '  - Evidence: src/missing-backup.js',
+      '  - ⚠️ attempted but validation failed: evidence file(s) not found: src/missing-backup.js; evidence file(s) not found: src/missing-backup.js',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const before = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+  const namespaced = runResult(['/roadmap-update', '--project-root', projectRoot, '--dry-run'], projectRoot);
+  const legacy = runResult(['/roadmap-sync', 'update', '--project-root', projectRoot, '--dry-run'], projectRoot);
+  const after = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(namespaced.status, 0);
+  assert.equal(legacy.status, 0);
+  assert.equal(after, before);
+  assert.equal(legacy.stdout, namespaced.stdout);
+  assert.match(legacy.stderr, /deprecated/i);
+  assert.match(namespaced.stdout, /L4 \+   - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/missing-backup\.js/);
+  assert.doesNotMatch(namespaced.stdout, /L4 \+.*evidence file\(s\) not found: src\/missing-backup\.js; evidence file\(s\) not found: src\/missing-backup\.js/);
+});
+
 test('cli generate refuses to replace a substantive custom managed block without --full-regen', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-generate-refuse-'));
   writePackageJson(projectRoot);
@@ -496,13 +531,13 @@ test('cli sync preserves existing managed block structure on weak path-only fail
   const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
   const warningMatches = content.match(/⚠️ attempted but validation failed/g) || [];
 
-  assert.equal(warningMatches.length, 1);
+  assert.equal(warningMatches.length, 0);
   assert.match(content, /## Phase Alfa: Desktop Shell Comercial/);
   assert.match(content, /Contexto de negocio: el shell Electron mantiene Next\.js embebido para demos offline\./);
   assert.match(content, /### Criterio de avance/);
   assert.match(content, /La experiencia de escritorio debe iniciar sin depender de servicios externos\./);
   assert.match(content, /- \[ \] Configurar Electron con Next\.js como servidor embebido/);
-  assert.match(content, /weak path-only evidence lacks content-specific token match/);
+  assert.doesNotMatch(content, /weak path-only evidence lacks content-specific token match/);
   assert.match(content, /- \[ \] Implement app module <!-- rs:task=outside-implement-app-module -->/);
   assert.doesNotMatch(content, /Add SEO metadata/);
   assert.doesNotMatch(content, /Implement responsive/);
