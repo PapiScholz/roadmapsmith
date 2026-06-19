@@ -191,6 +191,42 @@ test('sync rewrites stale attempted wording when the task has no real attempt si
   assert.match(next, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
 });
 
+test('sync reaches a fixed point after rewriting a legacy no-evidence warning prefix', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference', 'route.ts'),
+    [
+      "export async function POST() {",
+      "  return fetch('https://api.mercadopago.com/checkout/preferences');",
+      "}",
+      ""
+    ].join('\n'),
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P2',
+    '- [ ] Integración Mercado Pago Point (posnet) via SDK local <!-- rs:task=p2-mp-point-integration -->',
+    '  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const firstResults = validateTasks(parsed.tasks, context, config, []);
+  const first = applySync(content, parsed.tasks, firstResults);
+
+  const secondParsed = parseRoadmap(first);
+  const secondResults = validateTasks(secondParsed.tasks, context, config, []);
+  const second = applySync(first, secondParsed.tasks, secondResults);
+
+  assert.doesNotMatch(first, /⚠️ attempted but validation failed/);
+  assert.match(first, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
+  assert.equal(second, first);
+});
+
 test('sync preserves an already checked task with no evidence or path hints', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });

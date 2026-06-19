@@ -80,6 +80,111 @@ test('backticked HTTP routes, MIME types, and formulas do not become referenced 
   }
 });
 
+test('backticked HTTP request spans are not rescanned as standalone route hints', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'commercial-licensing',
+      text: 'Handle `POST /admin/license` `POST /trial` `POST /validate` gracefully'
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.ok(
+    !result.reasons.some((reason) => reason.includes('missing referenced file')),
+    `backticked HTTP request spans must not leak route hints, got: ${result.reasons.join('; ')}`
+  );
+});
+
+test('Next.js app-dir route-group aliases resolve /login and /setup without missing path or test warnings', () => {
+  const projectRoot = setupFixture('node');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', '(auth)', 'login'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', '(auth)', 'setup'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'app', '(auth)', 'login', 'page.tsx'), 'export default function LoginPage() { return null; }\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'app', '(auth)', 'setup', 'page.tsx'), 'export default function SetupPage() { return null; }\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'auth-redirects',
+      text: 'Add redirect flow to /login and /setup'
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.ok(!result.reasons.some((reason) => reason.includes('missing referenced file')), `unexpected missing path reason: ${result.reasons.join('; ')}`);
+  assert.ok(!result.reasons.includes('missing test evidence'), `unexpected missing test evidence: ${result.reasons.join('; ')}`);
+  assert.ok(result.reasons.includes('file reference shows implementation location, not confirmed completion'));
+});
+
+test('Next.js nested static routes resolve to app-dir route files', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'admin', 'license'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'admin', 'license', 'route.ts'),
+    'export async function POST() { return new Response(null, { status: 204 }); }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'admin-license-route',
+      text: 'Add checks around /admin/license'
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.ok(!result.reasons.some((reason) => reason.includes('missing referenced file')), `unexpected missing path reason: ${result.reasons.join('; ')}`);
+});
+
+test('external home-dir paths in task text do not trigger missing referenced file reasons', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'design-plan-note',
+      text: 'Document supporting notes in ~/.claude/plans/design.md'
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.ok(!result.reasons.some((reason) => reason.includes('missing referenced file')), `unexpected missing path reason: ${result.reasons.join('; ')}`);
+});
+
+test('external home-dir paths in Evidence lines do not fail lookup or auto-pass validation', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'inventory-sync-external-evidence',
+      text: 'Implement inventory sync',
+      evidenceLines: [{ text: '~/.claude/plans/design.md' }]
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.passed, false);
+  assert.equal(result.evidence.authoritative, false);
+  assert.ok(!result.reasons.some((reason) => reason.includes('evidence file(s) not found')), `unexpected evidence lookup failure: ${result.reasons.join('; ')}`);
+});
+
 test('Evidence line with existing test file passes with medium confidence', () => {
   const projectRoot = setupFixture('node');
   fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
