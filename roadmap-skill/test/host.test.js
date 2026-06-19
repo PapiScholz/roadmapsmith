@@ -192,3 +192,23 @@ test('inspectHostSetup downgrades Codex readiness when task runtime is missing',
   assert.deepEqual(Object.keys(hostStatus.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
   assert.deepEqual(hostStatus.surfaces.claudeGui.expectedCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
 });
+
+test('inspectHostSetup accepts the currently running CLI as valid resolution', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-host-current-cli-'));
+  fs.writeFileSync(path.join(projectRoot, 'ROADMAP.md'), '# roadmap\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'AGENTS.md'), '# agents\n', 'utf8');
+
+  const currentCliPath = path.join(projectRoot, 'node_modules', 'roadmapsmith', 'bin', 'cli.js');
+  fs.mkdirSync(path.dirname(currentCliPath), { recursive: true });
+  fs.writeFileSync(currentCliPath, '\'use strict\';\n', 'utf8');
+
+  const hostStatus = inspectHostSetup(projectRoot, {
+    roadmapFile: path.join(projectRoot, 'ROADMAP.md'),
+    agentsFile: path.join(projectRoot, 'AGENTS.md'),
+    currentCliPath
+  });
+
+  assert.equal(hostStatus.cli.ready, true);
+  assert.equal(hostStatus.cli.kind, 'current-process');
+  assert.equal(hostStatus.cli.path, currentCliPath);
+});

@@ -54,9 +54,32 @@ test('sync writes one warning line when validation fails', () => {
   const secondParsed = parseRoadmap(first);
   const second = applySync(first, secondParsed.tasks, results);
 
-  const warningMatches = second.match(/⚠️ attempted but validation failed/g) || [];
+  const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
   assert.equal(warningMatches.length, 1);
   assert.match(second, /missing test evidence/);
+});
+
+test('sync reaches a fixed point after the first warning write', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'payment.js'), 'function paymentModule() { return true; }\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P0',
+    '- [ ] Implement payment module <!-- rs:task=implement-payment-module -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+
+  const first = applySync(content, parsed.tasks, results);
+  const secondParsed = parseRoadmap(first);
+  const secondResults = validateTasks(secondParsed.tasks, context, config, []);
+  const second = applySync(first, secondParsed.tasks, secondResults);
+
+  assert.equal(second, first);
 });
 
 test('sync inserts warning after Evidence lines when validation fails', () => {
@@ -78,7 +101,7 @@ test('sync inserts warning after Evidence lines when validation fails', () => {
   assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/lib\/inventory-sync\.ts/);
 });
 
-test('sync leaves weak path-only Mercado Pago Point task unchecked without warning', () => {
+test('sync keeps an honest no-evidence warning when a task has no concrete attempt signal', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
   fs.writeFileSync(
@@ -107,10 +130,10 @@ test('sync leaves weak path-only Mercado Pago Point task unchecked without warni
   const secondParsed = parseRoadmap(first);
   const second = applySync(first, secondParsed.tasks, results);
 
-  const warningMatches = second.match(/⚠️ attempted but validation failed/g) || [];
-  assert.equal(warningMatches.length, 0);
+  const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
+  assert.equal(warningMatches.length, 1);
   assert.match(second, /- \[ \] Integración Mercado Pago Point/);
-  assert.doesNotMatch(second, /weak path-only evidence lacks content-specific token match/);
+  assert.match(second, /weak path-only evidence lacks content-specific token match/);
 });
 
 test('sync pipeline: low-confidence task stays unchecked when minimumConfidence is medium', () => {
@@ -136,7 +159,7 @@ test('sync pipeline: high-confidence task gets checked when minimumConfidence is
   assert.ok(next.includes('- [x] implement xyzzy module'), 'Task should be checked');
 });
 
-test('sync removes stale warning when the task has no real attempt signal', () => {
+test('sync rewrites stale attempted wording when the task has no real attempt signal', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
   fs.writeFileSync(
@@ -165,6 +188,7 @@ test('sync removes stale warning when the task has no real attempt signal', () =
 
   assert.match(next, /- \[ \] Integración Mercado Pago Point/);
   assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
+  assert.match(next, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
 });
 
 test('sync preserves an already checked task with no evidence or path hints', () => {

@@ -171,7 +171,7 @@ Use `validate --json` when you want to inspect per-task evidence before taking a
 
 **Slash commands not visible in Claude GUI:** Install or update the full skill bundle with `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`, then run `/reload-skills` and, if applicable, `/reload-plugins`. Installing only `--skill roadmap-sync` exposes only `/roadmap-sync`. If you are consuming a published package/plugin artifact instead of a GitHub-source install, confirm that your Claude host is actually loading the bundled `skills.json` plus `skills/*` surface rather than only the Codex plugin metadata.
 
-`roadmapsmith doctor --json` now separates the native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the repo-local VS Code task and Claude hook layer. Use that output when you need to distinguish “the bundle exists” from “the host actually loaded it.”
+`roadmapsmith status --json` now separates the native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the repo-local VS Code task and Claude hook layer. `roadmapsmith doctor --json` remains a compatibility alias. Use that output when you need to distinguish “the bundle exists” from “the host actually loaded it.”
 
 **Hook runs but ROADMAP does not update:** Confirm the Claude hook environment can resolve `node`. Today the repo-local write-time hook is best-effort and depends on that host-level resolution.
 
