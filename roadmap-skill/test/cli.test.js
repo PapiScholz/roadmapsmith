@@ -496,6 +496,76 @@ test('cli sync dry-run does not modify file', () => {
   assert.equal(after, before);
 });
 
+test('cli validate resolves Next.js app-dir route-group aliases without missing referenced file warnings', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-next-route-aliases-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', '(auth)', 'login'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', '(auth)', 'setup'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', '(auth)', 'login', 'page.tsx'),
+    'export default function LoginPage() { return null; }\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', '(auth)', 'setup', 'page.tsx'),
+    'export default function SetupPage() { return null; }\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P1',
+      '- [ ] Redirigir a `/login` y `/setup` segun onboarding <!-- rs:task=redirigir-login-setup -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const result = runResult(['validate', '--project-root', projectRoot], projectRoot);
+
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(result.stdout, /missing referenced file\(s\): \/login/);
+  assert.doesNotMatch(result.stdout, /missing referenced file\(s\): \/setup/);
+  assert.match(result.stdout, /file reference shows implementation location, not confirmed completion/);
+});
+
+test('cli sync rewrites legacy attempted warnings and reaches a fixed point on the second run', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-legacy-warning-fixed-point-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'app', 'api', 'mercadopago', 'preference', 'route.ts'),
+    [
+      'export async function POST() {',
+      "  return fetch('https://api.mercadopago.com/checkout/preferences');",
+      '}',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P2',
+      '- [ ] Integracion Mercado Pago Point (posnet) via SDK local <!-- rs:task=p2-mp-point-integration -->',
+      '  - ⚠️ attempted but validation failed: weak path-only evidence lacks content-specific token match',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const first = runResult(['sync', '--project-root', projectRoot], projectRoot);
+  const second = runResult(['sync', '--project-root', projectRoot, '--dry-run'], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(first.status, 0);
+  assert.equal(second.status, 0);
+  assert.match(first.stdout, /Updated .*ROADMAP\.md/);
+  assert.match(second.stdout, /No changes for .*ROADMAP\.md/);
+  assert.doesNotMatch(content, /⚠️ attempted but validation failed/);
+  assert.match(content, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
+});
+
 test('cli sync preserves existing managed block structure on weak path-only failures', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-sync-managed-'));
   writePackageJson(projectRoot);
