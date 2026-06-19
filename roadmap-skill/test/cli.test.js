@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 
 const CLI = path.resolve(__dirname, '..', 'bin', 'cli.js');
 const LAUNCHER = path.resolve(__dirname, '..', '..', '.vscode', 'roadmapsmith-launcher.js');
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const CANONICAL_ROADMAP = 'ROADMAP.md';
 const LEGACY_ROADMAP = 'roadmap.md';
 const CASE_DISTINCT_ROADMAP_FILES = supportsCaseDistinctRoadmapFiles();
@@ -294,6 +295,29 @@ test('cli maintain preserves a substantive custom managed block for Electron des
   assert.match(content, /#### Paso operativo/);
   assert.doesNotMatch(content, /Add SEO metadata/i);
   assert.doesNotMatch(content, /Lighthouse performance score/i);
+});
+
+test('cli maintain --dry-run is stable for the RoadmapSmith repo roadmap', () => {
+  const before = fs.readFileSync(path.join(REPO_ROOT, CANONICAL_ROADMAP), 'utf8');
+  const result = runResult(['maintain', '--project-root', REPO_ROOT, '--dry-run'], REPO_ROOT);
+  const after = fs.readFileSync(path.join(REPO_ROOT, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /No changes for .*ROADMAP\.md/);
+  assert.match(result.stdout, /Audit summary:/);
+  assert.doesNotMatch(result.stdout, /Add SEO metadata|Lighthouse performance score|responsive and mobile-first layout|accessibility baseline/i);
+  assert.equal(after, before);
+});
+
+test('cli /roadmap-update --dry-run is stable for the RoadmapSmith repo roadmap', () => {
+  const before = fs.readFileSync(path.join(REPO_ROOT, CANONICAL_ROADMAP), 'utf8');
+  const result = runResult(['/roadmap-update', '--project-root', REPO_ROOT, '--dry-run'], REPO_ROOT);
+  const after = fs.readFileSync(path.join(REPO_ROOT, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /No changes for .*ROADMAP\.md|Dry run: .*ROADMAP\.md/i);
+  assert.doesNotMatch(result.stdout, /Add SEO metadata|Lighthouse performance score|responsive and mobile-first layout|accessibility baseline/i);
+  assert.equal(after, before);
 });
 
 test('cli generate refuses to replace a substantive custom managed block without --full-regen', () => {

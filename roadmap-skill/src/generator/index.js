@@ -207,6 +207,10 @@ function renderAdditionTask(task) {
   return `- [ ] ${task.text} <!-- rs:task=${task.id} -->`;
 }
 
+function isGenericPreserveModeCandidate(candidate) {
+  return candidate && ['default', 'classifier', 'todo-hint'].includes(candidate.source);
+}
+
 function buildManagedAdditionsLines(tasks, options = {}) {
   const groups = groupByPhase(tasks);
   const lines = [];
@@ -463,6 +467,10 @@ function insertPreserveModeTasks(existingContent, parsedRoadmap, tasks) {
   }
 
   return nextLines.join('\n');
+}
+
+function filterPreserveModeCandidates(candidates) {
+  return candidates.filter((candidate) => !isGenericPreserveModeCandidate(candidate));
 }
 
 function mergeWithExisting(candidates, existingTasks, options = {}) {
@@ -810,14 +818,18 @@ function generateRoadmapDocument(options) {
 
   if (hasSubstantiveManagedBlock(existing) && preserveManagedBlock && !forceFullRegenerate) {
     const unmatchedCandidates = allCandidates.filter((candidate) => {
-      return !findBestTaskMatch(candidate, existingManagedTasks, { allowFuzzy: false });
+      return !findBestTaskMatch(candidate, existingManagedTasks, {
+        allowFuzzy: true,
+        minScore: 0.72
+      });
     });
+    const preserveModeCandidates = filterPreserveModeCandidates(unmatchedCandidates);
 
-    if (unmatchedCandidates.length === 0) {
+    if (preserveModeCandidates.length === 0) {
       return existingContent;
     }
 
-    return insertPreserveModeTasks(existingContent, existing, unmatchedCandidates);
+    return insertPreserveModeTasks(existingContent, existing, preserveModeCandidates);
   }
 
   if (hasSubstantiveManagedBlock(existing) && !forceFullRegenerate) {
