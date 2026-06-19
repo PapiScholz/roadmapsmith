@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.23 - 2026-06-19
+
+### Fixed
+- stabilize self-hosting roadmap maintenance (#38)
+
 ## v0.9.22 - 2026-06-18
 
 ### Added
