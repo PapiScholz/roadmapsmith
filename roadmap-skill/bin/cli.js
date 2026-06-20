@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('node:readline/promises');
-const { parseArgv } = require('../src/utils');
+const { ensureTrailingNewline, parseArgv } = require('../src/utils');
 const { loadConfig, resolveRoadmapFile, resolveAgentsFile, loadPlugins, readUserConfig, resolveConfigPath } = require('../src/config');
 const { readTextIfExists, writeText, printDryRunDiff } = require('../src/io');
 const { buildSetupFiles, applySetupFiles, inspectHostSetup, parseHosts, assertSupportedEditor } = require('../src/host');
@@ -30,6 +30,7 @@ function printHelp() {
     '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
+    '  roadmapsmith update --task <stable-id> --evidence <text> [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
     '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
     '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]   # compatibility alias'
@@ -44,8 +45,13 @@ function isEnabled(value) {
 }
 
 function formatResultLine(task, result) {
-  const status = result.passed ? 'PASS' : 'FAIL';
-  const reason = result.reasons.length > 0 ? ` :: ${result.reasons.join('; ')}` : '';
+  const diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
+  const primaryError = diagnostics.find((item) => item.severity === 'error');
+  const warnings = diagnostics.filter((item) => item.severity === 'warning');
+  const status = primaryError ? `FAIL:${primaryError.code}` : (result.passed ? 'PASS' : 'FAIL');
+  const parts = [...result.reasons];
+  warnings.forEach((item) => parts.push(`WARN:${item.code} ${item.message}`));
+  const reason = parts.length > 0 ? ` :: ${parts.join('; ')}` : '';
   return `${status} [${task.id}] ${task.text}${reason}`;
 }
 
@@ -215,6 +221,77 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
   }
 }
 
+function addEvidenceToTask(content, task, evidenceText) {
+  const lines = String(content || '').split(/\r?\n/);
+  const evidenceLine = `${task.indent || ''}  - Evidence: ${evidenceText}`;
+  if (Array.isArray(task.evidenceLines) && task.evidenceLines.length > 0) {
+    lines[task.evidenceLines[0].lineIndex] = evidenceLine;
+    return ensureTrailingNewline(lines.join('\n'));
+  }
+
+  const insertionIndex = task.warningLineIndex != null
+    ? task.warningLineIndex
+    : task.lastChildLineIndex + 1;
+  lines.splice(insertionIndex, 0, evidenceLine);
+  return ensureTrailingNewline(lines.join('\n'));
+}
+
+function runUpdateCommand(projectRoot, config, flags) {
+  const hasTask = flags.task != null;
+  const hasEvidence = flags.evidence != null;
+  if (!hasTask && !hasEvidence) {
+    runSyncCommand(projectRoot, config, flags);
+    return;
+  }
+  if (!hasTask || !hasEvidence || Array.isArray(flags.task) || Array.isArray(flags.evidence)) {
+    throw new Error('update requires exactly one --task <stable-id> and one --evidence <text> value');
+  }
+
+  const taskId = String(flags.task).trim();
+  const evidenceText = String(flags.evidence).trim();
+  if (!taskId || !evidenceText || /[\r\n]/.test(evidenceText)) {
+    throw new Error('update requires a non-empty single-line --task and --evidence value');
+  }
+
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const content = readTextIfExists(roadmapFile);
+  if (content == null) {
+    throw new Error(`Roadmap not found: ${roadmapFile}`);
+  }
+
+  const parsedRoadmap = parseRoadmap(content);
+  const matches = tasksInManagedBlock(parsedRoadmap).filter((task) => task.id === taskId);
+  if (matches.length !== 1) {
+    throw new Error(matches.length === 0
+      ? `Roadmap task not found: ${taskId}`
+      : `Roadmap task ID is ambiguous: ${taskId}`);
+  }
+
+  const draft = addEvidenceToTask(content, matches[0], evidenceText);
+  const draftTask = tasksInManagedBlock(parseRoadmap(draft)).find((task) => task.id === taskId);
+  const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
+  const result = validateTasks([draftTask], validationContext, config, validationContext.plugins)[taskId];
+  const errors = (result.diagnostics || []).filter((item) => item.severity === 'error');
+  const suppliedEvidenceResolved = result.evidence.authoritative && result.evidence.authoritativeFiles.length > 0;
+  if (!suppliedEvidenceResolved || !result.passed || result.confidence !== 'high' || errors.length > 0) {
+    const reasons = result.reasons.length > 0 ? `: ${result.reasons.join('; ')}` : '';
+    throw new Error(`Task ${taskId} was not updated; supplied evidence must resolve in the repository and validate at high confidence${reasons}`);
+  }
+
+  const next = applySync(draft, [draftTask], { [taskId]: result });
+  const dryRun = isEnabled(flags['dry-run']);
+  const writeResult = writeText(roadmapFile, next, { dryRun });
+  if (dryRun) {
+    if (writeResult.changed) {
+      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
+    } else {
+      console.log(`No changes for ${roadmapFile}`);
+    }
+  } else {
+    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
+  }
+}
+
 function printHumanStatus(payload) {
   console.log('RoadmapSmith status\n');
   console.log(`Project root: ${payload.projectRoot}`);
@@ -343,6 +420,8 @@ async function run() {
     if (slashAction.id === 'audit') {
       flags.audit = true;
       effectiveCommand = 'sync';
+    } else if (slashAction.id === 'sync' && String(command).trim().toLowerCase() === '/roadmap-update') {
+      effectiveCommand = 'update';
     } else {
       effectiveCommand = slashAction.id;
     }
@@ -408,6 +487,13 @@ async function run() {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
     runSyncCommand(projectRoot, config, flags);
+    return;
+  }
+
+  if (effectiveCommand === 'update') {
+    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    const config = loadConfig({ projectRoot, configPath: flags.config });
+    runUpdateCommand(projectRoot, config, flags);
     return;
   }
 

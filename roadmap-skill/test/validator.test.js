@@ -38,6 +38,36 @@ test('validator fails missing tests when framework is detected', () => {
   assert.match(result.reasons.join('; '), /missing test evidence/);
 });
 
+test('validator exposes structured diagnostics for implementation, test, and reference failures', () => {
+  const projectRoot = setupFixture('node');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'billing.js'), 'function billingModule() { return true; }\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const missingImplementation = validateTask(
+    { id: 'implement-unrelated-feature', text: 'Implement unrelated feature' },
+    context,
+    config,
+    []
+  );
+  const missingTest = validateTask(
+    { id: 'implement-billing-module', text: 'Implement billing module' },
+    context,
+    config,
+    []
+  );
+  const missingReference = validateTask(
+    { id: 'create-missing-parser', text: 'Create parser in `src/missing.js`' },
+    context,
+    config,
+    []
+  );
+
+  assert.ok(missingImplementation.diagnostics.some((item) => item.code === 'NOT_IMPLEMENTED' && item.severity === 'error'));
+  assert.ok(missingTest.diagnostics.some((item) => item.code === 'NO_TEST' && item.severity === 'error'));
+  assert.ok(missingReference.diagnostics.some((item) => item.code === 'MISSING_REFERENCE' && item.severity === 'error'));
+});
+
 test('validator checks explicit file existence hints', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
@@ -1486,14 +1516,18 @@ test('Milestone with Blocked-by in child bullet stays failed when dep is incompl
   assert.ok(results['child-milestone-v1'].reasons.some((r) => r.includes('child-dep-task')), 'reason must name the blocking dep');
 });
 
-// Causa 2: existing ⚠️ warning on unchecked task must survive even when meetsStrongThreshold
-test('Unchecked task with existing warning stays unchecked even when code+feature-surface evidence exists', () => {
+test('Unchecked task with a stale warning passes only when fresh code and test evidence is high confidence', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
-  // Code file with matching tokens so evidence.code = true
   fs.writeFileSync(
     path.join(projectRoot, 'src', 'lib', 'notification.ts'),
     'export function sendNotification() {} export function notifySystem() {}\n',
+    'utf8'
+  );
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'notification.test.ts'),
+    "import { sendNotification } from '../lib/notification';\ntest('notification system sends delivery', () => sendNotification());\n",
     'utf8'
   );
 
@@ -1511,7 +1545,32 @@ test('Unchecked task with existing warning stays unchecked even when code+featur
   const task = tasks.find((t) => t.id === 'add-notifications');
 
   const result = validateTask(task, context, config, []);
-  assert.equal(result.passed, false, 'existing warning must keep unchecked task failing regardless of token evidence');
+  assert.equal(result.passed, true);
+  assert.equal(result.confidence, 'high');
+  assert.ok(result.diagnostics.some((item) => item.code === 'STALE_EVIDENCE' && item.severity === 'warning'));
+});
+
+test('Unchecked task with a stale warning remains unchecked and reports the warning with code-only evidence', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'notification.ts'),
+    'export function sendNotification() {} export function notifySystem() {}\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const { tasks } = parseRoadmap([
+    '## Phase P2',
+    '- [ ] Add notification system <!-- rs:task=add-notifications -->',
+    '  - ⚠️ attempted but validation failed: helper exists but no delivery mechanism',
+    ''
+  ].join('\n'));
+  const result = validateTask(tasks[0], context, config, []);
+
+  assert.equal(result.passed, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'STALE_EVIDENCE' && item.severity === 'warning'));
 });
 
 // Causa 3a: action-verb task with path hint + code tokens — stays unchecked without Evidence line

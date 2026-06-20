@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- None yet.
+### Added
+- add verified `roadmapsmith update --task --evidence` completion flow
+- add structured validation diagnostics and stale-evidence convergence
+
+### Changed
+- document Windows global CLI Node fallback and visibly deprecate the legacy roadmap-sync skill
 
 ## v0.9.27 - 2026-06-19
 

@@ -1290,6 +1290,52 @@ function buildValidationContext(projectRoot, config, plugins) {
   };
 }
 
+function diagnosticCodeForReason(reason) {
+  const normalized = String(reason || '').toLowerCase();
+  if (normalized.includes('missing referenced file') || normalized.includes('evidence file(s) not found')) {
+    return 'MISSING_REFERENCE';
+  }
+  if (normalized.includes('missing test evidence')) {
+    return 'NO_TEST';
+  }
+  if (
+    normalized.includes('no code, test, or artifact evidence found') ||
+    normalized.includes('implementation task requires evidence line') ||
+    normalized.includes('weak path') ||
+    normalized.includes('file reference shows implementation location')
+  ) {
+    return 'NOT_IMPLEMENTED';
+  }
+  return null;
+}
+
+function buildDiagnostics(reasons, options = {}) {
+  const diagnostics = [];
+  const seen = new Set();
+  for (const reason of Array.isArray(reasons) ? reasons : []) {
+    const code = diagnosticCodeForReason(reason);
+    if (!code || seen.has(code)) {
+      continue;
+    }
+    seen.add(code);
+    diagnostics.push({ code, severity: 'error', message: reason });
+  }
+  if (options.staleEvidence) {
+    diagnostics.push({
+      code: 'STALE_EVIDENCE',
+      severity: 'warning',
+      message: 'historical validation warning conflicts with fresh repository evidence'
+    });
+  }
+  return diagnostics;
+}
+
+function buildDiscoveredEvidenceLine(evidence) {
+  const files = unionArrays(evidence.codeFiles, evidence.testFiles)
+    .sort((left, right) => left.localeCompare(right));
+  return files.length > 0 ? files.join(', ') : null;
+}
+
 function validateTask(task, context, config, plugins) {
   const {
     paths: pathHints,
@@ -1467,7 +1513,14 @@ function validateTask(task, context, config, plugins) {
   // evidence, artifact evidence, or strong code+test threshold to pass.
   // Already-checked tasks with found path hints are preserved via shouldPreserveCheckedTask.
   const hasHighConfidenceImplementationEvidence = meetsStrongThreshold && evidence.code && evidence.test;
+  const hasFreshRepositoryEvidence = hasStrongEvidence || hasWeakEvidence;
+  let staleEvidenceDetected = false;
+  let staleEvidenceResolved = false;
   let passed = authoritativeEvidence.passed || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
+
+  if (task.warningText && !task.checked && hasFreshRepositoryEvidence && !authoritativeEvidence.passed) {
+    staleEvidenceDetected = true;
+  }
 
   if (!passed && !task.checked && hasDirectReferencePass) {
     const locationReason = 'file reference shows implementation location, not confirmed completion';
@@ -1476,13 +1529,15 @@ function validateTask(task, context, config, plugins) {
     }
   }
 
-  // Unchecked tasks with an existing ⚠️ warning are preserved as failing unless an Evidence line
-  // explicitly confirms implementation. meetsStrongThreshold (token match) cannot override a
-  // human/agent judgment that the feature is incomplete.
+  // Historical warnings are only cleared by independent, high-confidence repository evidence.
   if (task.warningText && !task.checked && passed && !authoritativeEvidence.passed) {
-    passed = false;
-    if (uniqueReasons.length === 0) {
-      uniqueReasons.push('validation failed');
+    if (hasHighConfidenceImplementationEvidence && negativeSignalMatches.length === 0 && uniqueReasons.length === 0) {
+      staleEvidenceResolved = true;
+    } else {
+      passed = false;
+      if (uniqueReasons.length === 0) {
+        uniqueReasons.push('validation failed');
+      }
     }
   }
   if (negativeSignalMatches.length > 0) {
@@ -1533,17 +1588,21 @@ function validateTask(task, context, config, plugins) {
   // Used by auditValidation to flag implementation tasks that pass solely via documentation.
   const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
 
+  const finalPassed = overrideResult ? overrideResult.passed !== false : (passed && uniqueReasons.length === 0);
   return {
     taskId: task.id,
-    passed: overrideResult ? overrideResult.passed !== false : (passed && uniqueReasons.length === 0),
+    passed: finalPassed,
     confidence,
     reasons: uniqueReasons,
+    diagnostics: buildDiagnostics(uniqueReasons, { staleEvidence: staleEvidenceDetected }),
     evidence,
     evidenceIsDocOnly,
     requiresTest,
     hasEvidence: hasStrongEvidence || hasWeakEvidence,
     attempted,
-    preservedCheckedState
+    preservedCheckedState,
+    staleEvidenceResolved,
+    discoveredEvidence: staleEvidenceResolved ? buildDiscoveredEvidenceLine(evidence) : null
   };
 }
 

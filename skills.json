@@ -10,19 +10,18 @@
   ],
   "usageExamples": [
     "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
-    "npx skills add PapiScholz/roadmapsmith --skill roadmap-sync",
     "roadmapsmith setup",
     "roadmapsmith zero",
     "roadmapsmith maintain",
     "roadmapsmith /roadmap",
-    "roadmapsmith /roadmap-update",
+    "roadmapsmith update --task p2-customer-history --evidence \"src/app/api/customers/route.ts, test/customers.test.js\"",
     "roadmapsmith validate --json"
   ],
   "install": {
     "command": "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
     "source": "PapiScholz/roadmapsmith",
     "skill": "*",
-    "notes": "Recommended Claude Code install path for native GUI slash commands like /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, and /roadmap-setup. The legacy /roadmap-sync root remains available for compatibility, especially as /roadmap-sync <action>. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the visible readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
+    "notes": "Recommended Claude Code install path for native GUI slash commands like /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, and /roadmap-setup. DEPRECATED: /roadmap-sync remains only as a compatibility root for existing automation; use /roadmap-maintain or /roadmap-update for new workflows. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the visible readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
   },
   "skills": [
     {
@@ -70,13 +69,13 @@
     {
       "name": "roadmap-update",
       "path": "skills/roadmap-update",
-      "description": "Native slash entrypoint for applying evidence-backed checklist sync.",
+      "description": "Native slash entrypoint for evidence-backed sync and verified single-task completion.",
       "version": "0.9.27"
     },
     {
       "name": "roadmap-sync",
       "path": "skills/roadmap-sync",
-      "description": "Legacy namespaced root plus policy guidance for RoadmapSmith slash workflows.",
+      "description": "DEPRECATED legacy compatibility root; use roadmap-maintain or roadmap-update.",
       "version": "0.9.27"
     },
     {

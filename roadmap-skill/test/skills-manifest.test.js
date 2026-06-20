@@ -115,8 +115,8 @@ test('root skills directory contains only the declared namespaced RoadmapSmith b
 test('roadmap-sync Codex metadata parses cleanly and stays short enough for the loader', () => {
   const metadata = JSON.parse(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PATH, 'utf8'));
 
-  assert.equal(metadata.interface.display_name, 'Roadmap Sync');
-  assert.match(metadata.interface.short_description, /legacy root|policy/i);
+  assert.equal(metadata.interface.display_name, 'Roadmap Sync (Deprecated)');
+  assert.match(metadata.interface.short_description, /deprecated/i);
   assert.match(metadata.interface.default_prompt, /\/roadmap-update/);
   assert.ok(metadata.interface.default_prompt.length <= 128);
 });

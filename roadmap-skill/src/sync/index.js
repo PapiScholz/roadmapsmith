@@ -142,6 +142,18 @@ function applySync(content, parsedTasks, results) {
         lines.splice(warningIndex, 1);
         offset -= 1;
       }
+      if (
+        result.staleEvidenceResolved &&
+        (!Array.isArray(task.evidenceLines) || task.evidenceLines.length === 0) &&
+        result.discoveredEvidence
+      ) {
+        const insertionIndex = Math.max(
+          lineIndex + 1,
+          (task.lastChildLineIndex + offset) + 1
+        );
+        lines.splice(insertionIndex, 0, `${task.indent || ''}  - Evidence: ${result.discoveredEvidence}`);
+        offset += 1;
+      }
       continue;
     }
 

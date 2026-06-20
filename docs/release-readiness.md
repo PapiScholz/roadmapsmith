@@ -14,9 +14,10 @@ Use this document for context and command runbook notes only.
 - `roadmapsmith setup` creates the visible VS Code host UX and optional Claude hook wiring.
 - `roadmapsmith zero` is the one-command empty-repo flow.
 - `roadmapsmith maintain` is the one-command existing-repo flow.
+- `roadmapsmith update --task <id> --evidence <text>` is the verified high-confidence single-task completion flow.
 - Native Codex plugin support comes from `.codex-plugin/plugin.json` plus the repo-local marketplace at `.agents/plugins/marketplace.json`.
 - Native Claude GUI slash commands come from the full skill bundle: `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`.
-- `roadmap-sync` remains the legacy/namespaced policy skill; installing only that skill is not full product activation.
+- `roadmap-sync` is a deprecated legacy/namespaced compatibility skill; installing only that skill is not full product activation.
 - Published npm/plugin artifacts must carry the same shared bundle files as the GitHub-source install path: `skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and the Codex manifest assets they reference.
 
 Release work is not ready until the docs, host UX, and changelog all reflect that contract consistently.
@@ -58,7 +59,8 @@ Before merging to `main`:
    - `RoadmapSmith: Maintain`
 3. Failure states are actionable:
    - CLI missing
-   - Node runtime missing
+- Node runtime missing
+- global npm CLI shim cannot resolve Node from PATH, with the explicit PowerShell node-and-cli fallback documented
    - skill-only legacy install (`/roadmap-sync` root only)
    - invalid host config
    - `zero` in non-interactive mode

@@ -12,6 +12,6 @@ Use this command to inspect whether the shared bundle, native host surfaces, CLI
 1. Prefer the local engine inside this repository:
    - `node roadmap-skill/bin/cli.js doctor --json --project-root .`
    - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js doctor --json --project-root .` if `node` is not in PATH
-2. Otherwise prefer `roadmapsmith doctor --json --project-root .`.
+2. Otherwise prefer `roadmapsmith doctor --json --project-root .`. If its global shim cannot resolve `node`, use `& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" doctor --json --project-root .`.
 3. Parse and summarize the JSON output in plain language.
 4. Explicitly call out missing commands or duplicate `/roadmap-sync` registration when doctor reports them.

@@ -39,7 +39,7 @@ A task passes only when accumulated evidence exceeds the configured threshold.
 roadmapsmith maintain
 ```
 
-`maintain` is the default existing-repo flow. It runs `generate + sync + audit` in one invocation.
+`maintain` is the default existing-repo flow. It runs `generate + sync + audit` in one invocation; after it succeeds, do not rerun those lower-level commands in the same cycle unless you need manual control.
 
 Advanced/manual flow:
 
@@ -60,6 +60,7 @@ When `sync` runs:
 - Tasks with passing evidence are marked `[x]`
 - Tasks with concrete attempt evidence emit `⚠️ attempted but validation failed: <reason>` in the roadmap
 - Tasks without concrete attempt evidence emit `⚠️ no implementation evidence found yet: <reason>` in the roadmap
+- A historical warning with fresh code-and-test evidence is classified as `WARN:STALE_EVIDENCE`; sync records the discovered files and completes it only at high confidence
 - `--audit` surfaces tasks that claim completion but have no evidence, and tasks that have evidence but are still unchecked
 
 This means a PR reviewer can run `sync --audit` and see a factual mismatch report — not just the agent's word.
@@ -83,3 +84,11 @@ roadmapsmith sync --audit
 ```
 
 Use `--dry-run` before applying changes. Use `validate --json` when you need a read-only evidence inspection. Use `--audit` when you want the current post-sync summary.
+
+## Completing one task with evidence
+
+```bash
+roadmapsmith update --task p2-customer-history --evidence "src/app/api/customers/route.ts, test/customers.test.js"
+```
+
+`update` verifies the supplied single-line evidence against the repository and writes only if it reaches high confidence. Add `--dry-run` to preview the exact roadmap change.

@@ -35,6 +35,38 @@ test('sync marks task complete when validation passes', () => {
   assert.doesNotMatch(next, /validation failed/);
 });
 
+test('sync resolves stale warnings with high-confidence evidence and records discovered files', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'lib', 'notification.ts'),
+    'export function sendNotification() {} export function notifySystem() {}\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'notification.test.ts'),
+    "import { sendNotification } from '../lib/notification';\ntest('notification system sends delivery', () => sendNotification());\n",
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P2',
+    '- [ ] Add notification system <!-- rs:task=add-notifications -->',
+    '  - ⚠️ attempted but validation failed: helper exists but no delivery mechanism',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[x\] Add notification system/);
+  assert.match(next, /Evidence: src\/__tests__\/notification\.test\.ts, src\/lib\/notification\.ts/);
+  assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
+});
+
 test('sync writes one warning line when validation fails', () => {
   const projectRoot = setupFixture('node');
   fs.writeFileSync(path.join(projectRoot, 'src', 'payment.js'), 'function paymentModule() { return true; }\n', 'utf8');
