@@ -28,7 +28,7 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 ```
 
 This is the recommended Claude Code install path for native GUI slash commands such as `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`.
-If you install only `--skill roadmap-sync`, Claude GUI will expose only `/roadmap-sync`.
+`roadmap-sync` is deprecated compatibility only; install the full bundle for new workflows and use `/roadmap-maintain` or `/roadmap-update`.
 The skill bundle does not install the CLI and it does not create visible VS Code actions by itself.
 The published `roadmapsmith` package/plugin surface now also ships the shared bundle files for both hosts (`skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`) for downstream host installers, but consuming the CLI alone still does not auto-register native Codex or Claude GUI commands.
 
@@ -101,7 +101,11 @@ Use the lower-level commands only when you want manual control over generation, 
 | CI | Use disposable checkouts if you run `sync --audit`, because it still mutates the roadmap today. |
 | Other hosts | Use the skill plus manual CLI commands. |
 
-If Node is installed outside PATH, set `ROADMAPSMITH_NODE` to a working `node` executable before using the generated VS Code tasks.
+If Node is installed outside PATH, set `ROADMAPSMITH_NODE` to a working `node` executable before using the generated VS Code tasks. If the globally installed `roadmapsmith` shim itself cannot resolve Node, bypass it in PowerShell with:
+
+```powershell
+& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" <command>
+```
 
 ---
 
@@ -119,6 +123,7 @@ roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file 
 roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]
 roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]
 roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]
+roadmapsmith update --task <stable-id> --evidence <text> [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]
 roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]
 roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]
 roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]   # compatibility alias
@@ -183,6 +188,8 @@ The repo does not remove user-global skills automatically. Use the `doctor` outp
   - `- ⚠️ attempted but validation failed: <reason>` when there is concrete attempt evidence
   - `- ⚠️ no implementation evidence found yet: <reason>` when there is not
 - Preserves unmanaged markdown content by updating only the managed roadmap block.
+- `validate` emits structured diagnostics in human and JSON output (`FAIL:NOT_IMPLEMENTED`, `FAIL:NO_TEST`, `FAIL:MISSING_REFERENCE`, and `WARN:STALE_EVIDENCE`).
+- `update --task <id> --evidence <text>` writes only when the evidence validates at high confidence; otherwise the roadmap is unchanged.
 
 ## Defaults
 

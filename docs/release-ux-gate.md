@@ -13,6 +13,7 @@ The public entrypoints must stay consistent across CLI help, VS Code tasks, laun
 - `roadmapsmith setup`
 - `roadmapsmith zero`
 - `roadmapsmith maintain`
+- `roadmapsmith update --task <id> --evidence <text>`
 - `roadmapsmith /roadmap`
 - Native Codex plugin install/discovery via `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json`
 - Native Claude GUI slash commands: `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, `/roadmap-setup`
@@ -21,7 +22,7 @@ The skill bundle remains a GUI/policy layer distinct from the CLI:
 
 - from repo root: `codex plugin marketplace add .`
 - `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`
-- `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` remains the legacy compatibility path
+- `npx skills add PapiScholz/roadmapsmith --skill roadmap-sync` is a deprecated compatibility path
 
 Skill installation alone must never be described as full activation of the product.
 
@@ -105,6 +106,7 @@ These cases must be tested:
 - `roadmapsmith zero` in non-interactive mode
 - user installed only the skill
 - user installed only the legacy `roadmap-sync` skill
+- global npm CLI shim cannot resolve `node`, with the documented explicit PowerShell fallback
 
 Pass when each case tells the user:
 

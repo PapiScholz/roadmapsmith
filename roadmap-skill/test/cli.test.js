@@ -327,6 +327,64 @@ test('cli /roadmap-update --dry-run is stable for the RoadmapSmith repo roadmap'
   assert.equal(after, before);
 });
 
+test('cli update completes one task only after its supplied evidence validates at high confidence', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-update-task-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'customer-history.js'), 'function customerHistory() { return []; }\nmodule.exports = { customerHistory };\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'tests', 'customer-history.test.js'), "const { customerHistory } = require('../src/customer-history');\ntest('customer history', () => customerHistory());\n", 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P2',
+      '- [ ] Implement customer history <!-- rs:task=p2-customer-history -->',
+      '- [ ] Implement unrelated feature <!-- rs:task=p2-unrelated -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const result = runResult([
+    'update',
+    '--task', 'p2-customer-history',
+    '--evidence', 'src/customer-history.js, tests/customer-history.test.js'
+  ], projectRoot);
+  const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
+
+  assert.equal(result.status, 0);
+  assert.match(content, /- \[x\] Implement customer history/);
+  assert.match(content, /Evidence: src\/customer-history\.js, tests\/customer-history\.test\.js/);
+  assert.match(content, /- \[ \] Implement unrelated feature/);
+});
+
+test('cli update rejects unresolved evidence without mutating the roadmap, including dry runs', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-update-reject-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'customer-history.js'), 'function customerHistory() { return []; }\nmodule.exports = { customerHistory };\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'tests', 'customer-history.test.js'), "const { customerHistory } = require('../src/customer-history');\ntest('customer history', () => customerHistory());\n", 'utf8');
+  const roadmapPath = path.join(projectRoot, CANONICAL_ROADMAP);
+  fs.writeFileSync(
+    roadmapPath,
+    ['## Phase P2', '- [ ] Implement customer history <!-- rs:task=p2-customer-history -->', ''].join('\n'),
+    'utf8'
+  );
+  const before = fs.readFileSync(roadmapPath, 'utf8');
+
+  const result = runResult([
+    '/roadmap-update',
+    '--task', 'p2-customer-history',
+    '--evidence', 'customer history was implemented',
+    '--dry-run'
+  ], projectRoot);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /must resolve in the repository and validate at high confidence/);
+  assert.equal(fs.readFileSync(roadmapPath, 'utf8'), before);
+});
+
 test('cli /roadmap-update and /roadmap-sync update share stable warning output', () => {
   const projectRoot = setupFixture('warning-sync');
   fs.writeFileSync(
@@ -527,6 +585,25 @@ test('cli validate resolves Next.js app-dir route-group aliases without missing 
   assert.doesNotMatch(result.stdout, /missing referenced file\(s\): \/login/);
   assert.doesNotMatch(result.stdout, /missing referenced file\(s\): \/setup/);
   assert.match(result.stdout, /file reference shows implementation location, not confirmed completion/);
+});
+
+test('cli validate prints diagnostic codes and includes them in JSON output', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-diagnostics-'));
+  writePackageJson(projectRoot);
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    ['## Phase P0', '- [ ] Implement missing module <!-- rs:task=implement-missing-module -->', ''].join('\n'),
+    'utf8'
+  );
+
+  const human = runResult(['validate', '--project-root', projectRoot], projectRoot);
+  const json = runResult(['validate', '--json', '--project-root', projectRoot], projectRoot);
+  const payload = JSON.parse(json.stdout);
+
+  assert.equal(human.status, 1);
+  assert.match(human.stdout, /FAIL:NOT_IMPLEMENTED \[implement-missing-module\]/);
+  assert.equal(json.status, 1);
+  assert.ok(payload[0].result.diagnostics.some((item) => item.code === 'NOT_IMPLEMENTED' && item.severity === 'error'));
 });
 
 test('cli sync rewrites legacy attempted warnings and reaches a fixed point on the second run', () => {

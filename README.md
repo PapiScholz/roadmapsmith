@@ -35,7 +35,7 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 ```
 
 This is the recommended install path if you want native Claude GUI slash commands such as `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`.
-If you install only `--skill roadmap-sync`, Claude GUI will expose only `/roadmap-sync`.
+`roadmap-sync` is deprecated compatibility only; install the full bundle for new workflows and use `/roadmap-maintain` or `/roadmap-update`.
 The skills guide the agent. The CLI executes actions. `roadmapsmith setup` makes those actions visible in VS Code, generates per-platform task wrappers, and can also wire the repo-local Claude hook, but it does not create native Claude GUI slash commands by itself.
 The published RoadmapSmith package/plugin surface now ships the same shared bundle files (`skills.json`, `skills/*`, `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`) as the GitHub-source install path, but consuming the CLI alone still does not auto-register native Codex or Claude GUI commands.
 
@@ -91,6 +91,7 @@ RoadmapSmith introduces a third path: **validation by evidence**. Before `sync` 
 roadmapsmith setup             # Create visible VS Code tasks + optional Claude hook wiring
 roadmapsmith zero              # Empty repo: terminal interview + init + generate
 roadmapsmith maintain          # Existing repo: generate + sync + audit
+roadmapsmith update --task <id> --evidence "<code-and-test paths>"  # Complete one verified task
 roadmapsmith init              # Advanced/manual: write ROADMAP.md + AGENTS.md governance files
 roadmapsmith generate          # Advanced/manual: preserve-first roadmap update from repository context
 roadmapsmith generate --full-regen # Advanced/manual: explicit full managed-block rebuild
@@ -133,7 +134,11 @@ roadmapsmith /roadmap-sync validate
 
 Claude write-time autoupdate depends on the host environment being able to resolve `node` for the repo-local hook. VS Code tasks use generated wrappers and can also honor `ROADMAPSMITH_NODE` when PATH-based Node resolution is unreliable. That best-effort hook is separate from this repository's git `pre-commit` sync behavior. Native Claude GUI slash commands come from the installed RoadmapSmith skill bundle; native Codex plugin install comes from `.codex-plugin/plugin.json` plus a marketplace entry; CLI slash routing (`roadmapsmith /roadmap`, `roadmapsmith /roadmap maintain`, and deprecated short aliases) is a separate surface that remains available in terminals and launchers. The published package now mirrors that same bundle on disk for downstream host loaders, but each host still has to load its own surface before the GUI changes.
 
-Windows note: prefer `roadmapsmith.cmd`, `npm.cmd`, or explicit `node` paths in shells where PowerShell execution policy or PATH resolution differs from `cmd.exe`.
+Windows note: prefer `roadmapsmith.cmd`, `npm.cmd`, or explicit `node` paths in shells where PowerShell execution policy or PATH resolution differs from `cmd.exe`. If the globally installed shim fails because `node` is absent from that shell PATH, bypass the npm shim:
+
+```powershell
+& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" <command>
+```
 
 ---
 
@@ -204,7 +209,7 @@ Recommended workflow:
 roadmapsmith maintain
 ```
 
-`maintain` runs `generate + sync + audit` in one invocation. Use the lower-level commands only when you want manual inspection or tighter control.
+`maintain` runs `generate + sync + audit` in one invocation. After it succeeds, do not run generate, sync, or audit again in the same cycle unless you need manual inspection or tighter control.
 
 ---
 
@@ -363,6 +368,7 @@ Do not use it if:
 | `roadmapsmith /roadmap-zero` | Native slash alias for Zero Mode |
 | `roadmapsmith /roadmap-maintain` | Native slash alias for the default existing-repo flow |
 | `roadmapsmith /roadmap-update` | Native slash alias for applying evidence-backed sync |
+| `roadmapsmith update --task <id> --evidence <text>` | Complete one task only after supplied evidence validates at high confidence |
 | `roadmapsmith /roadmap-sync validate` | Execute the deprecated legacy namespaced root form through the router |
 | `roadmapsmith init` | Create `ROADMAP.md` and `AGENTS.md` governance files |
 | `roadmapsmith generate --project-root .` | Preserve-first roadmap update from repository context |

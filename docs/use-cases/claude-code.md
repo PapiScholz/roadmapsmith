@@ -76,13 +76,13 @@ This exposes the native Claude GUI slash commands:
 
 It still does not install the CLI; the CLI must be installed separately for those commands to execute. That same bundle is now also present in the published package/plugin artifact alongside the Codex plugin manifest for downstream host installers that do not fetch directly from the GitHub working tree.
 
-### Option 3: Install only the legacy compatibility skill
+### Option 3: Legacy compatibility skill (deprecated)
 
 ```bash
 npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ```
 
-This installs only the legacy namespaced slash root `/roadmap-sync` plus the policy instructions. It does not expose the full Claude GUI command list.
+This installs only the deprecated legacy namespaced slash root `/roadmap-sync` plus the policy instructions. It does not expose the full Claude GUI command list; use the full bundle and `/roadmap-maintain` or `/roadmap-update` for new workflows.
 
 ### Option 4: Manual hook setup
 
@@ -120,8 +120,7 @@ roadmapsmith zero
 # 3. For an existing repo, run the maintenance flow in one command
 roadmapsmith maintain
 
-# 4. At the end of the session, verify the state is accurate
-roadmapsmith sync --audit
+# 4. Maintain already generated, synced, and audited the roadmap. Run lower-level commands only for manual inspection.
 
 # 5. Commit — if you use a pre-commit hook, it can run a final sync
 git commit -m "feat: implement task X"
@@ -174,6 +173,8 @@ Use `validate --json` when you want to inspect per-task evidence before taking a
 `roadmapsmith status --json` now separates the native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the repo-local VS Code task and Claude hook layer. `roadmapsmith doctor --json` remains a compatibility alias. Use that output when you need to distinguish “the bundle exists” from “the host actually loaded it.”
 
 **Hook runs but ROADMAP does not update:** Confirm the Claude hook environment can resolve `node`. Today the repo-local write-time hook is best-effort and depends on that host-level resolution.
+
+**Global CLI says `node` is not recognized:** In PowerShell, bypass the npm shim with `& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" <command>`.
 
 **Sync reverts a task I just completed:** Run `roadmapsmith validate --json` to see what evidence the validator found. The task text or file path in the roadmap may not match what the agent created.
 

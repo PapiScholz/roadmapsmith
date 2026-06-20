@@ -1,11 +1,11 @@
 ---
 name: roadmap-sync
-description: Legacy namespaced root and policy guidance for RoadmapSmith slash workflows.
+description: DEPRECATED legacy root for RoadmapSmith slash workflows; use roadmap-maintain or roadmap-update.
 ---
 
-# RoadmapSmith Legacy Root
+# RoadmapSmith Legacy Root (Deprecated)
 
-Use this skill when the host exposes or the user invokes `/roadmap-sync`, or when the agent needs the RoadmapSmith operating rules for roadmap maintenance.
+Use this skill only when the host exposes or the user explicitly invokes `/roadmap-sync`. For new work, use `/roadmap-maintain` for the daily flow or `/roadmap-update` for evidence-backed completion.
 
 ## Required behavior
 

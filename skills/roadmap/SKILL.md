@@ -13,7 +13,7 @@ Use this command as the native discovery entrypoint for the shared RoadmapSmith 
 2. When working inside the RoadmapSmith repository itself and `roadmap-skill/bin/cli.js` exists, prefer the local engine:
    - `node roadmap-skill/bin/cli.js /roadmap`
    - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js /roadmap` if `node` is not in PATH
-3. Otherwise, if the `roadmapsmith` CLI is available, you may run `roadmapsmith /roadmap` from the project root and use that output directly.
+3. Otherwise, if the `roadmapsmith` CLI is available, you may run `roadmapsmith /roadmap` from the project root and use that output directly. If its global shim cannot resolve `node`, use `& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" /roadmap`.
 4. If the CLI is missing, provide the palette manually and explain the install path:
    - `npm install -g roadmapsmith`
    - `npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code`
