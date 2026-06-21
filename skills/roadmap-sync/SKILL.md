@@ -16,5 +16,5 @@ Use this skill only when the host exposes or the user explicitly invokes `/roadm
    - `/roadmap-maintain`
    - `/roadmap-status`
    - `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`
-3. When the user explicitly invokes `/roadmap-sync <action>`, route to the matching CLI-backed action without changing semantics and mention the migration path to `/roadmap <action>` or the direct `/roadmap-*` command.
-4. Preserve the operating rules for evidence-backed roadmap maintenance and checklist synchronization: heuristic file/token matches may diagnose candidates, but only explicit `Evidence:` or typed `Verify:` checks may complete an unchecked implementation task. Never claim a behavioral task is complete without fresh test evidence or human verification.
+3. When the user explicitly invokes `/roadmap-sync <action>`, route to the matching CLI-backed action without changing semantics and mention the migration path to the direct `/roadmap-*` command.
+4. When routing `/roadmap-sync validate`, the tool uses the same validation rules as `/roadmap-validate`. Implementation tasks require an explicit `Evidence:` line or a `Verify:` check to be marked complete.

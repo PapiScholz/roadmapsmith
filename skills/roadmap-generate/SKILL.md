@@ -11,5 +11,5 @@ Use this command when the user wants the managed roadmap block updated from repo
 
 1. Run `roadmapsmith generate --project-root .`.
 2. Explain that `generate` is preserve-first when a substantive managed block already exists.
-4. When the user explicitly wants the destructive path, use `roadmapsmith generate --project-root . --full-regen`.
-5. Summarize what stayed preserved, whether generation refused, and what new additions, if any, were inserted.
+3. To allow full roadmap regeneration, add `--full-regen`: `roadmapsmith generate --project-root . --full-regen`.
+4. Summarize what stayed preserved, whether generation refused, and what new additions, if any, were inserted.

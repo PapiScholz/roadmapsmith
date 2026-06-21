@@ -21,7 +21,7 @@ jobs:
       - name: HOL AI Plugin Scanner
         uses: hashgraph-online/ai-plugin-scanner-action@bedc0169303b4918d45560ea9064132d35428f85 # v1.2.259
         with:
-          plugin_dir: "."
+          plugin_dir: "plugins/roadmapsmith"
           mode: scan
           min_score: 80
           fail_on_severity: high

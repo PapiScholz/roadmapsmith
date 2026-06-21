@@ -21,9 +21,5 @@ assets/palette.png
 # backups raros
 *.mp4~
 
-# Generated integration files — contain child_process patterns
-.vscode/roadmapsmith-launcher.js
-.claude/hooks/roadmap-sync.js
-
 # npm lockfile — contains high-entropy SHA512 integrity hashes
 roadmap-skill/package-lock.json
