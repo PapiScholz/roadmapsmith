@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.32 - 2026-06-21
+
+### Changed
+- add HOL AI Plugin Scanner workflow (#57)
+
 ## v0.9.31 - 2026-06-21
 
 ### Fixed
