@@ -21,7 +21,7 @@ function printHelp() {
     'Usage:',
     '  Canonical commands:',
     '  roadmapsmith zero [--project-root <path>] [--config <path>]',
-    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--full-regen]',
+    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--full-regen] [--refresh-annotations]',
     '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict]',
     '  roadmapsmith update [--task <stable-id> --evidence <text>] [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
@@ -30,7 +30,7 @@ function printHelp() {
     '  Advanced commands:',
     '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
-    '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
+    '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit] [--refresh-annotations]',
     '  roadmapsmith /roadmap',
     '  roadmapsmith /roadmap <action>',
     '  roadmapsmith /roadmap-zero | /roadmap-maintain | /roadmap-status | /roadmap-validate | /roadmap-update | /roadmap-setup | /roadmap-init | /roadmap-generate | /roadmap-audit',
@@ -226,7 +226,8 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
   const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
   const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
   applyMinimumConfidence(results, config.validation?.minimumConfidence);
-  const next = applySync(content, syncTasks, results);
+  const forceRefresh = isEnabled(flags['refresh-annotations']);
+  const next = applySync(content, syncTasks, results, { forceRefresh });
   const dryRun = isEnabled(flags['dry-run']);
   const writeResult = writeText(roadmapFile, next, { dryRun });
 
