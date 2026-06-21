@@ -9,8 +9,5 @@ Use this command when the user wants per-task evidence status without mutating t
 
 ## Required behavior
 
-1. Prefer the local engine inside this repository:
-   - `node roadmap-skill/bin/cli.js validate --json --project-root .`
-   - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js validate --json --project-root .` if `node` is not in PATH
-2. Otherwise prefer `roadmapsmith validate --json --project-root .`.
-3. Treat this command as CLI-backed and non-mutating.
+1. Run `roadmapsmith validate --json --project-root .`.
+2. This command is non-mutating.

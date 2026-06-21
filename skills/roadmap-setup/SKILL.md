@@ -9,9 +9,6 @@ Use this command when the user wants RoadmapSmith host integration files generat
 
 ## Required behavior
 
-1. Prefer the local engine inside this repository:
-   - `node roadmap-skill/bin/cli.js setup --project-root . --hosts codex,claude`
-   - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js setup --project-root . --hosts codex,claude` if `node` is not in PATH
-2. Otherwise prefer `roadmapsmith setup --project-root . --hosts codex,claude`.
-3. Explain that setup affects the repository host layer: VS Code tasks, launcher/wrappers, and the optional repo-local Claude hook.
-4. Do not claim that setup alone creates native host slash commands; those come from the installed bundle/plugin.
+1. Run `roadmapsmith setup --project-root . --hosts codex,claude`.
+2. Explain that setup generates VS Code task definitions for the current repository.
+3. Do not claim that setup alone creates native host slash commands; those come from the installed bundle/plugin.
