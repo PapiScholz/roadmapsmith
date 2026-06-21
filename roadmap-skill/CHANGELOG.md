@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+- None yet.
+
+## v0.9.29 - 2026-06-21
+
 ### Fixed
-- Hardened `maintain` so unchecked implementation tasks cannot complete from domain/token proximity alone; added deterministic `Verify:` checks, partial endpoint diagnostics, behavioral verification recipes, and fresh Vitest JSON report evidence.
+- require deterministic maintain evidence (#51)
 
 ## v0.9.28 - 2026-06-20
 
