@@ -1299,10 +1299,69 @@ function parseVerificationFields(text) {
 }
 
 function stripCodeComments(content) {
-  return String(content || '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:\\])\/\/.*$/gm, '$1')
-    .replace(/^\s*#.*$/gm, '');
+  const source = String(content || '');
+  let result = '';
+  let quote = null;
+  let escaped = false;
+  let lineHasContent = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (quote) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      if (char === '\n') lineHasContent = false;
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      result += char;
+      lineHasContent = true;
+      continue;
+    }
+
+    if (char === '/' && next === '*') {
+      const closeIndex = source.indexOf('*/', index + 2);
+      index = closeIndex < 0 ? source.length : closeIndex + 1;
+      continue;
+    }
+
+    if (char === '/' && next === '/') {
+      const newlineIndex = source.indexOf('\n', index + 2);
+      if (newlineIndex < 0) break;
+      result += '\n';
+      lineHasContent = false;
+      index = newlineIndex;
+      continue;
+    }
+
+    if (char === '#' && !lineHasContent) {
+      const newlineIndex = source.indexOf('\n', index + 1);
+      if (newlineIndex < 0) break;
+      result += '\n';
+      lineHasContent = false;
+      index = newlineIndex;
+      continue;
+    }
+
+    result += char;
+    if (char === '\n') {
+      lineHasContent = false;
+    } else if (!/\s/.test(char)) {
+      lineHasContent = true;
+    }
+  }
+
+  return result;
 }
 
 function findIndexedFile(relativePath, context) {
