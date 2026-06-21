@@ -35,6 +35,24 @@ test('parseRoadmap associates Evidence lines and delayed warning with the same t
   assert.equal(parsed.tasks[0].lastChildLineIndex, 3);
 });
 
+test('parseRoadmap associates deterministic verification metadata, generated recipes, and explicit pending items', () => {
+  const content = [
+    '## Phase P0',
+    '- [ ] Protect login submit <!-- rs:task=login-submit -->',
+    '  - Verify: kind=behavior; source=src/login.tsx; test=src/__tests__/login.test.tsx; case=disables submit; trigger=fireEvent.click; assertion=toBeDisabled',
+    '  - Test evidence: file=src/__tests__/login.test.tsx; case=disables submit; status=PASS; verifiedAt=2026-06-20T12:00:00.000Z',
+    '  - Verification recipe: src/login.tsx:12 inspect disabled={isSubmitting}',
+    '  - ❌ Pending: verify keyboard submit',
+    ''
+  ].join('\n');
+
+  const task = parseRoadmap(content).tasks[0];
+  assert.equal(task.verifyLines[0].text.includes('kind=behavior'), true);
+  assert.equal(task.testEvidenceLines.length, 1);
+  assert.equal(task.verificationRecipeLineIndex, 4);
+  assert.deepEqual(task.explicitPendingItems.map((item) => item.text), ['Pending: verify keyboard submit']);
+});
+
 test('parseRoadmap normalizes legacy and current warning prefixes to the same warning text', () => {
   const content = [
     '## Phase P0',

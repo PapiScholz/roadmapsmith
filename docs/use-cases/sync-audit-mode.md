@@ -21,7 +21,7 @@ Do not use Sync/Audit Mode for an empty repository with no implementation contex
 
 ## How it works
 
-RoadmapSmith scans the repository and compares the declared task state (`[x]`) in `ROADMAP.md` against evidence found in the codebase. It does not trust the agent's self-reported completion — it requires traceable proof.
+RoadmapSmith scans the repository and compares the declared task state (`[x]`) in `ROADMAP.md` against evidence found in the codebase. It does not trust the agent's self-reported completion — it requires traceable proof. For pending implementation tasks, heuristic code/test matches remain diagnostic candidates; only explicit `Evidence:` or typed deterministic `Verify:` checks can advance the checkbox.
 
 ### Evidence types checked
 
@@ -29,9 +29,9 @@ RoadmapSmith scans the repository and compares the declared task state (`[x]`) i
 - **Symbol names** — identifiers referenced in the task description
 - **Code token matching** — keyword frequency across source files
 - **Test file matching** — test files referencing task-relevant terms
-- **Artifact presence** — README, CHANGELOG, `docs/`, `dist/` entries
+- **Artifact presence** — explicit documentation/artifact references; generated build outputs are not implementation evidence
 
-A task passes only when accumulated evidence exceeds the configured threshold.
+A task may accumulate heuristic evidence, but an unchecked implementation task advances only through explicit `Evidence:` or a typed deterministic `Verify:` check. Confidence thresholds filter validation output; they do not promote heuristic matches.
 
 ## Workflow
 
@@ -60,7 +60,8 @@ When `sync` runs:
 - Tasks with passing evidence are marked `[x]`
 - Tasks with concrete attempt evidence emit `⚠️ attempted but validation failed: <reason>` in the roadmap
 - Tasks without concrete attempt evidence emit `⚠️ no implementation evidence found yet: <reason>` in the roadmap
-- A historical warning with fresh code-and-test evidence is classified as `WARN:STALE_EVIDENCE`; sync records the discovered files and completes it only at high confidence
+- A historical warning resolves only with deterministic verification or fresh test evidence; generic code-and-test proximity remains pending
+- Behavioral work without a fresh configured test result receives `WARN:REQUIRES_HUMAN_EVIDENCE` plus a short verification recipe instead of speculative evidence
 - `--audit` surfaces tasks that claim completion but have no evidence, and tasks that have evidence but are still unchecked
 
 This means a PR reviewer can run `sync --audit` and see a factual mismatch report — not just the agent's word.

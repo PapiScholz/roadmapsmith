@@ -15,6 +15,7 @@ Use this document for context and command runbook notes only.
 - `roadmapsmith zero` is the one-command empty-repo flow.
 - `roadmapsmith maintain` is the one-command existing-repo flow.
 - `roadmapsmith update --task <id> --evidence <text>` is the verified high-confidence single-task completion flow.
+- `roadmapsmith maintain` must not auto-complete unchecked implementation tasks from token/domain proximity; typed `Verify:` metadata and fresh configured test reports are the deterministic auto-completion contract.
 - Native Codex plugin support comes from `.codex-plugin/plugin.json` plus the repo-local marketplace at `.agents/plugins/marketplace.json`.
 - Native Claude GUI slash commands come from the full skill bundle: `/roadmap`, `/roadmap-zero`, `/roadmap-maintain`, `/roadmap-status`, `/roadmap-init`, `/roadmap-generate`, `/roadmap-validate`, `/roadmap-update`, `/roadmap-audit`, and `/roadmap-setup`.
 - `roadmap-sync` is a deprecated legacy/namespaced compatibility skill; installing only that skill is not full product activation.

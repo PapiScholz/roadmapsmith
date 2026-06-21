@@ -92,6 +92,19 @@ roadmapsmith maintain   # existing repo
 
 Use the lower-level commands only when you want manual control over generation, validation, or sync.
 
+## Deterministic completion
+
+For unchecked implementation tasks, related files and matching test names are candidate signals only. `maintain` completes a task only from explicit `Evidence:` or typed child verification metadata:
+
+```markdown
+- [ ] Enable ESLint builds
+  - Verify: kind=property; file=next.config.js; key=ignoreDuringBuilds; equals=false
+- [ ] Prevent double submit
+  - Verify: kind=behavior; source=src/login.tsx; test=src/__tests__/login.test.tsx; case=disables submit; trigger=fireEvent.click; assertion=toBeDisabled
+```
+
+`contains`, `property`, and `endpoints` are static checks. A behavioral check also requires a fresh `validation.testReports` entry using `format: "vitest-json"`; RoadmapSmith reads reports but never executes tests. Missing proof produces a `Verification recipe:` and a warning rather than a checked box. A fresh passing report is persisted as `Test evidence: file=<test>; case=<case>; status=PASS; verifiedAt=<ISO timestamp>` and becomes stale when it predates the referenced source or test file.
+
 ## Host Support Today
 
 | Host | Current support |
@@ -181,14 +194,13 @@ The repo does not remove user-global skills automatically. Use the `doctor` outp
 - Uses stable task IDs: `<!-- rs:task=<slug> -->`.
 - Sync marks `[x]` only when validation passes.
 - `sync --audit` currently runs sync and then prints a mismatch summary; it is not yet a dedicated read-only audit mode.
-- Validation evidence gate:
-  - code OR test OR artifact evidence required.
-  - test evidence required for code tasks when test frameworks are detected.
+- For unchecked implementation tasks, heuristic code/test/path matches are candidates only. Completion requires explicit `Evidence:`, a trusted validator rule, or typed deterministic `Verify:` metadata.
+- `Verify:` supports `contains`, `property`, `endpoints`, and `behavior`; behavior additionally requires a fresh configured Vitest JSON report or a fresh `Test evidence:` annotation.
 - Validation failures in sync write warning lines:
   - `- ⚠️ attempted but validation failed: <reason>` when there is concrete attempt evidence
   - `- ⚠️ no implementation evidence found yet: <reason>` when there is not
 - Preserves unmanaged markdown content by updating only the managed roadmap block.
-- `validate` emits structured diagnostics in human and JSON output (`FAIL:NOT_IMPLEMENTED`, `FAIL:NO_TEST`, `FAIL:MISSING_REFERENCE`, and `WARN:STALE_EVIDENCE`).
+- `validate` emits structured diagnostics in human and JSON output, including `FAIL:NOT_IMPLEMENTED`, `FAIL:NO_TEST`, `FAIL:MISSING_REFERENCE`, `FAIL:WRONG_VALUE`, `FAIL:PARTIAL`, `WARN:STALE_EVIDENCE`, `WARN:REQUIRES_HUMAN_EVIDENCE`, `WARN:NO_STATIC_SIGNAL`, `WARN:HAS_EXPLICIT_PENDING`, and `WARN:STALE_TEST_REPORT`.
 - `update --task <id> --evidence <text>` writes only when the evidence validates at high confidence; otherwise the roadmap is unchanged.
 
 ## Defaults
