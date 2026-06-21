@@ -13,6 +13,10 @@ In Sync/Audit Mode, scan repository context, validate tasks against evidence, an
 Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and rely on evidence-based validation.
 
 ## Retrospective Rules
+- For a user-requested implementation, leave the resulting diff in the shared checkout unless the user explicitly asks for an isolated branch/worktree. If isolation is required, state its path and handoff before completion; never report work as applied while the user's checkout is unchanged. Before responding, verify `git status --short` in the checkout the user is actually using.
+- Do not let a generic worktree/branch workflow override the user's visible workspace or an explicit request to apply changes. A worktree is an opt-in isolation mechanism here, not a substitute for delivering the working-tree diff the user asked to see.
+- Run the full suite and any release gates only after the final diff is in the target checkout. Do not repeat expensive validation merely to compensate for moving work between worktrees.
+- Completion reports must state the exact location of the diff and whether it is unstaged, committed, or published. Do not offer merge/PR choices when the user did not ask for Git integration and no commit exists.
 - Keep test discovery scoped to `test/*.test.js`; do not let files in `test/fixtures` run as tests.
 - Preserve deterministic roadmap generation by semantically merging only phase checklist tasks (`Phase P0/P1/P2`) and keeping non-phase section IDs/status stable.
 - Ignore generic implementation words (for example: `implement`, `module`, `function`) in evidence matching; prioritize explicit paths/symbols and domain-specific tokens to reduce validation false positives.
@@ -36,13 +40,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-06-18 2:10am GMT-3
+# [roadmapsmith] recent context, 2026-06-20 11:02pm GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (24,090t read) | 215,121t work | 89% savings
+Stats: 50 obs (18,783t read) | 164,105t work | 89% savings
 
 ### May 14, 2026
 S123 CodeQL-safe refactoring of parser and validator modules to replace complex regex patterns with composable character-driven tokenization (May 14, 1:33 AM)
@@ -53,59 +57,59 @@ S395 Implement GUI/IDE visibility for RoadmapSmith CLI status and host distincti
 S396 roadmap-sync: Generate, synchronize, and validate project roadmap checklist state against repository evidence (Jun 12, 3:22 PM)
 ### Jun 13, 2026
 S407 User reported RoadmapSmith skill duplication issue: both legacy skill roadmap-sync and plugin roadmapsmith installed simultaneously, creating command conflicts. Requested guidance on cleanup and proper installation configuration. (Jun 13, 9:44 PM)
-### Jun 14, 2026
-2865 12:32a ✅ Slash Routing Updated: /roadmap-update as Primary Sync, regenerate Removed
-2866 " ✅ Host Integration Updated: Tasks and Launcher Reflect New Command Surface
-2867 " ✅ VS Code Task Definitions Updated: Regenerate Removed, Descriptions Aligned
-2868 12:33a ✅ Launcher Embedded Slash Code Finalized: /roadmap-update Primary, /roadmap-sync Shows Palette
-2869 " ✅ Final Host Documentation Updates: Regenerate Removed from Help, Slash Entrypoints Corrected
-2870 " 🔵 Comprehensive Test Suite Validates Preserve-Mode and Full-Regen Implementation
-2871 12:34a ✅ Final Cleanup: Electron Classifier Renamed, Obsolete Function Removed
-2872 " ✅ Test Suite Updated: Preserve-Mode and Full-Regen Behavior Tests Aligned
-2896 12:24p 🟣 Added /roadmap-update direct slash command
-2897 " ✅ Removed /roadmap-regenerate as direct slash command
-2898 " ✅ Updated roadmap-sync Codex metadata to reference /roadmap-update
-2900 12:25p ✅ Deleted skills/roadmap-regenerate directory
-2902 " 🔵 slash.test.js tests all pass with /roadmap-update integration
-2904 " 🔵 Generator test failures: preserveManagedBlock logic conflicts with --full-regen removal
-2905 " 🔵 CLI test failures: --full-regen flag not producing expected behavior
-2908 12:26p 🔵 Tests reveal intended design: --full-regen should error, users redirected to regenerate command
-2910 " ⚖️ Clarified design: --full-regen flag controls whether generate rebuilds managed blocks
-2911 " 🔵 All generator and CLI tests now pass after test alignment
-2912 12:27p 🔵 Full test suite passes: 224 tests pass, 0 failures
-2913 " ✅ Skill bundle refactored to namespaced structure with roadmap- prefix
-3037 9:12p 🔵 RoadmapSmith Test Suite Structure and Coverage Areas
-3038 9:14p ⚖️ Pre-push QA Gate Policy: Broad Scope with Dual Sub-agent Validation
 ### Jun 18, 2026
-3180 1:31a 🔴 Pre-push gate refactored to report failures instead of crashing on first check
-3181 " 🟣 Test coverage added for failure aggregation in pre-push gate
-3182 " 🟣 Docs-contract test guards against incorrect Codex marketplace command directory
-3183 " 🔴 docs/release-readiness.md corrected for Codex marketplace command working directory
-3184 " 🔴 docs/release-ux-gate.md corrected for Codex marketplace command working directory
-3185 " 🔵 Test failure discovered: aggregate mode subgate error message not captured as expected
-3186 1:32a 🔵 Pre-push gate qa-regression executes all checks and reports multiple failures
-3187 " 🔵 Legacy router smoke check now correctly accepts exit code 1; functional-smoke gate passes
-3188 " 🔴 Fixed test assertion to match actual error message behavior in aggregate mode test
-3189 " 🔵 All pre-push gate and manifest tests passing after fixes
-3190 " 🔵 All pre-push validation gates passing; Codex marketplace command paths verified correct
-3191 " 🔵 Complete pre-push validation aggregate gate passes with full JSON diagnostic output
-3192 1:33a ✅ Plan implementation complete: 5 files modified across pre-push gate, tests, and documentation
-3193 1:51a 🔄 Skills Architecture Migrated to Namespaced Module Structure
 S434 Prepare codebase for push and conduct security audit to verify all changes are ready (Jun 18, 1:58 AM)
-3194 1:59a ✅ Skills refactored to roadmap-namespaced structure with new plugin integrations
-3195 " 🔵 Pre-push gate validates all refactoring changes and safety mechanisms passing
-3196 2:00a 🔵 Missing pre-push-gate.js script file
-3197 " 🔵 Documentation audit confirms all surfaces documented with deprecation paths and validation gates clearly defined
-3198 " 🔵 QA/Regression validation gate architecture and check definitions
-3199 " 🔵 QA/Regression validation gate execution PASS
-3200 " 🔵 Codex plugin bundle fully configured with dual skill naming (legacy + namespaced) and metadata sync infrastructure
-3201 2:01a 🔵 Plugin-bundle.js implements three-surface version alignment: Claude, Codex root, and marketplace mirror with automatic consistency enforcement
-3202 " 🔵 Root skills/ directory contains only new namespaced skills; marketplace bundle preserves legacy skill names for backward compatibility
-3203 " 🔵 Bundle metadata sync confirms version alignment 0.9.16; marketplace mirror cleaned to contain only namespaced skills from root
-3204 " ✅ Enhanced codex-marketplace.test.js with skill directory parity validation and explicit surface curation assertions
-3205 2:02a 🔵 Comprehensive test suite passes all 13 critical validations: marketplace integration, gate structure, and manifest consistency confirmed
-3206 " 🔵 QA/Regression subgate passes both checks with documented residual risks and unvalidated surfaces
-3207 2:04a 🔵 Functional-Smoke Gate Validation Complete: All 7 Checks Pass
+### Jun 20, 2026
+3699 8:09p ⚖️ Three-tier task completion verification strategy for roadmapsmith
+3700 8:12p ⚖️ Test pass verification hierarchy for maintain command—read-only artifact preference with staleness detection
+3701 8:20p 🔵 Clean test baseline established for deterministic-evidence feature branch
+3702 8:21p 🟣 Parser extended to capture deterministic verification metadata structures
+3703 " 🔵 Parser extension validated - all 8 tests passing including new verification metadata parsing
+3704 " 🟣 Generated output directories classified and excluded from evidence pool
+3705 " 🔵 Generated output exclusion integrated throughout validator evidence collection
+3706 8:23p 🟣 Deterministic verification evaluation implemented for all four verification kinds
+3707 " ✅ Diagnostic codes added for deterministic verification failures (WRONG_VALUE, PARTIAL)
+3708 " 🟣 Deterministic verification integrated into core task validation flow
+3709 " 🟣 Behavioral task detection generates NO_STATIC_SIGNAL or REQUIRES_HUMAN_EVIDENCE warnings
+3710 8:24p 🔵 Validator test failures reveal heuristic evidence path was removed; needs restoration
+3711 " ✅ Test expectations updated to require deterministic verification for task completion
+3712 " 🔵 Validator test suite 96.6% passing (84/87); remaining 3 failures are minor error message mismatches
+3713 " ✅ Action-verb and change-verb test assertions simplified to focus on pass/fail behavior
+3714 " ✅ Cleaned up reason filtering for deterministic verification passes; extended test exemption to all verification kinds
+3715 8:25p 🟣 Added comprehensive regression tests for all four deterministic verification kinds
+3716 " 🔵 New deterministic verification tests reveal implementation issues; 88/91 passing (96.7%)
+3717 " 🔵 Validator tests 98.9% passing (90/91); only contains verification comment stripping issue remains
+3718 8:26p 🔵 Debug output shows deterministic verification not being triggered for contains verification task
+3719 " 🔵 All 99 parser and validator tests passing (100%); deterministic verification fully validated
+3720 " 🟣 Sync layer extended to generate and manage verification recipes and test evidence
+3721 " 🔵 Sync tests fail due to new deterministic verification contract; high-confidence heuristic no longer passes tasks
+3722 8:27p 🔵 Node fixture has code but no tests; sync tests need Evidence: blocks or updated expectations
+3723 " 🔵 All 14 sync tests passing (100%); sync layer validates deterministic verification integration
+3724 " 🟣 Added regression tests for generated test evidence and verification recipe sync behavior
+3725 " 🔵 One sync test failing; verification recipe not removed when task completes
+3726 " ✅ Fixed verification recipe cleanup by dynamically locating recipe lines
+3727 8:28p 🔵 All 16 sync tests passing (100%); verification recipe cleanup fixed
+3728 " ✅ CLI output extended to surface warning diagnostic codes
+3729 " 🔵 Documentation review shows existing Sync/Audit Mode coverage; new Verify: block syntax and diagnostic codes not yet documented
+3730 " ✅ Documentation updated to explain deterministic verification system
+3731 8:29p ✅ Root CHANGELOG.md updated and plan status marked completed through documentation phase
+3732 " 🔵 Full npm test suite passes (276/278 tests); deterministic verification implementation complete
+3733 " 🔵 Both pre-push validation gates pass (qa-regression, functional-smoke); 644 insertions across 16 files
+3734 " 🟣 Added CLI test for deterministic verification diagnostic output
+3735 8:30p 🔵 All 47 CLI tests passing (100%); deterministic verification diagnostic codes validated
+3736 10:30p 🔵 Working directory contains 668 insertions across 17 files in roadmapsmith
+3737 " 🔵 Patch application from worktree failed at config.js line 31
+3738 " ✅ Configuration schema extended with testReports and recipeCommand in validation block
+3739 10:31p ✅ Worktree changes successfully applied to main working directory via patch
+3740 " 🔵 Full test suite passes: 277/279 tests with zero failures after changes applied
+3741 10:48p ✅ Added checkout isolation verification rule to agent retrospective discipline
+3742 10:49p ✅ Extended checkout/diff isolation rules with completion-reporting clarity requirements
+3743 " 🔵 AGENTS.md configured with skip-worktree flag for local-only retrospective persistence
+3744 " ✅ AGENTS.md moved from skip-worktree to tracked changes; retrospective rules now repository-committed
+3745 10:50p ✅ Comprehensive documentation updates for deterministic task verification in maintain command
+3746 11:00p ✅ Documentation clarified: heuristic evidence is diagnostic only for task completion
+3747 " ✅ Documented Test evidence annotation persistence and staleness detection
+3748 11:01p 🟣 Behavioral verification with deterministic test evidence implemented and tested
 
-Access 215k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 164k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

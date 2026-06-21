@@ -25,6 +25,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Codex loader metadata for `skills/roadmap-sync/agents/openai.yaml` now parses cleanly instead of being ignored as invalid YAML.
+- `maintain` now requires deterministic verification, explicit evidence, or fresh configured test results before it completes an unchecked implementation task; heuristic matches remain diagnostic only.
 - `doctor` now detects the common duplicate-`/roadmap-sync` case where a legacy `~/.agents/skills/roadmap-sync` install coexists with the full `roadmapsmith` Codex plugin.
 - Validator/sync now distinguish concrete implementation attempts from no-evidence tasks, ignore backticked HTTP/MIME/formula tokens as file paths, exempt HTTP expectation lines from standalone test requirements, and keep implicit duplicate task text deterministic via unique per-occurrence IDs.
 

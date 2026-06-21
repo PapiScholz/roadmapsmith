@@ -17,13 +17,14 @@ function setupFixture(name) {
   return target;
 }
 
-test('validator passes when code and tests exist for code task', () => {
+test('validator keeps an unchecked code task pending when only related code and tests exist', () => {
   const projectRoot = setupFixture('node');
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask({ id: 'implement-app-module', text: 'App module' }, context, config, []);
-  assert.equal(result.passed, true);
+  assert.equal(result.passed, false);
+  assert.ok(result.reasons.some((reason) => reason.includes('deterministic Verify')));
 });
 
 test('validator fails missing tests when framework is detected', () => {
@@ -610,14 +611,14 @@ test('confidence is low when no evidence found (attempted flag does not boost co
   assert.equal(result.confidence, 'low');
 });
 
-test('canonical artifact heuristic: "Add SECURITY.md" detects SECURITY.md as artifact evidence', () => {
+test('canonical artifact heuristic does not complete an unchecked task without deterministic verification', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask({ id: 'add-security', text: 'Add SECURITY.md' }, context, config, []);
   assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for SECURITY.md');
-  assert.equal(result.passed, true, 'task should pass when SECURITY.md exists');
+  assert.equal(result.passed, false, 'file presence alone must not complete an unchecked task');
   assert.ok(
     result.evidence.heuristicArtifacts.includes('SECURITY.md'),
     `expected SECURITY.md in heuristicArtifacts, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
@@ -625,14 +626,14 @@ test('canonical artifact heuristic: "Add SECURITY.md" detects SECURITY.md as art
   assert.equal(result.reasons.length, 0, 'passing task must have no reasons');
 });
 
-test('canonical artifact heuristic: "Add README file" detects README.md as artifact evidence', () => {
+test('canonical README heuristic does not complete an unchecked task without deterministic verification', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask({ id: 'add-readme', text: 'Add README file' }, context, config, []);
   assert.equal(result.evidence.artifact, true, 'artifact evidence must be found for README.md');
-  assert.equal(result.passed, true, 'task should pass when README.md exists');
+  assert.equal(result.passed, false, 'file presence alone must not complete an unchecked task');
   assert.ok(
     result.evidence.heuristicArtifacts.includes('README.md'),
     `expected README.md in heuristicArtifacts, got: ${JSON.stringify(result.evidence.heuristicArtifacts)}`
@@ -1516,7 +1517,7 @@ test('Milestone with Blocked-by in child bullet stays failed when dep is incompl
   assert.ok(results['child-milestone-v1'].reasons.some((r) => r.includes('child-dep-task')), 'reason must name the blocking dep');
 });
 
-test('Unchecked task with a stale warning passes only when fresh code and test evidence is high confidence', () => {
+test('Unchecked task with a stale warning remains pending when fresh evidence is only heuristic', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
   fs.writeFileSync(
@@ -1545,7 +1546,7 @@ test('Unchecked task with a stale warning passes only when fresh code and test e
   const task = tasks.find((t) => t.id === 'add-notifications');
 
   const result = validateTask(task, context, config, []);
-  assert.equal(result.passed, true);
+  assert.equal(result.passed, false);
   assert.equal(result.confidence, 'high');
   assert.ok(result.diagnostics.some((item) => item.code === 'STALE_EVIDENCE' && item.severity === 'warning'));
 });
@@ -1595,7 +1596,6 @@ test('Action-verb task with path hint and code tokens stays unchecked without Ev
     context, config, []
   );
   assert.equal(result.passed, false, 'action-verb task without Evidence line must stay unchecked');
-  assert.ok(result.reasons.some((r) => r.includes('implementation task requires')), 'reason must indicate implementation task requirement');
 });
 
 // Causa 3b: same action-verb task WITH Evidence line passes
@@ -1643,14 +1643,12 @@ test('taskDescribesChange catches noun form "Manejo" and two-word "Recovery path
     context, config, []
   );
   assert.equal(r1.passed, false, '"Manejo" must be caught as an action task');
-  assert.ok(r1.reasons.some((r) => r.includes('implementation task requires')));
 
   const r2 = validateTask(
     { id: 'recovery-cash', text: 'Recovery path para cash sessions huérfanas en src/lib/db.ts', checked: false },
     context, config, []
   );
   assert.equal(r2.passed, false, '"Recovery path" must be caught as an action task');
-  assert.ok(r2.reasons.some((r) => r.includes('implementation task requires')));
 });
 
 test('Action task without Evidence line stays unchecked despite token match in generic fixture', () => {
@@ -1671,7 +1669,6 @@ test('Action task without Evidence line stays unchecked despite token match in g
     context, config, []
   );
   assert.equal(result.passed, false, 'action task must stay unchecked even when file exists with matching tokens');
-  assert.ok(result.reasons.some((r) => r.includes('implementation task requires')), 'reason must mention Evidence line or high-confidence');
 });
 
 test('Action task WITH Evidence line is marked complete', () => {
@@ -1736,7 +1733,7 @@ test('/api/* HTTP route paths do not produce missing-file failures', () => {
   }
 });
 
-test('implementation task passes when BOTH code and test files match its tokens', () => {
+test('implementation task stays pending when BOTH code and test files only match its tokens', () => {
   const projectRoot = setupFixture('generic');
 
   fs.mkdirSync(path.join(projectRoot, 'src', 'lib'), { recursive: true });
@@ -1771,9 +1768,115 @@ test('implementation task passes when BOTH code and test files match its tokens'
   );
 
   assert.equal(
-    result.passed, true,
-    'implementation task should pass when code + test files both match tokens'
+    result.passed, false,
+    'implementation task must not pass from code + test token proximity'
   );
   assert.equal(result.confidence, 'high');
-  assert.ok(!result.reasons.some((r) => r.includes('implementation task requires')));
+  assert.ok(result.reasons.some((r) => r.includes('deterministic Verify')));
+});
+
+test('property verification distinguishes wrong values from an exact deterministic match', () => {
+  const projectRoot = setupFixture('generic');
+  fs.writeFileSync(path.join(projectRoot, 'next.config.js'), 'module.exports = { eslint: { ignoreDuringBuilds: true } };\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  let context = buildValidationContext(projectRoot, config, []);
+  const task = {
+    id: 'prod-eslint-builds',
+    text: 'Enable eslint during builds',
+    checked: false,
+    verifyLines: [{ text: 'kind=property; file=next.config.js; key=ignoreDuringBuilds; equals=false' }]
+  };
+
+  let result = validateTask(task, context, config, []);
+  assert.equal(result.passed, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'WRONG_VALUE'));
+
+  fs.writeFileSync(path.join(projectRoot, 'next.config.js'), 'module.exports = { eslint: { ignoreDuringBuilds: false } };\n', 'utf8');
+  context = buildValidationContext(projectRoot, config, []);
+  result = validateTask(task, context, config, []);
+  assert.equal(result.passed, true);
+});
+
+test('contains verification ignores comments and generated Electron output never contributes evidence', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'dist-electron', 'win-unpacked'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'middleware.ts'), '// SESSION_COOKIE\nexport const value = true;\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'dist-electron', 'win-unpacked', 'recovery.js'), 'SESSION_COOKIE cash error session config', 'utf8');
+  const config = loadConfig({ projectRoot });
+  let context = buildValidationContext(projectRoot, config, []);
+  const task = {
+    id: 'cookie-middleware',
+    text: 'Create cookie middleware',
+    checked: false,
+    verifyLines: [{ text: 'kind=contains; file=src/middleware.ts; expected=SESSION_COOKIE' }]
+  };
+  let result = validateTask(task, context, config, []);
+  assert.equal(result.passed, false);
+  assert.ok(result.reasons.some((reason) => reason.includes('no content match')));
+  assert.ok(!context.fileIndex.some((file) => file.relativePath.startsWith('dist-electron/')));
+
+  fs.writeFileSync(path.join(projectRoot, 'src', 'middleware.ts'), 'export const cookieName = SESSION_COOKIE;\n', 'utf8');
+  context = buildValidationContext(projectRoot, config, []);
+  result = validateTask(task, context, config, []);
+  assert.equal(result.passed, true);
+});
+
+test('endpoint verification requires complete coverage and reports the missing routes', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', '__tests__', 'api.test.ts'), "test('/api/dashboard', () => {});\ntest('/api/backup', () => {});\n", 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask({
+    id: 'prod-missing-endpoint-tests',
+    text: 'Add endpoint tests',
+    checked: false,
+    verifyLines: [{ text: 'kind=endpoints; routes=/api/dashboard,/api/backup,/api/products/[sku]' }]
+  }, context, config, []);
+  assert.equal(result.passed, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'PARTIAL'));
+  assert.match(result.reasons.join('; '), /1\/3|2\/3/);
+  assert.match(result.reasons.join('; '), /products/);
+});
+
+test('behavior verification requires a fresh passing report and explicit pending items always block completion', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', '__tests__'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'login.tsx'), 'export function Login() { return null; }\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', '__tests__', 'login.test.tsx'),
+    "import { Login } from '../login';\ntest('disables submit during login', () => { fireEvent.click(button); expect(button).toBeDisabled(); });\n",
+    'utf8'
+  );
+  const reportPath = path.join(projectRoot, 'test-results.json');
+  fs.writeFileSync(reportPath, JSON.stringify({ testResults: [{ file: 'src/__tests__/login.test.tsx', name: 'disables submit during login', status: 'passed' }] }), 'utf8');
+  const config = loadConfig({ projectRoot });
+  config.validation.testReports = [{ path: 'test-results.json', format: 'vitest-json' }];
+  let context = buildValidationContext(projectRoot, config, []);
+  const task = {
+    id: 'login-submit',
+    text: 'Disable submit during login',
+    checked: false,
+    verifyLines: [{ text: 'kind=behavior; source=src/login.tsx; test=src/__tests__/login.test.tsx; case=disables submit during login; trigger=fireEvent.click; assertion=toBeDisabled' }],
+    testEvidenceLines: [],
+    explicitPendingItems: []
+  };
+  let result = validateTask(task, context, config, []);
+  assert.equal(result.passed, true);
+  assert.match(result.generatedTestEvidence, /status=PASS/);
+
+  task.explicitPendingItems = [{ text: 'keyboard submission' }];
+  result = validateTask(task, context, config, []);
+  assert.equal(result.passed, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'HAS_EXPLICIT_PENDING'));
+
+  const old = new Date(Date.now() - 60_000);
+  fs.utimesSync(reportPath, old, old);
+  fs.writeFileSync(path.join(projectRoot, 'src', 'login.tsx'), 'export function Login() { return <button disabled={true} />; }\n', 'utf8');
+  task.explicitPendingItems = [];
+  context = buildValidationContext(projectRoot, config, []);
+  result = validateTask(task, context, config, []);
+  assert.equal(result.passed, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'STALE_TEST_REPORT'));
 });

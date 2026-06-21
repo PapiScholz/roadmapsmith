@@ -31,7 +31,9 @@ const DEFAULT_CONFIG = {
     doneCriteria: []
   },
   validation: {
-    minimumConfidence: 'low'
+    minimumConfidence: 'low',
+    testReports: [],
+    recipeCommand: ''
   },
   milestones: [
     { version: 'v0.1', goal: 'Foundation baseline complete' },
@@ -95,7 +97,10 @@ function mergeConfig(userConfig) {
     },
     validation: {
       ...DEFAULT_CONFIG.validation,
-      ...((userConfig && userConfig.validation) || {})
+      ...((userConfig && userConfig.validation) || {}),
+      testReports: userConfig && userConfig.validation && Array.isArray(userConfig.validation.testReports)
+        ? userConfig.validation.testReports
+        : DEFAULT_CONFIG.validation.testReports
     }
   };
 }

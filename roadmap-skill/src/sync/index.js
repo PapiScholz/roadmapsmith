@@ -112,6 +112,23 @@ function shouldPreserveExistingWarning(existingReason, newReason) {
   return cleanNew === 'validation failed' && cleanExisting && cleanExisting !== cleanNew;
 }
 
+function formatVerificationRecipe(indent, recipe) {
+  return `${indent}  - Verification recipe: ${recipe}`;
+}
+
+function formatTestEvidence(indent, evidence) {
+  return `${indent}  - Test evidence: ${evidence}`;
+}
+
+function findVerificationRecipeIndex(lines, taskLineIndex) {
+  for (let index = taskLineIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim() || /^\s*#{2,}\s/.test(line) || /^\s*- \[[ xX]\]\s/.test(line)) break;
+    if (/^\s*- Verification recipe:/i.test(line)) return index;
+  }
+  return null;
+}
+
 function applySync(content, parsedTasks, results) {
   const parsed = parseRoadmap(content);
   const lines = [...parsed.lines];
@@ -142,6 +159,19 @@ function applySync(content, parsedTasks, results) {
         lines.splice(warningIndex, 1);
         offset -= 1;
       }
+      const recipeIndex = findVerificationRecipeIndex(lines, lineIndex);
+      if (recipeIndex != null && recipeIndex >= 0 && recipeIndex < lines.length) {
+        lines.splice(recipeIndex, 1);
+        offset -= 1;
+      }
+      if (
+        result.generatedTestEvidence &&
+        (!Array.isArray(task.testEvidenceLines) || task.testEvidenceLines.length === 0)
+      ) {
+        const insertionIndex = Math.max(lineIndex + 1, (task.lastChildLineIndex + offset) + 1);
+        lines.splice(insertionIndex, 0, formatTestEvidence(task.indent || '', result.generatedTestEvidence));
+        offset += 1;
+      }
       if (
         result.staleEvidenceResolved &&
         (!Array.isArray(task.evidenceLines) || task.evidenceLines.length === 0) &&
@@ -154,10 +184,7 @@ function applySync(content, parsedTasks, results) {
         lines.splice(insertionIndex, 0, `${task.indent || ''}  - Evidence: ${result.discoveredEvidence}`);
         offset += 1;
       }
-      continue;
-    }
-
-    if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
+    } else if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
       const existingReason = normalizeWarningReason(lines[warningIndex]);
       const newReason = reason || 'validation failed';
       if (!shouldPreserveExistingWarning(existingReason, newReason)) {
@@ -166,6 +193,23 @@ function applySync(content, parsedTasks, results) {
     } else {
       lines.splice(lastChildLineIndex + 1, 0, warningText);
       offset += 1;
+    }
+
+    const recipeIndex = findVerificationRecipeIndex(lines, lineIndex);
+    if (result.passed) {
+      continue;
+    }
+    if (result.verificationRecipe) {
+      const recipeLine = formatVerificationRecipe(task.indent || '', result.verificationRecipe);
+      if (recipeIndex != null && recipeIndex >= 0 && recipeIndex < lines.length) {
+        lines[recipeIndex] = recipeLine;
+      } else {
+        lines.splice(lastChildLineIndex + 1, 0, recipeLine);
+        offset += 1;
+      }
+    } else if (recipeIndex != null && recipeIndex >= 0 && recipeIndex < lines.length) {
+      lines.splice(recipeIndex, 1);
+      offset -= 1;
     }
   }
 

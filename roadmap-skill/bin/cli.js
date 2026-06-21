@@ -48,7 +48,9 @@ function formatResultLine(task, result) {
   const diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
   const primaryError = diagnostics.find((item) => item.severity === 'error');
   const warnings = diagnostics.filter((item) => item.severity === 'warning');
-  const status = primaryError ? `FAIL:${primaryError.code}` : (result.passed ? 'PASS' : 'FAIL');
+  const status = primaryError
+    ? `FAIL:${primaryError.code}`
+    : (result.passed ? 'PASS' : (warnings[0] ? `WARN:${warnings[0].code}` : 'FAIL'));
   const parts = [...result.reasons];
   warnings.forEach((item) => parts.push(`WARN:${item.code} ${item.message}`));
   const reason = parts.length > 0 ? ` :: ${parts.join('; ')}` : '';

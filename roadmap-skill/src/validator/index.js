@@ -13,6 +13,7 @@ const CODE_EXTENSIONS = new Set([
 ]);
 const TRANSLATION_DIR_SEGMENTS = ['locale', 'locales', 'i18n', 'translations'];
 const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/', 'roadmap-skill/'];
+const GENERATED_OUTPUT_PREFIXES = ['dist-electron/', 'dist/', 'build/', 'out/', '.next/', 'coverage/'];
 
 // "docs" omitted from DOC_HINTS — it is a path prefix in scan tasks, not a doc-authoring keyword.
 const DOC_HINTS = ['readme', 'changelog', 'documentation', 'spec', 'diagram', 'runbook'];
@@ -151,6 +152,11 @@ function isMostlyUiStrings(content) {
   return stringLikeLines / lines.length > 0.8;
 }
 
+function isGeneratedOutputPath(relativePath) {
+  const normalized = normalizePathForMatch(relativePath);
+  return GENERATED_OUTPUT_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
 function readFileIndex(projectRoot, files, config) {
   const index = [];
   for (const relativePath of files) {
@@ -180,6 +186,7 @@ function readFileIndex(projectRoot, files, config) {
       absolutePath,
       ext,
       content,
+      generatedOutput: isGeneratedOutputPath(relativePath),
       isTestFile: /(^|\/)(__tests__|tests)\//.test(relativePath) || /\.test\.|\.spec\.|_test\.go$/.test(relativePath)
     });
   }
@@ -631,6 +638,7 @@ function findFilesBySymbols(symbolHints, fileIndex) {
   for (const symbol of symbolHints) {
     const regex = new RegExp(`\\b${escapeRegExp(symbol)}\\b`, 'i');
     for (const file of fileIndex) {
+      if (file.generatedOutput) continue;
       if (!CODE_EXTENSIONS.has(file.ext)) {
         continue;
       }
@@ -650,6 +658,7 @@ function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new 
 
   const matches = new Set();
   for (const file of fileIndex) {
+    if (file.generatedOutput) continue;
     const pathSegments = normalizePathForMatch(file.relativePath).split('/').filter(Boolean);
     for (const token of tokens) {
       if (pathSegments.some((segment) => segment === token || segment.includes(token))) {
@@ -744,7 +753,7 @@ function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
 
   const matches = [];
   for (const file of fileIndex) {
-    if (!CODE_EXTENSIONS.has(file.ext) || file.isTestFile) {
+    if (file.generatedOutput || !CODE_EXTENSIONS.has(file.ext) || file.isTestFile) {
       continue;
     }
 
@@ -819,7 +828,7 @@ function findTestEvidence(taskText, fileIndex, referencedPaths = []) {
   const matches = [];
 
   for (const file of fileIndex) {
-    if (!file.isTestFile) continue;
+    if (file.generatedOutput || !file.isTestFile) continue;
 
     // A test file counts as evidence only when it imports a module whose path contains
     // one of the task's meaningful tokens. Content-keyword matching is intentionally absent:
@@ -897,6 +906,7 @@ function findArtifactEvidence(taskText, fileIndex) {
   ];
 
   for (const file of fileIndex) {
+    if (file.generatedOutput) continue;
     if (artifactPatterns.some((pattern) => pattern.test(file.relativePath)) && !files.includes(file.relativePath)) {
       files.push(file.relativePath);
     }
@@ -1273,6 +1283,303 @@ function evaluateRule(rule, task, context) {
   };
 }
 
+function parseVerificationFields(text) {
+  const fields = {};
+  for (const part of String(text || '').split(';')) {
+    const separator = part.indexOf('=');
+    if (separator <= 0) continue;
+    const key = part.slice(0, separator).trim().toLowerCase();
+    let value = part.slice(separator + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key && value) fields[key] = value;
+  }
+  return fields;
+}
+
+function stripCodeComments(content) {
+  const source = String(content || '');
+  let result = '';
+  let quote = null;
+  let escaped = false;
+  let lineHasContent = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (quote) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      if (char === '\n') lineHasContent = false;
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      result += char;
+      lineHasContent = true;
+      continue;
+    }
+
+    if (char === '/' && next === '*') {
+      const closeIndex = source.indexOf('*/', index + 2);
+      index = closeIndex < 0 ? source.length : closeIndex + 1;
+      continue;
+    }
+
+    if (char === '/' && next === '/') {
+      const newlineIndex = source.indexOf('\n', index + 2);
+      if (newlineIndex < 0) break;
+      result += '\n';
+      lineHasContent = false;
+      index = newlineIndex;
+      continue;
+    }
+
+    if (char === '#' && !lineHasContent) {
+      const newlineIndex = source.indexOf('\n', index + 1);
+      if (newlineIndex < 0) break;
+      result += '\n';
+      lineHasContent = false;
+      index = newlineIndex;
+      continue;
+    }
+
+    result += char;
+    if (char === '\n') {
+      lineHasContent = false;
+    } else if (!/\s/.test(char)) {
+      lineHasContent = true;
+    }
+  }
+
+  return result;
+}
+
+function findIndexedFile(relativePath, context) {
+  const normalized = normalizeReferencedPath(relativePath);
+  return context.fileIndex.find((file) => !file.generatedOutput && (
+    normalizeReferencedPath(file.relativePath) === normalized ||
+    normalizeReferencedPath(file.relativePath).endsWith('/' + normalized)
+  ));
+}
+
+function readTestReportRecords(projectRoot, validationConfig) {
+  const reports = Array.isArray(validationConfig && validationConfig.testReports)
+    ? validationConfig.testReports
+    : [];
+  const records = [];
+
+  function visit(value, reportPath, mtimeMs) {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      value.forEach((entry) => visit(entry, reportPath, mtimeMs));
+      return;
+    }
+    const status = String(value.status || value.state || value.result || '').toLowerCase();
+    const file = value.file || value.filepath || value.testFile || value.nameFile;
+    const name = value.fullName || value.fullname || value.name || value.title;
+    if (file && name && /^(pass|passed|success)$/.test(status)) {
+      records.push({ file: String(file), name: String(name), reportPath, mtimeMs });
+    }
+    Object.values(value).forEach((entry) => visit(entry, reportPath, mtimeMs));
+  }
+
+  for (const report of reports) {
+    if (!report || report.format !== 'vitest-json' || !report.path) continue;
+    const reportPath = path.resolve(projectRoot, report.path);
+    try {
+      const payload = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      const mtimeMs = fs.statSync(reportPath).mtimeMs;
+      visit(payload, reportPath, mtimeMs);
+    } catch {
+      // A missing or malformed optional report is simply unavailable evidence.
+    }
+  }
+  return records;
+}
+
+function timestampIsFresh(timestamp, files) {
+  const verifiedAt = Date.parse(timestamp || '');
+  if (!Number.isFinite(verifiedAt)) return false;
+  return files.every((file) => {
+    try {
+      return verifiedAt >= fs.statSync(file.absolutePath).mtimeMs;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function findFreshTestProof(task, fields, context) {
+  const testFile = findIndexedFile(fields.test || fields.file, context);
+  const sourceFile = fields.source ? findIndexedFile(fields.source, context) : null;
+  const caseName = fields.case;
+  if (!testFile || !caseName) return { passed: false, available: false };
+  const freshnessFiles = [testFile, ...(sourceFile ? [sourceFile] : [])];
+  const evidenceLines = Array.isArray(task.testEvidenceLines) ? task.testEvidenceLines : [];
+  for (const line of evidenceLines) {
+    const evidence = parseVerificationFields(line.text);
+    if (String(evidence.status || '').toUpperCase() !== 'PASS') continue;
+    if (normalizeReferencedPath(evidence.file) !== normalizeReferencedPath(testFile.relativePath)) continue;
+    if (evidence.case !== caseName) continue;
+    if (timestampIsFresh(evidence.verifiedat, freshnessFiles)) {
+      return { passed: true, available: true };
+    }
+    return { passed: false, available: true, stale: true };
+  }
+  for (const record of context.testReportRecords || []) {
+    if (!referencedPathMatches(record.file, testFile.relativePath) || !record.name.includes(caseName)) continue;
+    if (record.mtimeMs >= Math.max(...freshnessFiles.map((file) => fs.statSync(file.absolutePath).mtimeMs))) {
+      return {
+        passed: true,
+        available: true,
+        generatedEvidence: `file=${testFile.relativePath}; case=${caseName}; status=PASS; verifiedAt=${new Date(record.mtimeMs).toISOString()}`
+      };
+    }
+    return { passed: false, available: true, stale: true };
+  }
+  return { passed: false, available: false };
+}
+
+function testCoversEndpoint(testFile, route, context) {
+  const normalizedRoute = String(route).replace(/\[([^\]]+)\]/g, '$1').toLowerCase();
+  const normalizedContent = testFile.content.replace(/\[([^\]]+)\]/g, '$1').toLowerCase();
+  if (normalizedContent.includes(normalizedRoute)) return true;
+  const source = findIndexedFile(`src/app${route}/route.ts`, context);
+  if (source && normalizedContent.includes(path.basename(source.relativePath, source.ext).toLowerCase())) return true;
+  const segments = normalizedRoute.split('/').filter((segment) => segment.length >= 3);
+  return segments.length > 0 && segments.every((segment) => normalizedContent.includes(segment));
+}
+
+function findVerificationRecipe(task, context) {
+  const patterns = [
+    /disabled\s*=\s*\{[^}]+\}/i,
+    /<(?:dialog|alertdialog)\b[^>]*\bopen\s*=/i,
+    /abortcontroller|abortsignal\.timeout/i,
+    /router\.push\s*\(/i
+  ];
+  for (const file of context.fileIndex) {
+    if (file.generatedOutput || file.isTestFile || !CODE_EXTENSIONS.has(file.ext)) continue;
+    const match = patterns.map((pattern) => pattern.exec(file.content)).find(Boolean);
+    if (!match) continue;
+    const line = file.content.slice(0, match.index).split(/\r?\n/).length;
+    const command = context.config.validation && context.config.validation.recipeCommand
+      ? `; run ${String(context.config.validation.recipeCommand).replace('{testFile}', '<test-file>')}`
+      : '';
+    return `${file.relativePath}:${line} inspect ${match[0].trim()}${command}`;
+  }
+  return null;
+}
+
+function isBehavioralTask(taskText) {
+  return /\b(mostrar|deshabilitar|confirmar|notificar|redirigir|imprimir|show|disable|confirm|notify|redirect|print)\b/i.test(String(taskText || ''));
+}
+
+function evaluateDeterministicVerification(task, context) {
+  const verifyLines = Array.isArray(task.verifyLines) ? task.verifyLines : [];
+  if (verifyLines.length === 0) {
+    if (!isBehavioralTask(task.text)) {
+      return { applicable: false, passed: false, reasons: [], diagnostics: [], recipe: null };
+    }
+    const recipe = findVerificationRecipe(task, context);
+    return {
+      applicable: false,
+      passed: false,
+      reasons: [],
+      diagnostics: [{
+        code: recipe ? 'REQUIRES_HUMAN_EVIDENCE' : 'NO_STATIC_SIGNAL',
+        severity: 'warning',
+        message: recipe ? 'behavioral task requires explicit human or test evidence' : 'no static implementation signal was found for behavioral task'
+      }],
+      recipe
+    };
+  }
+  const reasons = [];
+  const diagnostics = [];
+  let generatedTestEvidence = null;
+
+  for (const line of verifyLines) {
+    const fields = parseVerificationFields(line.text);
+    const kind = fields.kind;
+    if (kind === 'contains' || kind === 'property') {
+      const file = findIndexedFile(fields.file, context);
+      if (!file) {
+        reasons.push(`missing referenced file(s): ${fields.file || '<unspecified>'}`);
+        continue;
+      }
+      const content = stripCodeComments(file.content);
+      if (kind === 'contains') {
+        if (!fields.expected || !content.includes(fields.expected)) {
+          reasons.push(`no content match in ${file.relativePath}: expected ${fields.expected || '<unspecified>'}`);
+        }
+        continue;
+      }
+      const keyPattern = new RegExp(`\\b${escapeRegExp(fields.key || '')}\\s*:`);
+      const exactPattern = new RegExp(`\\b${escapeRegExp(fields.key || '')}\\s*:\\s*${escapeRegExp(fields.equals || '')}(?=\\s*[,}\\n])`);
+      if (!exactPattern.test(content)) {
+        reasons.push(keyPattern.test(content)
+          ? `wrong value for ${fields.key} in ${file.relativePath}: expected ${fields.equals}`
+          : `no content match in ${file.relativePath}: expected ${fields.key}: ${fields.equals}`);
+      }
+      continue;
+    }
+    if (kind === 'endpoints') {
+      const routes = String(fields.routes || '').split(',').map((value) => value.trim()).filter(Boolean);
+      const tests = context.fileIndex.filter((file) => !file.generatedOutput && file.isTestFile);
+      const covered = routes.filter((route) => tests.some((file) => testCoversEndpoint(file, route, context)));
+      if (covered.length !== routes.length) {
+        const missing = routes.filter((route) => !covered.includes(route));
+        reasons.push(`partial endpoint coverage ${covered.length}/${routes.length}: missing ${missing.join(', ')}`);
+      }
+      continue;
+    }
+    if (kind === 'behavior') {
+      const source = findIndexedFile(fields.source, context);
+      const testFile = findIndexedFile(fields.test, context);
+      const testContent = testFile ? testFile.content : '';
+      const sourceReference = source && testContent.includes(path.basename(source.relativePath, source.ext));
+      const exercise = fields.trigger && testContent.includes(fields.trigger);
+      const assertion = fields.assertion && testContent.includes(fields.assertion);
+      const namedCase = fields.case && testContent.includes(fields.case);
+      const proof = findFreshTestProof(task, fields, context);
+      if (!source || !testFile || !sourceReference || !exercise || !assertion || !namedCase) {
+        diagnostics.push({ code: 'REQUIRES_HUMAN_EVIDENCE', severity: 'warning', message: 'behavior verification needs a source reference, named test, trigger, and assertion' });
+        continue;
+      }
+      if (proof.stale) {
+        diagnostics.push({ code: 'STALE_TEST_REPORT', severity: 'warning', message: `test result for ${testFile.relativePath} predates the verified source` });
+        continue;
+      }
+      if (!proof.passed) {
+        diagnostics.push({ code: 'REQUIRES_HUMAN_EVIDENCE', severity: 'warning', message: `no fresh passing result for ${testFile.relativePath}` });
+        continue;
+      }
+      generatedTestEvidence = proof.generatedEvidence || generatedTestEvidence;
+      continue;
+    }
+    reasons.push(`unsupported verification kind: ${kind || '<unspecified>'}`);
+  }
+
+  const passed = reasons.length === 0 && diagnostics.length === 0;
+  return {
+    applicable: true,
+    passed,
+    reasons,
+    diagnostics,
+    generatedTestEvidence,
+    recipe: passed ? null : findVerificationRecipe(task, context)
+  };
+}
+
 function buildValidationContext(projectRoot, config, plugins) {
   const files = walkFiles(projectRoot);
   const fileIndex = readFileIndex(projectRoot, files, config);
@@ -1286,7 +1593,8 @@ function buildValidationContext(projectRoot, config, plugins) {
     files,
     fileIndex,
     pathHintResolver,
-    testFrameworks
+    testFrameworks,
+    testReportRecords: readTestReportRecords(projectRoot, config.validation)
   };
 }
 
@@ -1297,6 +1605,15 @@ function diagnosticCodeForReason(reason) {
   }
   if (normalized.includes('missing test evidence')) {
     return 'NO_TEST';
+  }
+  if (normalized.includes('wrong value')) {
+    return 'WRONG_VALUE';
+  }
+  if (normalized.includes('partial endpoint coverage')) {
+    return 'PARTIAL';
+  }
+  if (normalized.includes('no content match')) {
+    return 'NOT_IMPLEMENTED';
   }
   if (
     normalized.includes('no code, test, or artifact evidence found') ||
@@ -1327,6 +1644,10 @@ function buildDiagnostics(reasons, options = {}) {
       message: 'historical validation warning conflicts with fresh repository evidence'
     });
   }
+  for (const diagnostic of options.extra || []) {
+    if (!diagnostic || !diagnostic.code || diagnostics.some((item) => item.code === diagnostic.code)) continue;
+    diagnostics.push(diagnostic);
+  }
   return diagnostics;
 }
 
@@ -1348,6 +1669,8 @@ function validateTask(task, context, config, plugins) {
   const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
   const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.pathHintResolver);
+  const deterministicVerification = evaluateDeterministicVerification(task, context);
+  const hasExplicitPendingItems = Array.isArray(task.explicitPendingItems) && task.explicitPendingItems.length > 0;
 
   const filesFromPaths = findFilesByPathHints(pathHints, context.pathHintResolver);
   const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.pathHintResolver);
@@ -1424,7 +1747,8 @@ function validateTask(task, context, config, plugins) {
     context.testFrameworks.length > 0 &&
     isCodeTask(task.text) &&
     !isDocTask(task.text) &&
-    !isHttpExpectationTask(task.text);
+    !isHttpExpectationTask(task.text) &&
+    !(task.verifyLines || []).some((line) => ['contains', 'property', 'endpoints', 'behavior'].includes(parseVerificationFields(line.text).kind));
   const configuredRules = Array.isArray(config.validators) ? config.validators : [];
   const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
   let overrideResult = null;
@@ -1457,6 +1781,18 @@ function validateTask(task, context, config, plugins) {
   }
 
   let uniqueReasons = Array.from(new Set(reasons));
+
+  if (deterministicVerification.passed) {
+    uniqueReasons = uniqueReasons.filter((reason) => (
+      reason !== 'no code, test, or artifact evidence found' &&
+      reason !== 'missing test evidence' &&
+      !reason.startsWith('weak path-')
+    ));
+  }
+
+  if (deterministicVerification.applicable && deterministicVerification.reasons.length > 0) {
+    uniqueReasons = Array.from(new Set([...uniqueReasons, ...deterministicVerification.reasons]));
+  }
 
   if (overrideResult) {
     uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
@@ -1516,7 +1852,15 @@ function validateTask(task, context, config, plugins) {
   const hasFreshRepositoryEvidence = hasStrongEvidence || hasWeakEvidence;
   let staleEvidenceDetected = false;
   let staleEvidenceResolved = false;
-  let passed = authoritativeEvidence.passed || hasArtifactTaskPass || hasTrustedRuleEvidencePass || meetsStrongThreshold;
+  // Heuristic proximity remains useful to locate candidates, but is never sufficient to
+  // complete an unchecked task. Completion requires human Evidence, a trusted rule, or a
+  // typed deterministic verifier.
+  let passed = authoritativeEvidence.passed || hasTrustedRuleEvidencePass || deterministicVerification.passed;
+
+  if (!task.checked && !authoritativeEvidence.passed && !hasTrustedRuleEvidencePass && !deterministicVerification.passed && hasHighConfidenceImplementationEvidence) {
+    uniqueReasons.push('implementation task requires deterministic Verify metadata or explicit Evidence to be marked complete');
+    uniqueReasons = Array.from(new Set(uniqueReasons));
+  }
 
   if (task.warningText && !task.checked && hasFreshRepositoryEvidence && !authoritativeEvidence.passed) {
     staleEvidenceDetected = true;
@@ -1531,7 +1875,7 @@ function validateTask(task, context, config, plugins) {
 
   // Historical warnings are only cleared by independent, high-confidence repository evidence.
   if (task.warningText && !task.checked && passed && !authoritativeEvidence.passed) {
-    if (hasHighConfidenceImplementationEvidence && negativeSignalMatches.length === 0 && uniqueReasons.length === 0) {
+    if ((deterministicVerification.passed || hasHighConfidenceImplementationEvidence) && negativeSignalMatches.length === 0 && uniqueReasons.length === 0) {
       staleEvidenceResolved = true;
     } else {
       passed = false;
@@ -1544,6 +1888,16 @@ function validateTask(task, context, config, plugins) {
     passed = false;
   }
 
+  const extraDiagnostics = [...deterministicVerification.diagnostics];
+  if (hasExplicitPendingItems) {
+    passed = false;
+    extraDiagnostics.push({
+      code: 'HAS_EXPLICIT_PENDING',
+      severity: 'warning',
+      message: `task declares pending item(s): ${task.explicitPendingItems.map((item) => item.text || 'pending').join(', ')}`
+    });
+  }
+
   // Unchecked implementation tasks need explicit evidence or high-confidence implementation
   // evidence. Weak token overlap, direct file references, or code-only matches are not enough.
   if (
@@ -1552,6 +1906,7 @@ function validateTask(task, context, config, plugins) {
     isImplementationTask(task.text) &&
     !authoritativeEvidence.passed &&
     !hasTrustedRuleEvidencePass &&
+    !deterministicVerification.passed &&
     !hasArtifactTaskPass &&
     !hasHighConfidenceImplementationEvidence
   ) {
@@ -1588,13 +1943,13 @@ function validateTask(task, context, config, plugins) {
   // Used by auditValidation to flag implementation tasks that pass solely via documentation.
   const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
 
-  const finalPassed = overrideResult ? overrideResult.passed !== false : (passed && uniqueReasons.length === 0);
+  const finalPassed = overrideResult ? (overrideResult.passed !== false && !hasExplicitPendingItems) : (passed && uniqueReasons.length === 0 && !hasExplicitPendingItems);
   return {
     taskId: task.id,
     passed: finalPassed,
     confidence,
     reasons: uniqueReasons,
-    diagnostics: buildDiagnostics(uniqueReasons, { staleEvidence: staleEvidenceDetected }),
+    diagnostics: buildDiagnostics(uniqueReasons, { staleEvidence: staleEvidenceDetected, extra: extraDiagnostics }),
     evidence,
     evidenceIsDocOnly,
     requiresTest,
@@ -1602,7 +1957,9 @@ function validateTask(task, context, config, plugins) {
     attempted,
     preservedCheckedState,
     staleEvidenceResolved,
-    discoveredEvidence: staleEvidenceResolved ? buildDiscoveredEvidenceLine(evidence) : null
+    discoveredEvidence: staleEvidenceResolved ? buildDiscoveredEvidenceLine(evidence) : null,
+    verificationRecipe: deterministicVerification.recipe,
+    generatedTestEvidence: deterministicVerification.generatedTestEvidence || null
   };
 }
 

@@ -23,6 +23,7 @@ test('sync marks task complete when validation passes', () => {
   const content = [
     '## Phase P0',
     '- [ ] App module <!-- rs:task=implement-app-module -->',
+    '  - Verify: kind=contains; file=src/app.js; expected=appModule',
     ''
   ].join('\n');
 
@@ -54,6 +55,7 @@ test('sync resolves stale warnings with high-confidence evidence and records dis
   const content = [
     '## Phase P2',
     '- [ ] Add notification system <!-- rs:task=add-notifications -->',
+    '  - Verify: kind=contains; file=src/lib/notification.ts; expected=sendNotification',
     '  - ⚠️ attempted but validation failed: helper exists but no delivery mechanism',
     ''
   ].join('\n');
@@ -349,4 +351,47 @@ test('applySync deduplicates warning reasons from a prior /api route sync run', 
   assert.equal(warningMatches.length, 1);
   assert.equal(missingEvidenceMatches.length, 1);
   assert.doesNotMatch(next, /missing referenced file\(s\): \/api\/backup/);
+});
+
+test('sync records generated test evidence once and removes a stale verification recipe on completion', () => {
+  const content = [
+    '## Phase P1',
+    '- [ ] Disable login submit <!-- rs:task=login-submit -->',
+    '  - Verify: kind=behavior; source=src/login.tsx; test=src/__tests__/login.test.tsx; case=disables submit; trigger=fireEvent.click; assertion=toBeDisabled',
+    '  - Verification recipe: src/login.tsx:12 inspect disabled={isSubmitting}',
+    '  - ⚠️ no implementation evidence found yet: no fresh passing result',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const result = {
+    passed: true,
+    reasons: [],
+    attempted: true,
+    generatedTestEvidence: 'file=src/__tests__/login.test.tsx; case=disables submit; status=PASS; verifiedAt=2026-06-20T12:00:00.000Z'
+  };
+  const first = applySync(content, parsed.tasks, { 'login-submit': result });
+  const secondParsed = parseRoadmap(first);
+  const second = applySync(first, secondParsed.tasks, { 'login-submit': result });
+
+  assert.match(first, /- \[x\] Disable login submit/);
+  assert.match(first, /Test evidence: file=src\/__tests__\/login\.test\.tsx/);
+  assert.doesNotMatch(first, /Verification recipe/);
+  assert.equal(second, first);
+});
+
+test('sync generates and replaces a single verification recipe for pending behavioral work', () => {
+  const content = '## Phase P1\n- [ ] Disable login submit <!-- rs:task=login-submit -->\n';
+  const parsed = parseRoadmap(content);
+  const result = {
+    passed: false,
+    reasons: [],
+    attempted: false,
+    verificationRecipe: 'src/login.tsx:12 inspect disabled={isSubmitting}'
+  };
+  const first = applySync(content, parsed.tasks, { 'login-submit': result });
+  const secondParsed = parseRoadmap(first);
+  const second = applySync(first, secondParsed.tasks, { 'login-submit': result });
+
+  assert.match(first, /Verification recipe: src\/login\.tsx:12/);
+  assert.equal((second.match(/Verification recipe:/g) || []).length, 1);
 });

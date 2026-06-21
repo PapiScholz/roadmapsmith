@@ -295,6 +295,40 @@ Set `validation.minimumConfidence` to suppress low-confidence results in CI:
 }
 ```
 
+### Deterministic verification for pending tasks
+
+`maintain` treats file/domain/token matches as diagnostics only; it does not complete an unchecked implementation task from related source and test files. Use a typed `Verify:` child bullet when the condition is statically decidable:
+
+```markdown
+- [ ] Add session-cookie middleware <!-- rs:task=session-cookie -->
+  - Verify: kind=contains; file=src/middleware.ts; expected=SESSION_COOKIE
+- [ ] Enable ESLint builds <!-- rs:task=eslint-builds -->
+  - Verify: kind=property; file=next.config.js; key=ignoreDuringBuilds; equals=false
+- [ ] Cover public endpoints <!-- rs:task=endpoint-tests -->
+  - Verify: kind=endpoints; routes=/api/dashboard,/api/backup
+- [ ] Disable submit during login <!-- rs:task=login-submit -->
+  - Verify: kind=behavior; source=src/login.tsx; test=src/__tests__/login.test.tsx; case=disables submit during login; trigger=fireEvent.click; assertion=toBeDisabled
+```
+
+`contains` checks a literal in effective source (comments do not count), `property` reports `FAIL:WRONG_VALUE`, and `endpoints` reports `FAIL:PARTIAL` with the covered/total count until every route has coverage. Behavioral work uses `kind=behavior` with explicit source/test/case/trigger/assertion metadata plus a fresh configured `vitest-json` report. RoadmapSmith never runs tests itself; stale or missing results produce a `Verification recipe:` and `WARN:REQUIRES_HUMAN_EVIDENCE`, `WARN:NO_STATIC_SIGNAL`, or `WARN:STALE_TEST_REPORT`.
+
+When a configured fresh report proves a behavioral test passed, sync writes a durable child annotation:
+
+```markdown
+  - Test evidence: file=src/__tests__/login.test.tsx; case=disables submit during login; status=PASS; verifiedAt=2026-06-20T12:00:00.000Z
+```
+
+An existing `Test evidence:` annotation is valid only when its `verifiedAt` timestamp is at least as recent as the referenced source and test files. A child item beginning with `❌` blocks completion and emits `WARN:HAS_EXPLICIT_PENDING`, even if other evidence exists.
+
+```json
+{
+  "validation": {
+    "testReports": [{ "path": "test-results.json", "format": "vitest-json" }],
+    "recipeCommand": "npm test -- {testFile}"
+  }
+}
+```
+
 Task markers can include `rs:no-test` to disable the test-evidence requirement for one task:
 
 ```markdown
@@ -654,13 +688,13 @@ The `--audit` flag produces a reviewable record: which tasks were attempted, whi
 
 ## Limitations (Transparent)
 
-**Validation can produce false positives.** Token-matching is not semantic analysis. A task mentioning "authentication" will match any file containing that word, including unrelated modules. This is a known current limitation. Stricter semantic matching and multi-evidence requirements are tracked as P0 priorities in the roadmap.
+**Validation is intentionally conservative.** Token matching can locate candidates, but it cannot complete pending implementation tasks. Use `Verify:` metadata, explicit `Evidence:`, or the single-task `update` flow when the completion condition is not machine-verifiable.
 
 **No caching.** Every `validate` or `sync` call walks the full repository. On large codebases this will be slow. A caching layer for `buildValidationContext()` is planned but not yet implemented (P2).
 
 **Requires disciplined usage.** RoadmapSmith enforces nothing on the agent itself — it reports mismatches. If an agent ignores `--audit` output or never calls `sync`, the governance layer provides no value. The system works only when it is part of the workflow, not an afterthought.
 
-**Not a test runner.** Validation checks for the presence of evidence, not the correctness of code. A test file referencing a task's keywords is sufficient for validation to pass, even if the tests themselves fail. Passing validation is necessary but not sufficient for a task to be genuinely complete.
+**Not a test runner.** RoadmapSmith never executes project tests. Behavioral auto-completion relies on a fresh configured result report or explicit human evidence; otherwise it emits a verification recipe.
 
 See [docs/limitations.md](docs/limitations.md) for more detail.
 

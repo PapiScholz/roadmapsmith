@@ -89,6 +89,26 @@ function parseEvidenceLine(content) {
   return content.slice(9).trim();
 }
 
+function parsePrefixedChildLine(content, prefix) {
+  const normalizedPrefix = `${prefix}:`;
+  if (content.slice(0, normalizedPrefix.length).toLowerCase() !== normalizedPrefix.toLowerCase()) {
+    return null;
+  }
+  return content.slice(normalizedPrefix.length).trim();
+}
+
+function parseVerifyLine(content) {
+  return parsePrefixedChildLine(content, 'Verify');
+}
+
+function parseTestEvidenceLine(content) {
+  return parsePrefixedChildLine(content, 'Test evidence');
+}
+
+function parseVerificationRecipeLine(content) {
+  return parsePrefixedChildLine(content, 'Verification recipe');
+}
+
 function parseWarningLine(content) {
   if (!content.startsWith(WARNING_PREFIX)) return null;
   let normalized = content.slice(WARNING_PREFIX.length).trim();
@@ -132,6 +152,10 @@ function parseRoadmap(content) {
     let warningLineIndex = null;
     let warningText = null;
     const evidenceLines = [];
+    const verifyLines = [];
+    const testEvidenceLines = [];
+    const explicitPendingItems = [];
+    let verificationRecipeLineIndex = null;
     const blockedByIds = [];
     let lastChildLineIndex = index;
     for (let childIndex = index + 1; childIndex < lines.length; childIndex += 1) {
@@ -159,6 +183,28 @@ function parseRoadmap(content) {
           lineIndex: childIndex,
           text: evidenceText,
           raw: childLine
+        });
+      }
+
+      const verifyText = parseVerifyLine(childBullet.content);
+      if (verifyText != null) {
+        verifyLines.push({ lineIndex: childIndex, text: verifyText, raw: childLine });
+      }
+
+      const testEvidenceText = parseTestEvidenceLine(childBullet.content);
+      if (testEvidenceText != null) {
+        testEvidenceLines.push({ lineIndex: childIndex, text: testEvidenceText, raw: childLine });
+      }
+
+      const verificationRecipeText = parseVerificationRecipeLine(childBullet.content);
+      if (verificationRecipeText != null) {
+        verificationRecipeLineIndex = childIndex;
+      }
+
+      if (childBullet.content.startsWith('❌')) {
+        explicitPendingItems.push({
+          lineIndex: childIndex,
+          text: childBullet.content.slice('❌'.length).trim()
         });
       }
 
@@ -190,6 +236,10 @@ function parseRoadmap(content) {
       warningLineIndex,
       warningText,
       evidenceLines,
+      verifyLines,
+      testEvidenceLines,
+      verificationRecipeLineIndex,
+      explicitPendingItems,
       blockedByIds,
       markerId,
       noTest,

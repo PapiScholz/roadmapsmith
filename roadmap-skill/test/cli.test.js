@@ -606,6 +606,30 @@ test('cli validate prints diagnostic codes and includes them in JSON output', ()
   assert.ok(payload[0].result.diagnostics.some((item) => item.code === 'NOT_IMPLEMENTED' && item.severity === 'error'));
 });
 
+test('cli validate prints deterministic failures and standalone behavioral warnings', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-deterministic-'));
+  writePackageJson(projectRoot);
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'next.config.js'), 'module.exports = { eslint: { ignoreDuringBuilds: true } };\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'login.tsx'), 'export const Login = () => <button disabled={isSubmitting} />;\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P0',
+      '- [ ] Enable ESLint builds <!-- rs:task=eslint-builds -->',
+      '  - Verify: kind=property; file=next.config.js; key=ignoreDuringBuilds; equals=false',
+      '- [ ] Disable login submit <!-- rs:task=login-submit -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const human = runResult(['validate', '--project-root', projectRoot], projectRoot);
+  assert.equal(human.status, 1);
+  assert.match(human.stdout, /FAIL:WRONG_VALUE \[eslint-builds\]/);
+  assert.match(human.stdout, /WARN:REQUIRES_HUMAN_EVIDENCE \[login-submit\]/);
+});
+
 test('cli sync rewrites legacy attempted warnings and reaches a fixed point on the second run', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-legacy-warning-fixed-point-'));
   writePackageJson(projectRoot);
