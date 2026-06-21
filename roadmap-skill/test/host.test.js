@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const {
   buildSetupFiles,
   detectNodeRuntime,
+  EXPECTED_CANONICAL_NATIVE_SLASH_COMMANDS,
   EXPECTED_NATIVE_SLASH_COMMANDS,
   inspectCodexPluginState,
   inspectHostSetup,
@@ -16,6 +17,8 @@ const {
   mergeVsCodeTasks,
   parseHosts,
   parseJsonc,
+  ROADMAPSMITH_ADVANCED_TASK_LABELS,
+  ROADMAPSMITH_CANONICAL_TASK_LABELS,
   ROADMAPSMITH_TASK_LABELS
 } = require('../src/host');
 
@@ -110,8 +113,11 @@ test('inspectSharedBundleSurface reports the full native slash bundle', () => {
   const bundle = inspectSharedBundleSurface();
 
   assert.equal(bundle.ready, true);
-  assert.deepEqual(bundle.expectedCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
-  assert.deepEqual(bundle.availableCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(bundle.expectedCommands, EXPECTED_CANONICAL_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(
+    bundle.availableCommands.slice().sort((left, right) => left.localeCompare(right)),
+    EXPECTED_NATIVE_SLASH_COMMANDS.slice().sort((left, right) => left.localeCompare(right))
+  );
   assert.deepEqual(bundle.missingCommands, []);
 });
 
@@ -149,8 +155,8 @@ test('inspectCodexPluginState reports duplicate /roadmap-sync when legacy skill 
     }
   });
 
-  assert.equal(state.ready, false);
-  assert.deepEqual(state.availableCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.equal(state.ready, true);
+  assert.deepEqual(state.availableCommands, EXPECTED_CANONICAL_NATIVE_SLASH_COMMANDS);
   assert.deepEqual(state.missingCommands, []);
   assert.equal(state.duplicates.length, 1);
   assert.equal(state.duplicates[0].command, '/roadmap-sync');
@@ -190,7 +196,40 @@ test('inspectHostSetup downgrades Codex readiness when task runtime is missing',
   assert.equal(hostStatus.hosts.codex.ready, false);
   assert.equal(hostStatus.hosts.claude.ready, true);
   assert.deepEqual(Object.keys(hostStatus.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
-  assert.deepEqual(hostStatus.surfaces.claudeGui.expectedCommands, EXPECTED_NATIVE_SLASH_COMMANDS);
+  assert.deepEqual(hostStatus.surfaces.claudeGui.expectedCommands, EXPECTED_CANONICAL_NATIVE_SLASH_COMMANDS);
+});
+
+test('inspectHostSetup keeps VS Code readiness healthy when only advanced tasks are missing', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-host-advanced-tasks-'));
+  fs.mkdirSync(path.join(projectRoot, '.vscode'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'ROADMAP.md'), '# roadmap\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'AGENTS.md'), '# agents\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, '.vscode', 'roadmapsmith-launcher.js'), '\'use strict\';\n');
+  fs.writeFileSync(path.join(projectRoot, '.vscode', 'roadmapsmith-task.cmd'), '@echo off\r\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, '.vscode', 'roadmapsmith-task.sh'), '#!/bin/sh\n', 'utf8');
+  fs.writeFileSync(
+    path.join(projectRoot, '.vscode', 'tasks.json'),
+    JSON.stringify({
+      version: '2.0.0',
+      tasks: ROADMAPSMITH_CANONICAL_TASK_LABELS.map((label, index) => ({
+        label,
+        type: 'process',
+        command: 'sh',
+        args: ['.vscode/roadmapsmith-task.sh', ['zero', 'maintain', 'status', 'validate', 'update', 'setup'][index]]
+      }))
+    }, null, 2),
+    'utf8'
+  );
+
+  const hostStatus = inspectHostSetup(projectRoot, {
+    roadmapFile: path.join(projectRoot, 'ROADMAP.md'),
+    agentsFile: path.join(projectRoot, 'AGENTS.md')
+  });
+
+  assert.equal(hostStatus.vscode.tasks.ready, true);
+  assert.deepEqual(hostStatus.vscode.tasks.expectedLabels, ROADMAPSMITH_CANONICAL_TASK_LABELS);
+  assert.deepEqual(hostStatus.vscode.tasks.missingLabels, []);
+  assert.deepEqual(hostStatus.vscode.tasks.missingAdvancedLabels, ROADMAPSMITH_ADVANCED_TASK_LABELS);
 });
 
 test('inspectHostSetup accepts the currently running CLI as valid resolution', () => {

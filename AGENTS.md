@@ -40,13 +40,13 @@ Do not mark roadmap tasks complete manually. Always call `roadmapsmith sync` and
 <claude-mem-context>
 # Memory Context
 
-# [roadmapsmith] recent context, 2026-06-20 11:02pm GMT-3
+# [roadmapsmith] recent context, 2026-06-21 2:28am GMT-3
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (18,783t read) | 164,105t work | 89% savings
+Stats: 50 obs (25,353t read) | 346,967t work | 93% savings
 
 ### May 14, 2026
 S123 CodeQL-safe refactoring of parser and validator modules to replace complex regex patterns with composable character-driven tokenization (May 14, 1:33 AM)
@@ -60,56 +60,57 @@ S407 User reported RoadmapSmith skill duplication issue: both legacy skill roadm
 ### Jun 18, 2026
 S434 Prepare codebase for push and conduct security audit to verify all changes are ready (Jun 18, 1:58 AM)
 ### Jun 20, 2026
-3699 8:09p ⚖️ Three-tier task completion verification strategy for roadmapsmith
-3700 8:12p ⚖️ Test pass verification hierarchy for maintain command—read-only artifact preference with staleness detection
-3701 8:20p 🔵 Clean test baseline established for deterministic-evidence feature branch
-3702 8:21p 🟣 Parser extended to capture deterministic verification metadata structures
-3703 " 🔵 Parser extension validated - all 8 tests passing including new verification metadata parsing
-3704 " 🟣 Generated output directories classified and excluded from evidence pool
-3705 " 🔵 Generated output exclusion integrated throughout validator evidence collection
-3706 8:23p 🟣 Deterministic verification evaluation implemented for all four verification kinds
-3707 " ✅ Diagnostic codes added for deterministic verification failures (WRONG_VALUE, PARTIAL)
-3708 " 🟣 Deterministic verification integrated into core task validation flow
-3709 " 🟣 Behavioral task detection generates NO_STATIC_SIGNAL or REQUIRES_HUMAN_EVIDENCE warnings
-3710 8:24p 🔵 Validator test failures reveal heuristic evidence path was removed; needs restoration
-3711 " ✅ Test expectations updated to require deterministic verification for task completion
-3712 " 🔵 Validator test suite 96.6% passing (84/87); remaining 3 failures are minor error message mismatches
-3713 " ✅ Action-verb and change-verb test assertions simplified to focus on pass/fail behavior
-3714 " ✅ Cleaned up reason filtering for deterministic verification passes; extended test exemption to all verification kinds
-3715 8:25p 🟣 Added comprehensive regression tests for all four deterministic verification kinds
-3716 " 🔵 New deterministic verification tests reveal implementation issues; 88/91 passing (96.7%)
-3717 " 🔵 Validator tests 98.9% passing (90/91); only contains verification comment stripping issue remains
-3718 8:26p 🔵 Debug output shows deterministic verification not being triggered for contains verification task
-3719 " 🔵 All 99 parser and validator tests passing (100%); deterministic verification fully validated
-3720 " 🟣 Sync layer extended to generate and manage verification recipes and test evidence
-3721 " 🔵 Sync tests fail due to new deterministic verification contract; high-confidence heuristic no longer passes tasks
-3722 8:27p 🔵 Node fixture has code but no tests; sync tests need Evidence: blocks or updated expectations
-3723 " 🔵 All 14 sync tests passing (100%); sync layer validates deterministic verification integration
-3724 " 🟣 Added regression tests for generated test evidence and verification recipe sync behavior
-3725 " 🔵 One sync test failing; verification recipe not removed when task completes
-3726 " ✅ Fixed verification recipe cleanup by dynamically locating recipe lines
-3727 8:28p 🔵 All 16 sync tests passing (100%); verification recipe cleanup fixed
-3728 " ✅ CLI output extended to surface warning diagnostic codes
-3729 " 🔵 Documentation review shows existing Sync/Audit Mode coverage; new Verify: block syntax and diagnostic codes not yet documented
-3730 " ✅ Documentation updated to explain deterministic verification system
-3731 8:29p ✅ Root CHANGELOG.md updated and plan status marked completed through documentation phase
-3732 " 🔵 Full npm test suite passes (276/278 tests); deterministic verification implementation complete
-3733 " 🔵 Both pre-push validation gates pass (qa-regression, functional-smoke); 644 insertions across 16 files
-3734 " 🟣 Added CLI test for deterministic verification diagnostic output
-3735 8:30p 🔵 All 47 CLI tests passing (100%); deterministic verification diagnostic codes validated
-3736 10:30p 🔵 Working directory contains 668 insertions across 17 files in roadmapsmith
-3737 " 🔵 Patch application from worktree failed at config.js line 31
-3738 " ✅ Configuration schema extended with testReports and recipeCommand in validation block
-3739 10:31p ✅ Worktree changes successfully applied to main working directory via patch
-3740 " 🔵 Full test suite passes: 277/279 tests with zero failures after changes applied
-3741 10:48p ✅ Added checkout isolation verification rule to agent retrospective discipline
-3742 10:49p ✅ Extended checkout/diff isolation rules with completion-reporting clarity requirements
-3743 " 🔵 AGENTS.md configured with skip-worktree flag for local-only retrospective persistence
-3744 " ✅ AGENTS.md moved from skip-worktree to tracked changes; retrospective rules now repository-committed
-3745 10:50p ✅ Comprehensive documentation updates for deterministic task verification in maintain command
-3746 11:00p ✅ Documentation clarified: heuristic evidence is diagnostic only for task completion
-3747 " ✅ Documented Test evidence annotation persistence and staleness detection
-3748 11:01p 🟣 Behavioral verification with deterministic test evidence implemented and tested
+3760 11:07p 🔴 CodeQL security check passed after ReDoS fix; PR #51 now has all green checks
+3761 11:08p 🟣 Deterministic verification feature merged to main (PR #51)
+3765 11:10p 🟣 v0.9.29 release completed: deterministic verification feature released to production
+3766 " 🟣 v0.9.29 production release published with deterministic verification feature
+3769 " ✅ Post-release cleanup: feature branch deleted, development worktree stale, main sync pending
+3770 11:11p ✅ Post-release cleanup completed: checkout synchronized to v0.9.29 release
+### Jun 21, 2026
+3772 12:50a 🔵 Task Completion Detection Improved in 0.9.29
+3773 " 🔴 Verification Recipe Regression in 0.9.29
+3774 " 🔵 Structural Validation Flaw: validate and maintain Share Same Evidence Logic
+3775 " 🔵 Evidence Contamination from Build Artifacts and Scripts
+3776 " 🔵 Root Evidence Inference Problem: Semantic Proximity Treated as Behavioral Proof
+3777 12:51a 🔵 Verification Recipe Generation Searches All Code Files Without Task Context
+3778 " 🔵 Deterministic Verification Gates Task Completion Without Verify Metadata
+3779 " 🔵 Verification Recipe Lifecycle: Generated on Failure, Removed on Completion
+3780 " 🔵 Three Categories of Verification in RoadmapSmith: Authoritative, Heuristic, Deterministic
+3781 12:52a 🔵 Build Artifact Exclusion: Three-Layer Filtering in Evidence Index
+3782 " 🔵 Evidence Inference Maintains Allowlist of Generic Tokens and Namespace Patterns
+3783 1:06a ⚖️ Verification recipe policy: four-principle specificity gate
+3784 " ⚖️ Validate independence framework: three-level strategy with level-2+3 hybrid recommendation
+3786 1:09a ⚖️ Validate breaking-change implementation: spec-first, meta-test-driven, flag-gated rollout
+3787 " ⚖️ Architectural separation: proximity-inferencer remains, content-verifier is new layer
+3788 " ⚖️ Dependency closure: validate --strict must precede maintain self-audit integration
+3789 1:15a 🔵 Verification recipe regression in 0.9.29 spreads unrelated patterns across tasks
+3790 " 🔵 Validate command uses same inference logic as maintain, cannot detect maintain's errors independently
+3791 " 🔵 Root cause of false positives: evidence inference treats semantic proximity as behavioral evidence
+3792 " 🔵 Evidence lists contaminated by build artifacts and auxiliary scripts reducing readability
+3793 1:16a 🔵 Slash command architecture supports multiple direct commands with legacy router compatibility
+3794 " 🔵 Multi-host plugin/skill distribution shares aligned bundle across Claude and Codex
+3795 " 🔵 Status/doctor command reports four separate host surfaces independently
+3796 " 🔵 Maintain command documented as preserve-first flow combining generate, sync, and audit
+3797 1:17a 🔵 Update command implements single-task completion with strict evidence validation
+3798 " 🔵 Documentation explicitly defines tool boundaries and enforces honest limitations
+3799 " 🔵 Release UX gate and use-case docs define explicit user contracts for each workflow
+3800 1:22a 🔵 RoadmapSmith Deprecation Strategy and Dual-Host Conflict Detection
+3801 1:23a 🔵 Multi-Host Readiness Validation Architecture
+3802 1:26a 🔵 RoadmapSmith Command Routing and Deprecation Architecture
+3803 1:27a 🔵 Task Label Management and Bundle Detection Infrastructure
+3804 1:29a 🔵 Preserve-First Regeneration Pattern with Explicit Destructive Flag
+3805 " 🔵 RoadmapSmith Skill Bundle Composition
+3806 1:30a 🔵 Comprehensive Deprecation Architecture for /roadmap-sync with Multi-Layer Migration Guidance
+3807 1:35a 🔵 Task Label Definition and Validation System Audit
+3808 " 🔵 Skill Definition Duplication and Roadmap-Sync Migration Status
+3809 1:41a 🔵 Deprecated /roadmap-sync Surface and Evidence Verification Recipe System
+3810 1:42a 🔵 Four-Surface Host Architecture with Multi-Pass Evidence Validation
+3811 " 🔵 Routing, Deprecation, and Surface Readiness Test Coverage
+3812 1:43a 🔵 Validation Pass/Fail Logic with Evidence Thresholds and Task State Preservation
+3813 " 🔵 Task Preservation, Dependency Blocking, and Audit Gap Detection
+3814 1:45a ✅ Slash Action Tier Organization and Surface Visibility Control
+3815 " ✅ Host Surface Readiness Reorganized by Tier: Canonical as Baseline
+3816 1:46a 🔵 Evidence Verification and Test Report Parsing Utilities
 
-Access 164k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 347k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

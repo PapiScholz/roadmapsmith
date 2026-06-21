@@ -3,65 +3,78 @@
 const SLASH_ACTIONS = [
   {
     id: 'zero',
+    tier: 'canonical',
     description: 'Interview the developer in terminal and generate the first roadmap for an empty or low-context repo.',
     classicCliExample: 'roadmapsmith zero',
     taskLabel: 'RoadmapSmith: Zero Mode'
   },
   {
     id: 'maintain',
+    tier: 'canonical',
     description: 'Preserve-first existing-repo flow: update, sync, and audit the roadmap without rebuilding substantive domain content.',
     classicCliExample: 'roadmapsmith maintain',
     taskLabel: 'RoadmapSmith: Maintain'
   },
   {
     id: 'status',
+    tier: 'canonical',
     description: 'Inspect CLI, roadmap, VS Code task, Codex, and Claude readiness.',
     classicCliExample: 'roadmapsmith status --json',
     taskLabel: 'RoadmapSmith: Status'
   },
   {
+    id: 'validate',
+    tier: 'canonical',
+    description: 'Inspect per-task evidence status as JSON.',
+    classicCliExample: 'roadmapsmith validate --json --project-root .',
+    taskLabel: 'RoadmapSmith: Validate'
+  },
+  {
+    id: 'update',
+    tier: 'canonical',
+    aliases: ['sync'],
+    description: 'Apply evidence-backed checklist refresh to ROADMAP.md or complete one task with verified evidence.',
+    classicCliExample: 'roadmapsmith update --project-root .',
+    taskLabel: 'RoadmapSmith: Update'
+  },
+  {
+    id: 'setup',
+    tier: 'canonical',
+    description: 'Generate visible VS Code tasks and optional Claude hook wiring.',
+    classicCliExample: 'roadmapsmith setup',
+    taskLabel: 'RoadmapSmith: Refresh Setup'
+  },
+  {
     id: 'init',
+    tier: 'advanced',
     description: 'Create ROADMAP.md and AGENTS.md when they are missing.',
     classicCliExample: 'roadmapsmith init',
     taskLabel: 'RoadmapSmith: Init'
   },
   {
     id: 'generate',
+    tier: 'advanced',
     description: 'Generate or update ROADMAP.md, refusing destructive replacement unless rerun with --full-regen.',
     classicCliExample: 'roadmapsmith generate --project-root .',
     taskLabel: 'RoadmapSmith: Generate'
   },
   {
-    id: 'validate',
-    description: 'Inspect per-task evidence status as JSON.',
-    classicCliExample: 'roadmapsmith validate --json --project-root .',
-    taskLabel: 'RoadmapSmith: Validate'
-  },
-  {
-    id: 'sync',
-    description: 'Apply evidence-backed checklist sync to ROADMAP.md.',
-    classicCliExample: 'roadmapsmith sync --project-root .',
-    taskLabel: 'RoadmapSmith: Sync'
-  },
-  {
     id: 'audit',
+    tier: 'advanced',
     description: 'Run sync and print the post-sync mismatch summary.',
     classicCliExample: 'roadmapsmith sync --audit --project-root .',
     taskLabel: 'RoadmapSmith: Sync Audit'
-  },
-  {
-    id: 'setup',
-    description: 'Generate visible VS Code tasks and optional Claude hook wiring.',
-    classicCliExample: 'roadmapsmith setup',
-    taskLabel: 'RoadmapSmith: Refresh Setup'
   }
 ];
 
 const SLASH_ROOT_ALIASES = new Set(['/roadmap', '/road']);
 const LEGACY_ROUTER_ALIAS = '/roadmap-sync';
+const CANONICAL_ACTION_IDS = Object.freeze(SLASH_ACTIONS.filter((action) => action.tier === 'canonical').map((action) => action.id));
+const ADVANCED_ACTION_IDS = Object.freeze(SLASH_ACTIONS.filter((action) => action.tier === 'advanced').map((action) => action.id));
+const COMPATIBILITY_ACTION_IDS = Object.freeze([]);
 
 function getNamespacedDirectSlash(actionId) {
-  return actionId === 'sync' ? '/roadmap-update' : `/roadmap-${actionId}`;
+  return `/roadmap-${actionId}`;
 }
 
 const DIRECT_HOST_NATIVE_ALIAS_TO_ACTION = Object.freeze(
@@ -69,23 +82,62 @@ const DIRECT_HOST_NATIVE_ALIAS_TO_ACTION = Object.freeze(
 );
 
 const DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION = Object.freeze(
-  Object.fromEntries(SLASH_ACTIONS.map((action) => [`/${action.id}`, action.id]))
+  Object.fromEntries(
+    SLASH_ACTIONS.flatMap((action) => {
+      const aliases = Array.isArray(action.aliases) ? action.aliases : [];
+      return [action.id, ...aliases].map((alias) => [`/${alias}`, action.id]);
+    })
+  )
 );
+
+const ACTION_ALIAS_TO_ID = Object.freeze(
+  Object.fromEntries(
+    SLASH_ACTIONS.flatMap((action) => {
+      const aliases = Array.isArray(action.aliases) ? action.aliases : [];
+      return [action.id, ...aliases].map((alias) => [alias, action.id]);
+    })
+  )
+);
+
+function mapActionIdsToSkillNames(actionIds) {
+  return [
+    'roadmap',
+    ...actionIds.map((actionId) => getNamespacedDirectSlash(actionId).slice(1))
+  ];
+}
+
+function getCanonicalHostNativeSkillNames() {
+  return mapActionIdsToSkillNames(CANONICAL_ACTION_IDS);
+}
+
+function getAdvancedHostNativeSkillNames() {
+  return ADVANCED_ACTION_IDS.map((actionId) => getNamespacedDirectSlash(actionId).slice(1));
+}
+
+function getCompatibilityHostNativeSkillNames() {
+  return [
+    'roadmap-sync'
+  ];
+}
 
 function getHostNativeSkillNames() {
   return [
-    'roadmap',
-    'roadmap-zero',
-    'roadmap-maintain',
-    'roadmap-status',
-    'roadmap-init',
-    'roadmap-generate',
-    'roadmap-validate',
-    'roadmap-update',
-    'roadmap-sync',
-    'roadmap-audit',
-    'roadmap-setup'
+    ...getCanonicalHostNativeSkillNames(),
+    ...getAdvancedHostNativeSkillNames(),
+    ...getCompatibilityHostNativeSkillNames()
   ];
+}
+
+function getCanonicalHostNativeSlashCommands() {
+  return getCanonicalHostNativeSkillNames().map((name) => `/${name}`);
+}
+
+function getAdvancedHostNativeSlashCommands() {
+  return getAdvancedHostNativeSkillNames().map((name) => `/${name}`);
+}
+
+function getCompatibilityHostNativeSlashCommands() {
+  return getCompatibilityHostNativeSkillNames().map((name) => `/${name}`);
 }
 
 function getHostNativeSlashCommands() {
@@ -97,10 +149,12 @@ function normalizeActionId(value) {
   if (normalized.startsWith('roadmap-')) {
     normalized = normalized.slice('roadmap-'.length);
   }
-  if (normalized === 'update') {
-    normalized = 'sync';
-  }
   return normalized;
+}
+
+function canonicalizeActionId(value) {
+  const normalized = normalizeActionId(value);
+  return ACTION_ALIAS_TO_ID[normalized] || normalized;
 }
 
 function isSlashToken(value) {
@@ -108,12 +162,16 @@ function isSlashToken(value) {
 }
 
 function getSlashAction(actionId) {
-  const normalized = normalizeActionId(actionId);
+  const normalized = canonicalizeActionId(actionId);
   return SLASH_ACTIONS.find((action) => action.id === normalized) || null;
 }
 
 function getLegacyRouterSlash(action) {
-  return `/roadmap-sync ${action.id === 'sync' ? 'update' : action.id}`;
+  return `/roadmap-sync ${action.id}`;
+}
+
+function actionSearchTerms(action) {
+  return [action.id, ...(Array.isArray(action.aliases) ? action.aliases : [])];
 }
 
 function getSlashActionSpecs() {
@@ -127,13 +185,22 @@ function getSlashActionSpecs() {
 
 function getSlashSuggestions(query) {
   const normalized = normalizeActionId(query);
+  const visibleActions = SLASH_ACTIONS.filter((action) => action.tier !== 'compatibility');
   if (!normalized) {
-    return getSlashActionSpecs();
+    return visibleActions.map((action) => ({
+      ...action,
+      directSlash: getNamespacedDirectSlash(action.id),
+      routerSlash: `/roadmap ${action.id}`,
+      legacyRouterSlash: getLegacyRouterSlash(action)
+    }));
   }
 
-  const startsWithMatches = SLASH_ACTIONS.filter((action) => action.id.startsWith(normalized));
-  const containsMatches = SLASH_ACTIONS.filter((action) => {
-    return !action.id.startsWith(normalized) && action.id.includes(normalized);
+  const startsWithMatches = visibleActions.filter((action) => {
+    return actionSearchTerms(action).some((term) => term.startsWith(normalized));
+  });
+  const containsMatches = visibleActions.filter((action) => {
+    return !actionSearchTerms(action).some((term) => term.startsWith(normalized))
+      && actionSearchTerms(action).some((term) => term.includes(normalized));
   });
 
   return [...startsWithMatches, ...containsMatches].map((action) => ({
@@ -175,12 +242,12 @@ function resolveSlashInvocation(command, args = []) {
   const normalizedCommand = String(command).trim().toLowerCase();
 
   if (normalizedCommand === LEGACY_ROUTER_ALIAS) {
+    const deprecationMessage = 'Legacy CLI compatibility root /roadmap-sync <action> is deprecated. Use /roadmap <action> or the direct /roadmap-* commands.';
     if (args.length === 0) {
-      return paletteResponse(normalizedCommand, '');
+      return paletteResponse(normalizedCommand, '', true, deprecationMessage);
     }
 
     const queryToken = normalizeActionId(args[0]);
-    const deprecationMessage = 'Legacy CLI compatibility root /roadmap-sync <action> is deprecated. Use /roadmap <action> or the direct /roadmap-* commands.';
     const exactAction = getSlashAction(queryToken);
     if (exactAction) {
       return executeResponse(normalizedCommand, exactAction.id, queryToken, true, deprecationMessage);
@@ -268,7 +335,9 @@ function renderSlashPalette(options = {}) {
     suggestions.forEach((action) => {
       lines.push(`- ${action.directSlash}: ${action.description}`);
       lines.push(`  Router form: ${action.routerSlash}`);
-      lines.push(`  Legacy router: ${action.legacyRouterSlash}`);
+      if (options.deprecated || source === LEGACY_ROUTER_ALIAS) {
+        lines.push(`  Legacy router: ${action.legacyRouterSlash}`);
+      }
       lines.push(`  Classic CLI: ${action.classicCliExample}`);
       lines.push(`  VS Code task: ${action.taskLabel}`);
     });
@@ -280,7 +349,9 @@ function renderSlashPalette(options = {}) {
   lines.push('- roadmapsmith /roadmap maintain');
   lines.push('- roadmapsmith /roadmap-maintain');
   lines.push('- roadmapsmith /roadmap-update');
-  lines.push('- roadmapsmith /roadmap-sync validate');
+  if (options.deprecated || source === LEGACY_ROUTER_ALIAS) {
+    lines.push('- roadmapsmith /roadmap-sync validate');
+  }
   lines.push('');
   lines.push('Installing the skill alone does not expose CLI behavior in VS Code. Use roadmapsmith setup for the visible task/launcher layer.');
 
@@ -288,10 +359,20 @@ function renderSlashPalette(options = {}) {
 }
 
 module.exports = {
+  ACTION_ALIAS_TO_ID,
   DIRECT_DEPRECATED_CLI_ALIAS_TO_ACTION,
   DIRECT_HOST_NATIVE_ALIAS_TO_ACTION,
+  ADVANCED_ACTION_IDS,
+  CANONICAL_ACTION_IDS,
+  COMPATIBILITY_ACTION_IDS,
   LEGACY_ROUTER_ALIAS,
   SLASH_ROOT_ALIASES,
+  getAdvancedHostNativeSkillNames,
+  getAdvancedHostNativeSlashCommands,
+  getCanonicalHostNativeSkillNames,
+  getCanonicalHostNativeSlashCommands,
+  getCompatibilityHostNativeSkillNames,
+  getCompatibilityHostNativeSlashCommands,
   getHostNativeSkillNames,
   getHostNativeSlashCommands,
   getNamespacedDirectSlash,
@@ -299,6 +380,7 @@ module.exports = {
   getSlashActionSpecs,
   getSlashSuggestions,
   isSlashToken,
+  canonicalizeActionId,
   normalizeActionId,
   renderSlashPalette,
   resolveSlashInvocation

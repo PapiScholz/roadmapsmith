@@ -21,7 +21,7 @@
     "command": "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
     "source": "PapiScholz/roadmapsmith",
     "skill": "*",
-    "notes": "Recommended Claude Code install path for native GUI slash commands like /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, and /roadmap-setup. DEPRECATED: /roadmap-sync remains only as a compatibility root for existing automation; use /roadmap-maintain or /roadmap-update for new workflows. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the visible readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
+    "notes": "Recommended Claude Code install path for native GUI slash commands. Canonical surfaces: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-validate, /roadmap-update, /roadmap-setup. The public CLI update family covers both checklist refresh and verified single-task completion; sync remains the advanced alias for the mutating refresh path. Advanced surfaces: /roadmap-init, /roadmap-generate, /roadmap-audit. DEPRECATED: /roadmap-sync remains only as a compatibility root for existing automation; use /roadmap-maintain or /roadmap-update for new workflows. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the public readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
   },
   "skills": [
     {
@@ -81,7 +81,7 @@
     {
       "name": "roadmap-audit",
       "path": "skills/roadmap-audit",
-      "description": "Native slash entrypoint for the current sync-plus-audit workflow.",
+      "description": "Native slash entrypoint for the advanced sync-plus-audit mutating summary workflow.",
       "version": "0.9.29"
     },
     {

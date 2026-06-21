@@ -29,17 +29,17 @@ test('resolveSlashInvocation treats bare /roadmap-sync as palette help', () => {
   assert.equal(route.source, '/roadmap-sync');
 });
 
-test('resolveSlashInvocation resolves /roadmap-update as the direct sync command', () => {
+test('resolveSlashInvocation resolves /roadmap-update as the direct update command', () => {
   const route = resolveSlashInvocation('/roadmap-update', []);
   assert.equal(route.kind, 'execute');
-  assert.equal(route.actionId, 'sync');
+  assert.equal(route.actionId, 'update');
 });
 
 test('resolveSlashInvocation keeps partial root queries in palette mode', () => {
   const route = resolveSlashInvocation('/roadmap', ['syn']);
   assert.equal(route.kind, 'palette');
   assert.equal(route.query, 'syn');
-  assert.equal(route.suggestions.some((action) => action.id === 'sync'), true);
+  assert.equal(route.suggestions.some((action) => action.id === 'update'), true);
 });
 
 test('resolveSlashInvocation keeps unknown direct slash queries in palette mode', () => {

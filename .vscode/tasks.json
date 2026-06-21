@@ -86,6 +86,90 @@
       "detail": "Inspect readiness and learn the slash entrypoints like /roadmap, /roadmap-update, and legacy /roadmap-sync <action>."
     },
     {
+      "label": "RoadmapSmith: Validate",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "validate"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "validate"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Inspect per-task evidence status as JSON."
+    },
+    {
+      "label": "RoadmapSmith: Update",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "update"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "update"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Apply evidence-backed checklist refresh or complete one task with verified evidence."
+    },
+    {
+      "label": "RoadmapSmith: Refresh Setup",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        ".vscode/roadmapsmith-task.sh",
+        "setup"
+      ],
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+          ".vscode\\roadmapsmith-task.cmd",
+          "setup"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "detail": "Reapply RoadmapSmith VS Code and host integration files."
+    },
+    {
       "label": "RoadmapSmith: Explain Workflow",
       "type": "process",
       "command": "sh",
@@ -170,34 +254,6 @@
       "detail": "Update ROADMAP.md and refuse destructive replacement unless rerun with --full-regen."
     },
     {
-      "label": "RoadmapSmith: Validate",
-      "type": "process",
-      "command": "sh",
-      "args": [
-        ".vscode/roadmapsmith-task.sh",
-        "validate"
-      ],
-      "windows": {
-        "command": "cmd.exe",
-        "args": [
-          "/d",
-          "/c",
-          ".vscode\\roadmapsmith-task.cmd",
-          "validate"
-        ]
-      },
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "clear": true
-      },
-      "detail": "Inspect per-task evidence status as JSON."
-    },
-    {
       "label": "RoadmapSmith: Sync",
       "type": "process",
       "command": "sh",
@@ -280,34 +336,6 @@
         "clear": true
       },
       "detail": "Run sync and print the post-sync mismatch summary."
-    },
-    {
-      "label": "RoadmapSmith: Refresh Setup",
-      "type": "process",
-      "command": "sh",
-      "args": [
-        ".vscode/roadmapsmith-task.sh",
-        "setup"
-      ],
-      "windows": {
-        "command": "cmd.exe",
-        "args": [
-          "/d",
-          "/c",
-          ".vscode\\roadmapsmith-task.cmd",
-          "setup"
-        ]
-      },
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "clear": true
-      },
-      "detail": "Reapply RoadmapSmith VS Code and host integration files."
     },
     {
       "label": "RoadmapSmith: Regenerate",

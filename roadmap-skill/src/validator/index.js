@@ -14,6 +14,7 @@ const CODE_EXTENSIONS = new Set([
 const TRANSLATION_DIR_SEGMENTS = ['locale', 'locales', 'i18n', 'translations'];
 const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/', 'roadmap-skill/'];
 const GENERATED_OUTPUT_PREFIXES = ['dist-electron/', 'dist/', 'build/', 'out/', '.next/', 'coverage/'];
+const AUXILIARY_HEURISTIC_PATH_SEGMENTS = new Set(['scripts', 'tools', 'tooling', 'demo', 'demos']);
 
 // "docs" omitted from DOC_HINTS — it is a path prefix in scan tasks, not a doc-authoring keyword.
 const DOC_HINTS = ['readme', 'changelog', 'documentation', 'spec', 'diagram', 'runbook'];
@@ -155,6 +156,88 @@ function isMostlyUiStrings(content) {
 function isGeneratedOutputPath(relativePath) {
   const normalized = normalizePathForMatch(relativePath);
   return GENERATED_OUTPUT_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+function splitNormalizedPathSegments(relativePath) {
+  return normalizePathForMatch(relativePath).split('/').filter(Boolean);
+}
+
+function isAuxiliaryHeuristicPath(relativePath) {
+  return splitNormalizedPathSegments(relativePath).some((segment) => AUXILIARY_HEURISTIC_PATH_SEGMENTS.has(segment));
+}
+
+function relativePathExplicitlyReferenced(relativePath, options = {}) {
+  const normalized = normalizeReferencedPath(relativePath);
+  const explicitPaths = Array.isArray(options.explicitPaths) ? options.explicitPaths : [];
+  const explicitFilenames = Array.isArray(options.explicitFilenames) ? options.explicitFilenames : [];
+  if (explicitPaths.some((entry) => referencedPathMatches(normalized, entry))) {
+    return true;
+  }
+
+  const baseName = path.basename(normalized);
+  return explicitFilenames.some((entry) => normalizeReferencedPath(entry) === baseName);
+}
+
+function shouldSkipHeuristicFile(relativePath, options = {}) {
+  return isAuxiliaryHeuristicPath(relativePath) && !relativePathExplicitlyReferenced(relativePath, options);
+}
+
+function authoredSiblingGroupKey(relativePath) {
+  const normalized = normalizePathForMatch(relativePath);
+  const ext = path.extname(normalized);
+  return ext ? normalized.slice(0, -ext.length) : normalized;
+}
+
+function authoredSiblingExtensionRank(relativePath) {
+  const ext = path.extname(String(relativePath || '')).toLowerCase();
+  switch (ext) {
+    case '.ts':
+      return 0;
+    case '.tsx':
+      return 1;
+    case '.jsx':
+      return 2;
+    case '.js':
+      return 3;
+    case '.mjs':
+      return 4;
+    case '.cjs':
+      return 5;
+    case '.py':
+      return 6;
+    default:
+      return 10;
+  }
+}
+
+function dedupeAuthoredCompiledSiblings(relativePaths, fileIndex) {
+  const indexedPaths = new Set(fileIndex.map((file) => file.relativePath));
+  const groups = new Map();
+  for (const relativePath of Array.from(new Set(relativePaths)).filter(Boolean)) {
+    if (!indexedPaths.has(relativePath)) {
+      continue;
+    }
+    const key = authoredSiblingGroupKey(relativePath);
+    const group = groups.get(key) || [];
+    group.push(relativePath);
+    groups.set(key, group);
+  }
+
+  const selected = [];
+  for (const group of groups.values()) {
+    group.sort((left, right) => {
+      const rankDelta = authoredSiblingExtensionRank(left) - authoredSiblingExtensionRank(right);
+      if (rankDelta !== 0) return rankDelta;
+      return left.localeCompare(right);
+    });
+    selected.push(group[0]);
+  }
+
+  return selected.sort((left, right) => left.localeCompare(right));
+}
+
+function finalizeHeuristicMatches(relativePaths, fileIndex, limit = 20) {
+  return dedupeAuthoredCompiledSiblings(relativePaths, fileIndex).slice(0, limit);
 }
 
 function readFileIndex(projectRoot, files, config) {
@@ -633,7 +716,7 @@ function findFilesByPathHints(pathHints, pathHintResolver) {
   return Array.from(new Set(matches)).sort((left, right) => left.localeCompare(right));
 }
 
-function findFilesBySymbols(symbolHints, fileIndex) {
+function findFilesBySymbols(symbolHints, fileIndex, heuristicOptions = {}) {
   const matches = new Set();
   for (const symbol of symbolHints) {
     const regex = new RegExp(`\\b${escapeRegExp(symbol)}\\b`, 'i');
@@ -642,15 +725,18 @@ function findFilesBySymbols(symbolHints, fileIndex) {
       if (!CODE_EXTENSIONS.has(file.ext)) {
         continue;
       }
+      if (shouldSkipHeuristicFile(file.relativePath, heuristicOptions)) {
+        continue;
+      }
       if (regex.test(file.content)) {
         matches.add(file.relativePath);
       }
     }
   }
-  return Array.from(matches).sort((left, right) => left.localeCompare(right));
+  return finalizeHeuristicMatches(Array.from(matches), fileIndex);
 }
 
-function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new Set()) {
+function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new Set(), heuristicOptions = {}) {
   const tokens = tokenize(taskText)
     .filter((token) => token.length >= 6 && !GENERIC_TASK_TOKENS.has(token) && !pathDerivedTokens.has(token))
     .slice(0, 10);
@@ -659,6 +745,9 @@ function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new 
   const matches = new Set();
   for (const file of fileIndex) {
     if (file.generatedOutput) continue;
+    if (shouldSkipHeuristicFile(file.relativePath, heuristicOptions)) {
+      continue;
+    }
     const pathSegments = normalizePathForMatch(file.relativePath).split('/').filter(Boolean);
     for (const token of tokens) {
       if (pathSegments.some((segment) => segment === token || segment.includes(token))) {
@@ -668,16 +757,16 @@ function findFilesByTaskPathTokens(taskText, fileIndex, pathDerivedTokens = new 
     }
     if (matches.size >= 20) break;
   }
-  return Array.from(matches).sort((left, right) => left.localeCompare(right));
+  return finalizeHeuristicMatches(Array.from(matches), fileIndex);
 }
 
-function extractTaskEvidenceTokens(taskText, pathDerivedTokens = new Set()) {
+function extractTaskEvidenceTokens(taskText, pathDerivedTokens = new Set(), minimumLength = 3) {
   return tokenize(taskText)
-    .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/') && !pathDerivedTokens.has(token))
+    .filter((token) => token.length >= minimumLength && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/') && !pathDerivedTokens.has(token))
     .slice(0, 8);
 }
 
-function findWeakPathContentSpecificTokens(taskText, fileIndex, weakPathFiles, pathDerivedTokens = new Set()) {
+function findWeakPathContentSpecificTokens(taskText, fileIndex, weakPathFiles, pathDerivedTokens = new Set(), heuristicOptions = {}) {
   const tokens = extractTaskEvidenceTokens(taskText, pathDerivedTokens);
   if (tokens.length === 0 || weakPathFiles.length === 0) return [];
 
@@ -685,6 +774,9 @@ function findWeakPathContentSpecificTokens(taskText, fileIndex, weakPathFiles, p
   const matches = new Set();
   for (const file of fileIndex) {
     if (!weakFiles.has(file.relativePath) || !CODE_EXTENSIONS.has(file.ext) || file.isTestFile) {
+      continue;
+    }
+    if (shouldSkipHeuristicFile(file.relativePath, heuristicOptions)) {
       continue;
     }
 
@@ -745,7 +837,7 @@ function extractPathDerivedTokens(pathHints) {
   return tokens;
 }
 
-function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
+function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set(), heuristicOptions = {}) {
   const tokens = extractTaskEvidenceTokens(taskText, pathDerivedTokens);
   if (tokens.length === 0) {
     return [];
@@ -754,6 +846,9 @@ function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
   const matches = [];
   for (const file of fileIndex) {
     if (file.generatedOutput || !CODE_EXTENSIONS.has(file.ext) || file.isTestFile) {
+      continue;
+    }
+    if (shouldSkipHeuristicFile(file.relativePath, heuristicOptions)) {
       continue;
     }
 
@@ -776,7 +871,7 @@ function findCodeEvidence(taskText, fileIndex, pathDerivedTokens = new Set()) {
     }
   }
 
-  return matches.slice(0, 20);
+  return finalizeHeuristicMatches(matches, fileIndex);
 }
 
 function normalizeReferencedPath(rawPath) {
@@ -811,7 +906,7 @@ function extractTestReadReferences(content) {
   return refs;
 }
 
-function findTestEvidence(taskText, fileIndex, referencedPaths = []) {
+function findTestEvidence(taskText, fileIndex, referencedPaths = [], heuristicOptions = {}) {
   const tokens = tokenize(taskText)
     .filter((token) => token.length >= 3 && !GENERIC_TASK_TOKENS.has(token) && !token.endsWith('/'))
     .slice(0, 8);
@@ -829,6 +924,9 @@ function findTestEvidence(taskText, fileIndex, referencedPaths = []) {
 
   for (const file of fileIndex) {
     if (file.generatedOutput || !file.isTestFile) continue;
+    if (shouldSkipHeuristicFile(file.relativePath, heuristicOptions)) {
+      continue;
+    }
 
     // A test file counts as evidence only when it imports a module whose path contains
     // one of the task's meaningful tokens. Content-keyword matching is intentionally absent:
@@ -865,7 +963,7 @@ function findTestEvidence(taskText, fileIndex, referencedPaths = []) {
     }
   }
 
-  return matches.slice(0, 20);
+  return finalizeHeuristicMatches(matches, fileIndex);
 }
 
 function findArtifactEvidence(taskText, fileIndex) {
@@ -1460,24 +1558,104 @@ function testCoversEndpoint(testFile, route, context) {
   return segments.length > 0 && segments.every((segment) => normalizedContent.includes(segment));
 }
 
+function extractPathDomainTokens(relativePath) {
+  return splitNormalizedPathSegments(relativePath)
+    .flatMap((segment) => tokenize(segment))
+    .filter((token) => token.length >= 2 && !GENERIC_TASK_TOKENS.has(token));
+}
+
+function collectRecipeLineContext(content, index) {
+  const source = String(content || '');
+  const lineStart = source.lastIndexOf('\n', index);
+  const lineEnd = source.indexOf('\n', index);
+  const previousLineStart = lineStart > 0 ? source.lastIndexOf('\n', lineStart - 1) : -1;
+  const start = previousLineStart >= 0 ? previousLineStart + 1 : 0;
+  const end = lineEnd >= 0 ? lineEnd : source.length;
+  return source.slice(start, end);
+}
+
+function appendUniqueDiagnostic(diagnostics, diagnostic) {
+  if (!diagnostic || !diagnostic.code) {
+    return diagnostics;
+  }
+  if (diagnostics.some((item) => item.code === diagnostic.code)) {
+    return diagnostics;
+  }
+  diagnostics.push(diagnostic);
+  return diagnostics;
+}
+
+function buildTaskRecipeCandidatePool(task, context) {
+  const { paths: pathHints, externalPaths } = extractExplicitPaths(task.text);
+  const standaloneFilenames = extractStandaloneFilenames(task.text);
+  const symbolHints = extractSymbolHints(task.text);
+  const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...externalPaths, ...standaloneFilenames]);
+  const heuristicOptions = {
+    explicitPaths: [...pathHints, ...externalPaths],
+    explicitFilenames: standaloneFilenames
+  };
+  const candidatePaths = unionArrays(
+    findFilesByPathHints(pathHints, context.pathHintResolver),
+    findFilesBySymbols(symbolHints, context.fileIndex, heuristicOptions),
+    findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions),
+    findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions)
+  );
+  const indexedFiles = new Map(context.fileIndex.map((file) => [file.relativePath, file]));
+  return candidatePaths.map((relativePath) => indexedFiles.get(relativePath)).filter(Boolean);
+}
+
 function findVerificationRecipe(task, context) {
+  if ((Array.isArray(task.verifyLines) && task.verifyLines.length > 0) || (Array.isArray(task.evidenceLines) && task.evidenceLines.length > 0)) {
+    return { recipe: null, specificityFailure: false, foundStaticSignal: false };
+  }
+
   const patterns = [
     /disabled\s*=\s*\{[^}]+\}/i,
     /<(?:dialog|alertdialog)\b[^>]*\bopen\s*=/i,
     /abortcontroller|abortsignal\.timeout/i,
     /router\.push\s*\(/i
   ];
-  for (const file of context.fileIndex) {
+  const taskTokens = extractTaskEvidenceTokens(task.text, new Set(), 2);
+  const candidateFiles = buildTaskRecipeCandidatePool(task, context);
+  const candidates = [];
+  let foundStaticSignal = false;
+
+  for (const file of candidateFiles) {
     if (file.generatedOutput || file.isTestFile || !CODE_EXTENSIONS.has(file.ext)) continue;
-    const match = patterns.map((pattern) => pattern.exec(file.content)).find(Boolean);
-    if (!match) continue;
-    const line = file.content.slice(0, match.index).split(/\r?\n/).length;
-    const command = context.config.validation && context.config.validation.recipeCommand
-      ? `; run ${String(context.config.validation.recipeCommand).replace('{testFile}', '<test-file>')}`
-      : '';
-    return `${file.relativePath}:${line} inspect ${match[0].trim()}${command}`;
+    for (const pattern of patterns) {
+      const match = pattern.exec(file.content);
+      if (!match) {
+        continue;
+      }
+      foundStaticSignal = true;
+      const pathTokens = extractPathDomainTokens(file.relativePath);
+      if (!pathTokens.some((token) => taskTokens.includes(token))) {
+        continue;
+      }
+      const lineContext = collectRecipeLineContext(file.content, match.index);
+      const contextTokens = extractTaskEvidenceTokens(`${match[0]} ${lineContext}`, new Set(), 2);
+      if (!contextTokens.some((token) => taskTokens.includes(token))) {
+        continue;
+      }
+      const line = file.content.slice(0, match.index).split(/\r?\n/).length;
+      const command = context.config.validation && context.config.validation.recipeCommand
+        ? `; run ${String(context.config.validation.recipeCommand).replace('{testFile}', '<test-file>')}`
+        : '';
+      candidates.push(`${file.relativePath}:${line} inspect ${match[0].trim()}${command}`);
+      break;
+    }
   }
-  return null;
+
+  const uniqueCandidates = Array.from(new Set(candidates));
+  if (uniqueCandidates.length === 1) {
+    return { recipe: uniqueCandidates[0], specificityFailure: false, foundStaticSignal };
+  }
+
+  return {
+    recipe: null,
+    specificityFailure: foundStaticSignal || candidates.length > 0,
+    foundStaticSignal
+  };
 }
 
 function isBehavioralTask(taskText) {
@@ -1490,17 +1668,32 @@ function evaluateDeterministicVerification(task, context) {
     if (!isBehavioralTask(task.text)) {
       return { applicable: false, passed: false, reasons: [], diagnostics: [], recipe: null };
     }
-    const recipe = findVerificationRecipe(task, context);
+    const recipeResult = findVerificationRecipe(task, context);
+    const diagnostics = [];
+    if (recipeResult.specificityFailure) {
+      diagnostics.push({
+        code: 'REQUIRES_HUMAN_EVIDENCE',
+        severity: 'warning',
+        message: 'behavioral task requires explicit human or test evidence'
+      });
+      diagnostics.push({
+        code: 'NO_SPECIFIC_RECIPE',
+        severity: 'warning',
+        message: 'no task-specific verification recipe could be generated'
+      });
+    } else {
+      diagnostics.push({
+        code: recipeResult.recipe ? 'REQUIRES_HUMAN_EVIDENCE' : 'NO_STATIC_SIGNAL',
+        severity: 'warning',
+        message: recipeResult.recipe ? 'behavioral task requires explicit human or test evidence' : 'no static implementation signal was found for behavioral task'
+      });
+    }
     return {
       applicable: false,
       passed: false,
       reasons: [],
-      diagnostics: [{
-        code: recipe ? 'REQUIRES_HUMAN_EVIDENCE' : 'NO_STATIC_SIGNAL',
-        severity: 'warning',
-        message: recipe ? 'behavioral task requires explicit human or test evidence' : 'no static implementation signal was found for behavioral task'
-      }],
-      recipe
+      diagnostics,
+      recipe: recipeResult.recipe
     };
   }
   const reasons = [];
@@ -1576,11 +1769,11 @@ function evaluateDeterministicVerification(task, context) {
     reasons,
     diagnostics,
     generatedTestEvidence,
-    recipe: passed ? null : findVerificationRecipe(task, context)
+    recipe: null
   };
 }
 
-function buildValidationContext(projectRoot, config, plugins) {
+function buildValidationContext(projectRoot, config, plugins, options = {}) {
   const files = walkFiles(projectRoot);
   const fileIndex = readFileIndex(projectRoot, files, config);
   const testFrameworks = detectTestFrameworks(projectRoot, files);
@@ -1594,7 +1787,8 @@ function buildValidationContext(projectRoot, config, plugins) {
     fileIndex,
     pathHintResolver,
     testFrameworks,
-    testReportRecords: readTestReportRecords(projectRoot, config.validation)
+    testReportRecords: readTestReportRecords(projectRoot, config.validation),
+    strictValidation: options.strictValidation === true
   };
 }
 
@@ -1668,21 +1862,26 @@ function validateTask(task, context, config, plugins) {
   const purePathHints = pathHints.filter((p) => !lineReferenceHints.has(p));
   const standaloneFilenames = extractStandaloneFilenames(task.text);
   const symbolHints = extractSymbolHints(task.text);
+  const heuristicOptions = {
+    explicitPaths: [...pathHints, ...externalPaths],
+    explicitFilenames: standaloneFilenames
+  };
+  const strictValidation = context.strictValidation === true;
   const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.pathHintResolver);
   const deterministicVerification = evaluateDeterministicVerification(task, context);
   const hasExplicitPendingItems = Array.isArray(task.explicitPendingItems) && task.explicitPendingItems.length > 0;
 
   const filesFromPaths = findFilesByPathHints(pathHints, context.pathHintResolver);
   const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.pathHintResolver);
-  const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex);
+  const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex, heuristicOptions);
   // Combine path hints AND standalone filenames for token exclusion so that tokens
   // derived from any referenced filename (e.g. "roadmap-skill" from
   // "roadmap-skill.config.json") are excluded from code evidence scoring.
   const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...externalPaths, ...standaloneFilenames]);
-  const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens);
-  const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens);
-  const weakPathContentTokens = findWeakPathContentSpecificTokens(task.text, context.fileIndex, filesFromWeakPathTokens, pathDerivedTokens);
-  const filesFromTests = findTestEvidence(task.text, context.fileIndex, [...pathHints, ...standaloneFilenames]);
+  const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions);
+  const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions);
+  const weakPathContentTokens = findWeakPathContentSpecificTokens(task.text, context.fileIndex, filesFromWeakPathTokens, pathDerivedTokens, heuristicOptions);
+  const filesFromTests = findTestEvidence(task.text, context.fileIndex, [...pathHints, ...standaloneFilenames], heuristicOptions);
   const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
 
   const structuralCheck = checkNamespaceStructuralEvidence(task.id, task.text, context.fileIndex);
@@ -1855,7 +2054,9 @@ function validateTask(task, context, config, plugins) {
   // Heuristic proximity remains useful to locate candidates, but is never sufficient to
   // complete an unchecked task. Completion requires human Evidence, a trusted rule, or a
   // typed deterministic verifier.
-  let passed = authoritativeEvidence.passed || hasTrustedRuleEvidencePass || deterministicVerification.passed;
+  let passed = strictValidation
+    ? (authoritativeEvidence.passed || deterministicVerification.passed)
+    : (authoritativeEvidence.passed || hasTrustedRuleEvidencePass || deterministicVerification.passed);
 
   if (!task.checked && !authoritativeEvidence.passed && !hasTrustedRuleEvidencePass && !deterministicVerification.passed && hasHighConfidenceImplementationEvidence) {
     uniqueReasons.push('implementation task requires deterministic Verify metadata or explicit Evidence to be marked complete');
@@ -1926,6 +2127,7 @@ function validateTask(task, context, config, plugins) {
   const shouldPreserveCheckedTask =
     task.checked &&
     !passed &&
+    !strictValidation &&
     !authoritativeEvidence.active &&
     symbolHints.length === 0 &&
     negativeSignalMatches.length === 0 &&
@@ -1943,7 +2145,9 @@ function validateTask(task, context, config, plugins) {
   // Used by auditValidation to flag implementation tasks that pass solely via documentation.
   const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
 
-  const finalPassed = overrideResult ? (overrideResult.passed !== false && !hasExplicitPendingItems) : (passed && uniqueReasons.length === 0 && !hasExplicitPendingItems);
+  const finalPassed = (!strictValidation && overrideResult)
+    ? (overrideResult.passed !== false && !hasExplicitPendingItems)
+    : (passed && uniqueReasons.length === 0 && !hasExplicitPendingItems);
   return {
     taskId: task.id,
     passed: finalPassed,
@@ -1989,6 +2193,33 @@ function validateTasks(tasks, context, config, plugins) {
     if (failingDeps.length > 0 && result[task.id] && result[task.id].passed) {
       result[task.id].passed = false;
       result[task.id].reasons = [`blocked by incomplete tasks: ${failingDeps.join(', ')}`];
+    }
+  }
+
+  const recipeOwners = new Map();
+  for (const [taskId, taskResult] of Object.entries(result)) {
+    if (!taskResult.verificationRecipe) {
+      continue;
+    }
+    const owners = recipeOwners.get(taskResult.verificationRecipe) || [];
+    owners.push(taskId);
+    recipeOwners.set(taskResult.verificationRecipe, owners);
+  }
+
+  for (const [recipe, owners] of recipeOwners.entries()) {
+    if (owners.length < 2) {
+      continue;
+    }
+    for (const taskId of owners) {
+      if (!result[taskId] || result[taskId].verificationRecipe !== recipe) {
+        continue;
+      }
+      result[taskId].verificationRecipe = null;
+      appendUniqueDiagnostic(result[taskId].diagnostics, {
+        code: 'NO_SPECIFIC_RECIPE',
+        severity: 'warning',
+        message: 'generated verification recipe was not unique to a single task'
+      });
     }
   }
 

@@ -12,8 +12,14 @@ const SKILLS_JSON_PATH = path.join(REPO_ROOT, 'skills.json');
 const CLAUDE_PLUGIN_JSON_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 const CODEX_PLUGIN_JSON_PATH = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
 const ROADMAP_SYNC_OPENAI_YAML_PATH = path.join(REPO_ROOT, 'skills', 'roadmap-sync', 'agents', 'openai.yaml');
+const ROADMAP_SYNC_OPENAI_YAML_PLUGIN_PATH = path.join(REPO_ROOT, 'plugins', 'roadmapsmith', 'skills', 'roadmap-sync', 'agents', 'openai.yaml');
 const RELEASE_READINESS_DOC_PATH = path.join(REPO_ROOT, 'docs', 'release-readiness.md');
-const RELEASE_UX_GATE_DOC_PATH = path.join(REPO_ROOT, 'docs', 'release-ux-gate.md');
+const MIRRORED_SKILL_PATHS = [
+  'roadmap-status/SKILL.md',
+  'roadmap-sync/SKILL.md',
+  'roadmap-update/SKILL.md',
+  'roadmap-sync/agents/openai.yaml'
+];
 const EXPECTED_SKILL_NAMES = [
   'roadmap',
   'roadmap-zero',
@@ -30,6 +36,10 @@ const EXPECTED_SKILL_NAMES = [
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function normalizeText(content) {
+  return String(content).replace(/\r\n/g, '\n');
 }
 
 function normalizeRepository(repository) {
@@ -121,13 +131,26 @@ test('roadmap-sync Codex metadata parses cleanly and stays short enough for the 
   assert.ok(metadata.interface.default_prompt.length <= 128);
 });
 
-test('release runbooks do not document codex marketplace add from roadmap-skill cwd', () => {
-  [RELEASE_READINESS_DOC_PATH, RELEASE_UX_GATE_DOC_PATH].forEach((filePath) => {
-    const content = fs.readFileSync(filePath, 'utf8');
-    assert.doesNotMatch(
-      content,
-      /```(?:bash|powershell)[\s\S]*?cd roadmap-skill[\s\S]*?codex plugin marketplace add \.(?!\.)[\s\S]*?```/,
-      `wrong Codex marketplace cwd documented in ${path.basename(filePath)}`
-    );
+test('affected root skills stay identical to plugin mirrors', () => {
+  MIRRORED_SKILL_PATHS.forEach((relativePath) => {
+    const rootPath = path.join(REPO_ROOT, 'skills', relativePath);
+    const pluginPath = path.join(REPO_ROOT, 'plugins', 'roadmapsmith', 'skills', relativePath);
+    assert.equal(normalizeText(fs.readFileSync(rootPath, 'utf8')), normalizeText(fs.readFileSync(pluginPath, 'utf8')), `mirror drifted for ${relativePath}`);
   });
+});
+
+test('release runbook does not document codex marketplace add from roadmap-skill cwd', () => {
+  const content = fs.readFileSync(RELEASE_READINESS_DOC_PATH, 'utf8');
+  assert.doesNotMatch(
+    content,
+    /```(?:bash|powershell)[\s\S]*?cd roadmap-skill[\s\S]*?codex plugin marketplace add \.(?!\.)[\s\S]*?```/,
+    'wrong Codex marketplace cwd documented in release-readiness.md'
+  );
+});
+
+test('roadmap-sync loader metadata is mirrored exactly in the plugin bundle', () => {
+  assert.equal(
+    normalizeText(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PATH, 'utf8')),
+    normalizeText(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PLUGIN_PATH, 'utf8'))
+  );
 });

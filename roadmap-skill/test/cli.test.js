@@ -17,14 +17,15 @@ const ROADMAPSMITH_TASK_LABELS = [
   'RoadmapSmith: Zero Mode',
   'RoadmapSmith: Maintain',
   'RoadmapSmith: Status',
+  'RoadmapSmith: Validate',
+  'RoadmapSmith: Update',
+  'RoadmapSmith: Refresh Setup',
   'RoadmapSmith: Explain Workflow',
   'RoadmapSmith: Init',
   'RoadmapSmith: Generate',
-  'RoadmapSmith: Validate',
   'RoadmapSmith: Sync',
   'RoadmapSmith: Sync Dry Run',
-  'RoadmapSmith: Sync Audit',
-  'RoadmapSmith: Refresh Setup'
+  'RoadmapSmith: Sync Audit'
 ];
 
 function run(args, cwd) {
@@ -467,9 +468,11 @@ test('cli regenerate intentionally rebuilds a substantive custom managed block',
     'utf8'
   );
 
-  run(['regenerate'], projectRoot);
+  const result = runResult(['regenerate'], projectRoot);
   const content = fs.readFileSync(path.join(projectRoot, CANONICAL_ROADMAP), 'utf8');
 
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /deprecated/i);
   assert.match(content, /### Phase P0 \(Critical\)/);
   assert.doesNotMatch(content, /North star especifico del POS de escritorio/);
   assert.doesNotMatch(content, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
@@ -628,6 +631,29 @@ test('cli validate prints deterministic failures and standalone behavioral warni
   assert.equal(human.status, 1);
   assert.match(human.stdout, /FAIL:WRONG_VALUE \[eslint-builds\]/);
   assert.match(human.stdout, /WARN:REQUIRES_HUMAN_EVIDENCE \[login-submit\]/);
+});
+
+test('cli validate --strict does not preserve checked tasks on file presence alone', () => {
+  const projectRoot = setupFixture('generic');
+  fs.writeFileSync(
+    path.join(projectRoot, CANONICAL_ROADMAP),
+    [
+      '## Phase P0',
+      '- [x] Document artifact in `docs/artifact.txt` <!-- rs:task=artifact-path-done -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const defaultResult = runResult(['validate', '--json', '--project-root', projectRoot], projectRoot);
+  const strictResult = runResult(['validate', '--json', '--strict', '--project-root', projectRoot], projectRoot);
+  const defaultPayload = JSON.parse(defaultResult.stdout);
+  const strictPayload = JSON.parse(strictResult.stdout);
+
+  assert.equal(defaultResult.status, 0);
+  assert.equal(defaultPayload[0].result.passed, true);
+  assert.equal(strictResult.status, 1);
+  assert.equal(strictPayload[0].result.passed, false);
 });
 
 test('cli sync rewrites legacy attempted warnings and reaches a fixed point on the second run', () => {
@@ -833,7 +859,7 @@ test('cli /roadmap-maintain executes the one-command existing-repo flow', () => 
   assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
 });
 
-test('cli /roadmap sync resolves to sync without changing dry-run behavior', () => {
+test('cli /roadmap sync resolves to the canonical update family without changing dry-run behavior', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-sync-'));
   writePackageJson(projectRoot);
   fs.writeFileSync(
@@ -888,7 +914,6 @@ test('cli ambiguous slash input shows suggestions and does not execute', () => {
   assert.match(out, /No exact slash match was executed/);
   assert.match(out, /\/roadmap-status/);
   assert.match(out, /\/roadmap-update/);
-  assert.match(out, /\/roadmap-sync/);
   assert.match(out, /\/roadmap-setup/);
 });
 
@@ -899,7 +924,6 @@ test('cli unknown direct slash input shows related help safely', () => {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /RoadmapSmith slash palette/);
   assert.match(result.stdout, /\/roadmap-update/);
-  assert.match(result.stdout, /\/roadmap-sync/);
 });
 
 test('cli zero fails clearly in non-interactive mode', () => {
@@ -925,6 +949,9 @@ test('doctor --json reports missing integration state', () => {
   assert.equal(payload.vscode.tasks.ready, false);
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, false);
+  assert.equal(payload.summary.workspaceReady, false);
+  assert.equal(payload.summary.codexReady, false);
+  assert.equal(payload.summary.claudeReady, false);
   assert.deepEqual(Object.keys(payload.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
 });
 
@@ -944,6 +971,10 @@ test('doctor --json reports healthy configured integration state', () => {
   assert.equal(payload.runtime.ready, true);
   assert.equal(payload.hosts.codex.ready, true);
   assert.equal(payload.hosts.claude.ready, true);
+  assert.equal(payload.summary.workspaceReady, true);
+  assert.equal(payload.summary.codexReady, true);
+  assert.equal(payload.summary.claudeReady, true);
+  assert.equal(payload.summary.canonicalSurfaceReady, true);
   assert.deepEqual(payload.surfaces.claudeGui.availableCommands, [
     '/roadmap',
     '/roadmap-zero',
@@ -984,6 +1015,9 @@ test('doctor --json reports missing task runtime without downgrading Claude read
   assert.equal(payload.runtime.ready, false);
   assert.equal(payload.hosts.codex.ready, false);
   assert.equal(payload.hosts.claude.ready, true);
+  assert.equal(payload.summary.workspaceReady, false);
+  assert.equal(payload.summary.codexReady, false);
+  assert.equal(payload.summary.claudeReady, true);
   assert.deepEqual(Object.keys(payload.surfaces).sort(), ['claudeCli', 'claudeGui', 'codexCli', 'codexGui']);
 });
 

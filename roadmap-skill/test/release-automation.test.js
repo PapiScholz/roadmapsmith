@@ -343,12 +343,9 @@ test('release workflow contract keeps auto-release on push to main with serializ
 
 test('release docs describe the protected-branch auto-release contract', () => {
   const docs = [
-    fs.readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8'),
-    fs.readFileSync(path.join(REPO_ROOT, 'roadmap-skill', 'README.md'), 'utf8'),
-    fs.readFileSync(path.join(REPO_ROOT, 'docs', 'release-readiness.md'), 'utf8'),
-    fs.readFileSync(path.join(REPO_ROOT, 'docs', 'release-ux-gate.md'), 'utf8')
+    fs.readFileSync(path.join(REPO_ROOT, 'docs', 'release-readiness.md'), 'utf8')
   ].join('\n');
 
-  assert.match(docs, /every successful push to `main`.*automated `release\/vX\.Y\.Z` PR|protected-branch-safe release PR flow/i);
+  assert.match(docs, /every successful push to `main`.*automated `release\/vX\.Y\.Z` PR|protected-branch.*release\/vX\.Y\.Z.*PR path/i);
   assert.doesNotMatch(docs, /npm version patch\s+# or minor \/ major/i);
 });

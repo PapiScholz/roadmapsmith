@@ -1,7 +1,7 @@
 {
   "name": "roadmapsmith",
   "version": "0.9.29",
-  "description": "One-command evidence-backed ROADMAP.md generator and sync tool for AI coding agents, with shared RoadmapSmith plugin skills for Codex and Claude plus the roadmapsmith status readiness surface.",
+  "description": "Evidence-backed ROADMAP.md workflows for AI coding agents, with canonical RoadmapSmith status and maintain surfaces plus advanced sync/generate tools and legacy compatibility aliases.",
   "author": {
     "name": "PapiScholz"
   },
