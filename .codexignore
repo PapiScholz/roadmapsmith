@@ -9,4 +9,8 @@ assets/demo.gif
 scripts/
 test/
 roadmap-skill/test/
+roadmap-skill/src/
+roadmap-skill/bin/
+roadmap-skill/scripts/
+roadmap-skill/.agents/
 .dev/
