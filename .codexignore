@@ -8,9 +8,6 @@ assets/demo.mp4
 assets/demo.gif
 scripts/
 test/
-roadmap-skill/test/
-roadmap-skill/src/
-roadmap-skill/bin/
-roadmap-skill/scripts/
-roadmap-skill/.agents/
+roadmap-skill/
+.claude/
 .dev/
