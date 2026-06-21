@@ -395,3 +395,30 @@ test('sync generates and replaces a single verification recipe for pending behav
   assert.match(first, /Verification recipe: src\/login\.tsx:12/);
   assert.equal((second.match(/Verification recipe:/g) || []).length, 1);
 });
+
+test('sync removes stale shared verification recipes after duplicate suppression', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'login.tsx'),
+    'export function Login() { return <button disabled={isSubmitting}>Send</button>; }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P1',
+    '- [ ] Disable login submit button <!-- rs:task=login-submit -->',
+    '  - Verification recipe: src/login.tsx:1 inspect disabled={isSubmitting}',
+    '- [ ] Disable login button during submit <!-- rs:task=login-button -->',
+    '  - Verification recipe: src/login.tsx:1 inspect disabled={isSubmitting}',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.doesNotMatch(next, /Verification recipe:/);
+});

@@ -1880,3 +1880,133 @@ test('behavior verification requires a fresh passing report and explicit pending
   assert.equal(result.passed, false);
   assert.ok(result.diagnostics.some((item) => item.code === 'STALE_TEST_REPORT'));
 });
+
+test('strict validation does not preserve checked tasks on path presence alone', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const task = {
+    id: 'artifact-path-done',
+    text: 'Document artifact in `docs/artifact.txt`',
+    checked: true
+  };
+
+  const defaultContext = buildValidationContext(projectRoot, config, []);
+  const strictContext = buildValidationContext(projectRoot, config, [], { strictValidation: true });
+  const defaultResult = validateTask(task, defaultContext, config, []);
+  const strictResult = validateTask(task, strictContext, config, []);
+
+  assert.equal(defaultResult.passed, true);
+  assert.equal(defaultResult.preservedCheckedState, true);
+  assert.equal(strictResult.passed, false);
+  assert.equal(strictResult.preservedCheckedState, false);
+});
+
+test('behavioral tasks do not inherit unrelated disabled recipes from other domains', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src', 'cash-management'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'cash-management', 'page.tsx'),
+    'export function CashManagement() { return <button disabled={cashAdjustmentPending} />; }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'menu-qr-disable',
+      text: 'Deshabilitar QR de menu durante primer arranque',
+      checked: false
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.equal(result.verificationRecipe, null);
+  assert.ok(result.diagnostics.some((item) => item.code === 'NO_STATIC_SIGNAL'));
+  assert.ok(!result.diagnostics.some((item) => item.code === 'NO_SPECIFIC_RECIPE'));
+});
+
+test('shared generated verification recipes are suppressed for all matching tasks', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'src', 'login.tsx'),
+    'export function Login() { return <button disabled={isSubmitting}>Send</button>; }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const tasks = [
+    { id: 'login-submit', text: 'Disable login submit button', checked: false },
+    { id: 'login-button', text: 'Disable login button during submit', checked: false }
+  ];
+
+  const results = validateTasks(tasks, context, config, []);
+
+  assert.equal(results['login-submit'].verificationRecipe, null);
+  assert.equal(results['login-button'].verificationRecipe, null);
+  assert.ok(results['login-submit'].diagnostics.some((item) => item.code === 'NO_SPECIFIC_RECIPE'));
+  assert.ok(results['login-button'].diagnostics.some((item) => item.code === 'NO_SPECIFIC_RECIPE'));
+});
+
+test('scripts directory is excluded from heuristic evidence unless the task explicitly references it', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'scripts'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, 'scripts', 'recover-admin.js'),
+    'export function recoverAdmin() { return true; }\n',
+    'utf8'
+  );
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const implicitResult = validateTask(
+    {
+      id: 'admin-recovery',
+      text: 'Implement admin recovery flow',
+      checked: false
+    },
+    context,
+    config,
+    []
+  );
+  const explicitResult = validateTask(
+    {
+      id: 'admin-recovery-script',
+      text: 'Implement admin recovery flow in `scripts/recover-admin.js`',
+      checked: false
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.deepEqual(implicitResult.evidence.codeFiles, []);
+  assert.ok(implicitResult.reasons.some((reason) => reason.includes('no code, test, or artifact evidence found')));
+  assert.ok(explicitResult.evidence.files.includes('scripts/recover-admin.js'));
+});
+
+test('heuristic evidence prefers authored source files over compiled siblings', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'src', 'login.ts'), 'export function loginModule() { return true; }\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src', 'login.js'), 'exports.loginModule = () => true;\n', 'utf8');
+
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    {
+      id: 'login-module',
+      text: 'Implement login module',
+      checked: false
+    },
+    context,
+    config,
+    []
+  );
+
+  assert.deepEqual(result.evidence.codeFiles, ['src/login.ts']);
+});

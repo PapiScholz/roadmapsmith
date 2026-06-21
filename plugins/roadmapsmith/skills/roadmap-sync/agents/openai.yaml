@@ -1,7 +1,7 @@
 {
   "interface": {
-    "display_name": "Roadmap Sync",
-    "short_description": "Legacy root plus policy for evidence-backed ROADMAP.md slash workflows.",
-    "default_prompt": "Prefer /roadmap for discovery, /roadmap-maintain for existing repos, and /roadmap-update for direct sync."
+    "display_name": "Roadmap Sync (Deprecated)",
+    "short_description": "DEPRECATED legacy root; use /roadmap-maintain or /roadmap-update.",
+    "default_prompt": "Prefer /roadmap, /roadmap-status, /roadmap-maintain, and /roadmap-update."
   }
 }

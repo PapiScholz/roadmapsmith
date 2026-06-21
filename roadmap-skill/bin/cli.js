@@ -19,21 +19,27 @@ const { buildZeroModeConfigPatch, buildZeroModeDefaults, collectZeroModeAnswers,
 function printHelp() {
   console.log([
     'Usage:',
+    '  Canonical commands:',
     '  roadmapsmith zero [--project-root <path>] [--config <path>]',
     '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--full-regen]',
-    '  roadmapsmith /roadmap',
-    '  roadmapsmith /roadmap <action>',
-    '  roadmapsmith /roadmap-zero | /roadmap-maintain | /roadmap-status | /roadmap-init | /roadmap-generate | /roadmap-validate | /roadmap-update | /roadmap-audit | /roadmap-setup',
-    '  roadmapsmith /road <action>              # deprecated compatibility alias',
-    '  roadmapsmith /roadmap-sync <action>      # deprecated legacy compatibility root',
-    '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
+    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
+    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict]',
+    '  roadmapsmith update [--task <stable-id> --evidence <text>] [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
     '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
+    '',
+    '  Advanced commands:',
+    '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
     '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
     '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit]',
-    '  roadmapsmith update --task <stable-id> --evidence <text> [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
-    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json]',
-    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
-    '  roadmapsmith doctor [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]   # compatibility alias'
+    '  roadmapsmith /roadmap',
+    '  roadmapsmith /roadmap <action>',
+    '  roadmapsmith /roadmap-zero | /roadmap-maintain | /roadmap-status | /roadmap-validate | /roadmap-update | /roadmap-setup | /roadmap-init | /roadmap-generate | /roadmap-audit',
+    '',
+    '  Compatibility notes:',
+    '  roadmapsmith doctor [--json]            # compatibility alias for status',
+    '  roadmapsmith regenerate                 # deprecated alias for generate --full-regen',
+    '  roadmapsmith /road <action>             # deprecated compatibility alias',
+    '  roadmapsmith /roadmap-sync <action>     # deprecated legacy compatibility root'
   ].join('\n'));
 }
 
@@ -77,6 +83,23 @@ function printAudit(audit) {
     console.log('Ready but unchecked:');
     audit.readyButUnchecked.forEach((item) => {
       console.log(`- [${item.task.id}] ${item.task.text}`);
+    });
+  }
+}
+
+function printReadinessSummary(summary) {
+  if (!summary || typeof summary !== 'object') {
+    return;
+  }
+
+  console.log('\nStructured readiness summary:');
+  console.log(`- Workspace readiness: ${summary.workspaceReady ? 'ready' : 'needs setup'}`);
+  console.log(`- Codex readiness: ${summary.codexReady ? 'ready' : 'needs setup'}`);
+  console.log(`- Claude readiness: ${summary.claudeReady ? 'ready' : 'needs setup'}`);
+  console.log(`- Canonical native surfaces: ${summary.canonicalSurfaceReady ? 'ready' : 'needs attention'}`);
+  if (Array.isArray(summary.advancedSurfaceWarnings) && summary.advancedSurfaceWarnings.length > 0) {
+    summary.advancedSurfaceWarnings.forEach((warning) => {
+      console.log(`- Advanced warning: ${warning}`);
     });
   }
 }
@@ -307,13 +330,18 @@ function printHumanStatus(payload) {
   if (!payload.vscode.tasks.ready && payload.vscode.tasks.missingLabels.length > 0) {
     console.log(`Missing VS Code tasks: ${payload.vscode.tasks.missingLabels.join(', ')}`);
   }
+  if (Array.isArray(payload.vscode.tasks.missingAdvancedLabels) && payload.vscode.tasks.missingAdvancedLabels.length > 0) {
+    console.log(`Missing advanced VS Code tasks: ${payload.vscode.tasks.missingAdvancedLabels.join(', ')}`);
+  }
   if (!payload.vscode.wrappers.ready) {
     console.log(`Missing task wrapper files: ${payload.vscode.wrappers.missingPaths.join(', ')}`);
   }
   console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
   console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
+  printReadinessSummary(payload.summary);
   printNativeSurfaceStatus(payload.surfaces);
-  console.log('\nRecommended entrypoints: roadmapsmith zero (empty repo), roadmapsmith maintain (existing repo).');
+  console.log('\nRecommended entrypoints: roadmapsmith zero (empty repo), roadmapsmith maintain (existing repo), roadmapsmith update (canonical checklist refresh/task completion).');
+  console.log('Compatibility note: roadmapsmith doctor mirrors this payload for existing automation.');
   if (!payload.cli.ready) {
     console.log('\nInstalling the skill alone does not expose the CLI in VS Code. Install the CLI and rerun roadmapsmith setup.');
   }
@@ -422,8 +450,6 @@ async function run() {
     if (slashAction.id === 'audit') {
       flags.audit = true;
       effectiveCommand = 'sync';
-    } else if (slashAction.id === 'sync' && String(command).trim().toLowerCase() === '/roadmap-update') {
-      effectiveCommand = 'update';
     } else {
       effectiveCommand = slashAction.id;
     }
@@ -458,6 +484,7 @@ async function run() {
   if (effectiveCommand === 'regenerate') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
     const config = loadConfig({ projectRoot, configPath: flags.config });
+    process.stderr.write('The regenerate command is deprecated. Use generate --full-regen for the public destructive rebuild path.\n');
     runRegenerateCommand(projectRoot, config, flags);
     return;
   }
@@ -510,7 +537,9 @@ async function run() {
 
     const parsedRoadmap = parseRoadmap(content);
     const tasks = maybeFilterTasks(parsedRoadmap.tasks, flags.task);
-    const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
+    const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins), {
+      strictValidation: isEnabled(flags.strict)
+    });
     const results = validateTasks(tasks, validationContext, config, validationContext.plugins);
 
     const minRank = CONFIDENCE_RANK[config.validation && config.validation.minimumConfidence] ?? 0;
@@ -605,6 +634,9 @@ async function run() {
       } else {
         logError(`[fail] VS Code tasks incomplete: missing ${hostStatus.vscode.tasks.missingLabels.join(', ') || 'managed labels'}`);
         ok = false;
+      }
+      if (Array.isArray(hostStatus.vscode.tasks.missingAdvancedLabels) && hostStatus.vscode.tasks.missingAdvancedLabels.length > 0) {
+        log(`[warn] Advanced VS Code tasks missing: ${hostStatus.vscode.tasks.missingAdvancedLabels.join(', ')}`);
       }
 
       if (hostStatus.runtime.ready) {

@@ -8,10 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Documented the new one-command product contract around `roadmapsmith setup`, `roadmapsmith zero`, and `roadmapsmith maintain`.
-- Added `docs/release-ux-gate.md` to make publication criteria explicit for onboarding clarity, failure safety, and config-preserving host setup.
 - Added native Codex plugin docs for `.codex-plugin/plugin.json` and the repo-local marketplace surface at `.agents/plugins/marketplace.json`.
 - Added the explicit `--full-regen` override for intentional managed-block replacement through `roadmapsmith generate` and `roadmapsmith maintain`.
 - Added a broad pre-push validation gate contract with separate `QA/Regression` and `Functional/Smoke` command surfaces before any push.
+- Added `docs/command-surfaces.md`, `docs/troubleshooting-host-setup.md`, and `docs/use-cases/codex-plugin.md`.
+- Added `roadmapsmith validate --strict` as an additive independent audit path.
 
 ### Changed
 - Release and use-case docs now treat the `roadmap-sync` skill as an optional policy layer instead of the primary end-user entrypoint.
@@ -22,12 +23,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `maintain` and `generate` are now documented as preserve-first updates for existing substantive managed blocks, while `/roadmap-update` replaces direct `/roadmap-sync` usage as the visible sync slash entrypoint.
 - The public slash namespace now prefers `/roadmap*` commands, uses `/roadmap-update` as the visible direct sync command, keeps `/roadmap-sync <action>` as the legacy root, and requires `--full-regen` before destructive regeneration.
 - Release and maintainer docs now require independent subagent-owned validation passes before push, and CI reuses the same gate commands.
+- Canonical, advanced, and compatibility command surfaces are now documented separately across code, skills, manifests, and docs.
+- Readiness now depends on canonical native surfaces only; missing advanced VS Code tasks and duplicate legacy `/roadmap-sync` installs are warnings instead of canonical-health failures.
 
 ### Fixed
 - Codex loader metadata for `skills/roadmap-sync/agents/openai.yaml` now parses cleanly instead of being ignored as invalid YAML.
 - `maintain` now requires deterministic verification, explicit evidence, or fresh configured test results before it completes an unchecked implementation task; heuristic matches remain diagnostic only.
 - `doctor` now detects the common duplicate-`/roadmap-sync` case where a legacy `~/.agents/skills/roadmap-sync` install coexists with the full `roadmapsmith` Codex plugin.
 - Validator/sync now distinguish concrete implementation attempts from no-evidence tasks, ignore backticked HTTP/MIME/formula tokens as file paths, exempt HTTP expectation lines from standalone test requirements, and keep implicit duplicate task text deterministic via unique per-occurrence IDs.
+- Verification recipes are now task-scoped, suppressed when non-specific or duplicated, and never generated when explicit `Verify:` or `Evidence:` metadata already exists.
+- Heuristic evidence now excludes generated outputs, `scripts/` and auxiliary tooling paths by default, and prefers authored source files over compiled siblings.
 
 ## [0.7.0] — 2026-04-27
 
