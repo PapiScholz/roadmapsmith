@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.31 - 2026-06-21
+
+### Fixed
+- extend annotation preservation to all low-specificity policy messages (#55)
+
 ## v0.9.30 - 2026-06-21
 
 ### Fixed
