@@ -12,7 +12,6 @@ Use this command as the native discovery entrypoint for the shared RoadmapSmith 
 1. Treat `/roadmap` as a no-side-effects palette. Do not run mutating commands from this skill.
 2. When working inside the RoadmapSmith repository itself and `roadmap-skill/bin/cli.js` exists, prefer the local engine:
    - `node roadmap-skill/bin/cli.js /roadmap`
-   - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js /roadmap` if `node` is not in PATH
 3. Otherwise, if the `roadmapsmith` CLI is available, you may run `roadmapsmith /roadmap` from the project root and use that output directly.
 4. If the CLI is missing, provide the palette manually and explain the install path:
    - `npm install -g roadmapsmith`

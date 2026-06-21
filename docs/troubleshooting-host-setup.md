@@ -20,11 +20,7 @@ roadmapsmith status --json
 
 ### Global shim cannot resolve Node on Windows
 
-Use the absolute Node executable:
-
-```powershell
-& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" status --json --project-root .
-```
+Ensure `node` is in PATH, or set the `ROADMAPSMITH_NODE` environment variable to the full path of your Node executable, then rerun `roadmapsmith setup`.
 
 ### Duplicate `/roadmap-sync`
 

@@ -11,8 +11,7 @@ Use this command when the repository already has code, tests, docs, or an existi
 
 1. Prefer the local engine inside this repository:
    - `node roadmap-skill/bin/cli.js maintain --project-root .`
-   - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js maintain --project-root .` if `node` is not in PATH
-2. Otherwise prefer `roadmapsmith maintain --project-root .`. If that global shim fails because `node` is not in PATH, run `& "C:\Program Files\nodejs\node.exe" "$env:APPDATA\npm\node_modules\roadmapsmith\bin\cli.js" maintain --project-root .`.
+2. Otherwise prefer `roadmapsmith maintain --project-root .`.
 3. Treat this command as CLI-backed. Do not silently replace it with manual reasoning when the CLI is unavailable.
 4. Mention that maintain runs preserve-first generate, sync, and audit in one invocation.
 5. After a successful maintain cycle, do not propose generate, sync, or audit separately unless the user needs manual control or inspection.

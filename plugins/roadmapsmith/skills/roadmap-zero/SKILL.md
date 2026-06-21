@@ -11,7 +11,6 @@ Use this command when the repository is empty or low-context and the user needs 
 
 1. Prefer the local engine inside this repository:
    - `node roadmap-skill/bin/cli.js zero --project-root .`
-   - on this Windows machine, prefer `C:\Program Files\nodejs\node.exe roadmap-skill/bin/cli.js zero --project-root .` if `node` is not in PATH
 2. Otherwise prefer `roadmapsmith zero --project-root .`.
 3. Treat this command as CLI-backed and interactive.
 4. If the CLI is missing, explain the install path instead of improvising the workflow manually.
