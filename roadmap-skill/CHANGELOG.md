@@ -2,16 +2,12 @@
 
 ## Unreleased
 
-### Added
-- add `validate --strict` as an additive independent audit path
+- None yet.
 
-### Changed
-- separate canonical, advanced, and compatibility command surfaces across CLI help, host readiness, docs, and bundle metadata
+## v0.9.30 - 2026-06-21
 
 ### Fixed
-- suppress non-specific or duplicated verification recipes
-- exclude auxiliary tooling paths from heuristic evidence unless explicitly referenced
-- prefer authored source files over compiled siblings in heuristic evidence
+- align update and sync command contract (#53)
 
 ## v0.9.29 - 2026-06-21
 
