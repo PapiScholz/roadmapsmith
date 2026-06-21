@@ -48,6 +48,8 @@
       "Help me bootstrap or maintain this repository roadmap with RoadmapSmith."
     ],
     "brandColor": "#2B6CB0",
+    "composerIcon": "./assets/palette.png",
+    "logo": "./assets/roadmapsmith-logo.png",
     "screenshots": []
   }
 }
