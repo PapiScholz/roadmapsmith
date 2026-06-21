@@ -1418,12 +1418,7 @@ function inspectHostSetup(projectRoot, options = {}) {
       workspaceReady: cli.ready && runtime.ready && vscode.tasks.ready && Boolean(roadmapFile && fs.existsSync(roadmapFile)) && Boolean(agentsFile && fs.existsSync(agentsFile)),
       codexReady,
       claudeReady: cli.ready && claude.ready,
-      canonicalSurfaceReady: Object.values({
-        claudeGui: bundle.ready,
-        claudeCli: bundle.ready,
-        codexGui: codexNative.ready,
-        codexCli: codexNative.ready && Boolean(codexNative.commandPath)
-      }).every(Boolean),
+      canonicalSurfaceReady: bundle.ready && vscode.tasks.ready,
       advancedSurfaceWarnings: [
         ...vscode.tasks.missingAdvancedLabels.map((label) => `Missing advanced VS Code task: ${label}`),
         ...EXPECTED_ADVANCED_NATIVE_SLASH_COMMANDS.filter((command) => !bundle.advancedCommands.includes(command)).map((command) => `Missing advanced bundle slash command: ${command}`)
