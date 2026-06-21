@@ -396,6 +396,94 @@ test('sync generates and replaces a single verification recipe for pending behav
   assert.equal((second.match(/Verification recipe:/g) || []).length, 1);
 });
 
+test('applySync preserves specific existing warning when new reason is generic policy message (Gap 1a)', () => {
+  // 'implementation task requires deterministic Verify metadata...' is a low-specificity
+  // policy message; it must not clobber a more informative existing annotation.
+  const specific = 'no content match in src/lib/stock.ts: expected getLowStockProducts';
+  const content = [
+    '- [ ] Add getLowStockProducts helper <!-- rs:task=low-stock -->',
+    `  - ⚠️ attempted but validation failed: ${specific}`
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const results = {
+    'low-stock': {
+      passed: false,
+      attempted: true,
+      reasons: ['implementation task requires deterministic Verify metadata or explicit Evidence to be marked complete']
+    }
+  };
+
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /no content match in src\/lib\/stock\.ts/, 'specific existing message must survive generic policy overwrite');
+  assert.doesNotMatch(next, /deterministic Verify metadata/);
+});
+
+test('applySync preserves external prose when new reason is generic policy message (Gap 1b)', () => {
+  const prose = 'getLowStockProducts() in src/lib/stock.ts exists but no in-app notification delivery';
+  const content = [
+    '- [ ] Wire notification delivery <!-- rs:task=notify-delivery -->',
+    `  - ⚠️ attempted but validation failed: ${prose}`
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const results = {
+    'notify-delivery': {
+      passed: false,
+      attempted: true,
+      reasons: ['implementation task requires Evidence line or high-confidence evidence (code + test) to be marked complete']
+    }
+  };
+
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /no in-app notification delivery/, 'external prose must survive generic policy overwrite');
+  assert.doesNotMatch(next, /high-confidence evidence/);
+});
+
+test('applySync with forceRefresh replaces external prose annotation (Gap 2 escape hatch)', () => {
+  const prose = 'no Customer model in prisma/schema.prisma, no customer API routes, no customer UI page';
+  const content = [
+    '- [ ] Build customer module <!-- rs:task=customer-module -->',
+    `  - ⚠️ attempted but validation failed: ${prose}`
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const results = {
+    'customer-module': {
+      passed: false,
+      attempted: false,
+      reasons: ['no code, test, or artifact evidence found']
+    }
+  };
+
+  const next = applySync(content, parsed.tasks, results, { forceRefresh: true });
+
+  assert.doesNotMatch(next, /no Customer model in prisma/, 'forceRefresh must replace stale external prose');
+  assert.match(next, /no code, test, or artifact evidence found/);
+});
+
+test('applySync replaces a stale low-specificity warning with a more specific new reason (self-correction)', () => {
+  // A generic existing annotation produced by a prior run should be refreshed when the
+  // current run computes something more specific.
+  const generic = 'implementation task requires deterministic Verify metadata or explicit Evidence to be marked complete';
+  const content = [
+    '- [ ] Implement backup route <!-- rs:task=backup-route -->',
+    `  - ⚠️ attempted but validation failed: ${generic}`
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const results = {
+    'backup-route': {
+      passed: false,
+      attempted: true,
+      reasons: ['missing referenced file(s): src/backup.ts']
+    }
+  };
+
+  const next = applySync(content, parsed.tasks, results);
+
+  assert.doesNotMatch(next, /deterministic Verify metadata/, 'generic existing annotation must be replaced by specific new reason');
+  assert.match(next, /missing referenced file\(s\): src\/backup\.ts/);
+});
+
 test('sync removes stale shared verification recipes after duplicate suppression', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });

@@ -2,6 +2,7 @@
 
 const { parseRoadmap } = require('../parser');
 const { ensureTrailingNewline } = require('../utils');
+const { isLowSpecificityReason } = require('../reasons');
 
 const ATTEMPTED_WARNING_REASON_PREFIX = 'attempted but validation failed:';
 const NO_EVIDENCE_WARNING_REASON_PREFIX = 'no implementation evidence found yet:';
@@ -106,10 +107,14 @@ function normalizeWarningReasons(reasons) {
   return normalized;
 }
 
-function shouldPreserveExistingWarning(existingReason, newReason) {
+function shouldPreserveExistingWarning(existingReason, newReason, options) {
+  if (options && options.forceRefresh) return false;
   const cleanExisting = normalizeWarningReason(existingReason);
   const cleanNew = normalizeWarningReason(newReason) || 'validation failed';
-  return cleanNew === 'validation failed' && cleanExisting && cleanExisting !== cleanNew;
+  // Preserve when the freshly computed reason is a low-specificity policy message (no
+  // file- or symbol-specific information) and the existing annotation carries more
+  // diagnostic value (is not itself a low-specificity message).
+  return isLowSpecificityReason(cleanNew) && Boolean(cleanExisting) && !isLowSpecificityReason(cleanExisting);
 }
 
 function formatVerificationRecipe(indent, recipe) {
@@ -129,7 +134,7 @@ function findVerificationRecipeIndex(lines, taskLineIndex) {
   return null;
 }
 
-function applySync(content, parsedTasks, results) {
+function applySync(content, parsedTasks, results, options) {
   const parsed = parseRoadmap(content);
   const lines = [...parsed.lines];
   const tasks = parsedTasks || parsed.tasks;
@@ -187,7 +192,7 @@ function applySync(content, parsedTasks, results) {
     } else if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
       const existingReason = normalizeWarningReason(lines[warningIndex]);
       const newReason = reason || 'validation failed';
-      if (!shouldPreserveExistingWarning(existingReason, newReason)) {
+      if (!shouldPreserveExistingWarning(existingReason, newReason, options)) {
         lines[warningIndex] = warningText;
       }
     } else {
