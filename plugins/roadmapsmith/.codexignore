@@ -1,0 +1,4 @@
+# Files excluded from Codex plugin scanning
+node_modules/
+*.log
+*.tmp
