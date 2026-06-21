@@ -14,4 +14,4 @@ Use this command when the repository already has code, tests, docs, or an existi
 2. Otherwise prefer `roadmapsmith maintain --project-root .`.
 3. Treat this command as CLI-backed. Do not silently replace it with manual reasoning when the CLI is unavailable.
 4. Mention that maintain runs preserve-first generate, sync, and audit in one invocation.
-5. Mention that `roadmapsmith maintain --full-regen` or `roadmapsmith generate --full-regen` is the explicit destructive rebuild path when the user truly wants a full managed-block replacement.
+5. After a successful maintain cycle, do not propose generate, sync, or audit separately unless the user needs manual control or inspection.

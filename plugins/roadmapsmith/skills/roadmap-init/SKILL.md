@@ -1,6 +1,6 @@
 ---
 name: roadmap-init
-description: Create ROADMAP.md and AGENTS.md through the RoadmapSmith CLI.
+description: Initialize project governance files through the RoadmapSmith CLI.
 ---
 
 # RoadmapSmith Init
