@@ -20,6 +20,3 @@ assets/palette.png
 
 # backups raros
 *.mp4~
-
-# npm lockfile — contains high-entropy SHA512 integrity hashes
-roadmap-skill/package-lock.json
