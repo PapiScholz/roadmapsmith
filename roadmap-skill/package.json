@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "version": "0.9.32",
+  "version": "0.9.33",
   "description": "Evidence-backed ROADMAP.md workflows for AI coding agents, with canonical RoadmapSmith status and maintain surfaces plus advanced sync/generate tools and legacy compatibility aliases.",
   "main": "src/index.js",
   "bin": {
