@@ -4,6 +4,14 @@
 
 - None yet.
 
+## v0.9.33 - 2026-06-22
+
+### Fixed
+- restore package-lock.json and remove it from .gitignore (#63)
+
+### Changed
+- pin actions to SHA, add .codexignore and dependabot.yml (#59)
+
 ## v0.9.32 - 2026-06-21
 
 ### Changed
