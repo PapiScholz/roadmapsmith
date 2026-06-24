@@ -30,6 +30,12 @@ Advanced native slash surfaces:
 - `/roadmap-generate`
 - `/roadmap-audit`
 
+Behavioral notes:
+
+- `/roadmap-maintain` only maintains an existing managed roadmap block; it will not seed managed content into a non-empty authored roadmap.
+- `/roadmap-update` is the conservative inline-annotation path for existing task lines, including authored roadmaps without managed markers.
+- `/roadmap-zero` can rely on config plus CLI flags when the host is non-interactive.
+
 ## Duplicate legacy surface
 
 If a legacy `~/.agents/skills/roadmap-sync` install is still present, Codex may show a duplicate `/roadmap-sync`.

@@ -7,7 +7,22 @@ Use this mode when the repository already contains code, tests, docs, TODOs, or 
 Daily maintenance:
 
 ```bash
+roadmapsmith maintain --dry-run
 roadmapsmith maintain
+```
+
+Authored roadmap with task markers but no managed block:
+
+```bash
+roadmapsmith update --dry-run
+roadmapsmith update
+```
+
+Intentional managed-section creation in an authored roadmap:
+
+```bash
+roadmapsmith generate --dry-run
+roadmapsmith generate
 ```
 
 Independent audit:
@@ -19,11 +34,13 @@ roadmapsmith validate --strict --json
 
 ## Semantics
 
-- `maintain`: preserve-first flow that runs generation, sync, and audit output together
+- `maintain`: preserve-first flow that runs generation, sync, and audit output together, but only for an existing managed block
 - `sync`: advanced mutating checklist refresh
 - `sync --audit`: advanced mutating summary after sync
 - `validate`: default validation view with compatibility-preserving semantics
 - `validate --strict`: first independent audit path
+
+If `ROADMAP.md` is non-empty and lacks `<!-- rs:managed:start -->`, `maintain` fails fast instead of appending generated boilerplate. Use `update` for conservative inline annotations or `generate` to seed the managed section explicitly.
 
 `validate --strict` may still use the inferencer to discover candidates, but PASS is limited to explicit `Evidence:` or passing typed `Verify:`.
 

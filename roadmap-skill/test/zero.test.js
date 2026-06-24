@@ -7,6 +7,9 @@ const {
   buildZeroModeConfigPatch,
   buildZeroModeDefaults,
   collectZeroModeAnswers,
+  formatMissingZeroModeFields,
+  getMissingZeroModeFields,
+  resolveZeroModeAnswers,
   splitListAnswer
 } = require('../src/zero');
 
@@ -82,4 +85,54 @@ test('buildZeroModeConfigPatch persists interview answers into product and zeroM
   ]);
   assert.equal(next.zeroMode.preferredStack, 'Next.js + Node');
   assert.deepEqual(next.zeroMode.constraints, ['2 weeks', 'low budget']);
+});
+
+test('resolveZeroModeAnswers merges config defaults with scalar and repeated CLI flags', () => {
+  const answers = resolveZeroModeAnswers(path.join(process.cwd(), 'demo-repo'), {
+    product: {
+      name: 'Configured Product',
+      primaryUser: 'Configured user',
+      targetOutcome: 'configured outcome',
+      antiGoals: ['Configured anti-goal'],
+      successCriteria: ['Configured done']
+    },
+    zeroMode: {
+      problemStatement: 'Configured problem',
+      preferredStack: 'Configured stack',
+      constraints: ['Configured constraint'],
+      doneCriteria: ['Configured done']
+    }
+  }, {
+    'primary-user': 'Flag user',
+    'anti-goal': ['No billing', 'No marketplace'],
+    'constraint': 'Ship in 2 weeks; low budget',
+    'done-criterion': ['One user completes onboarding', 'One user syncs the roadmap'],
+    'preferred-stack': 'Node + React'
+  });
+
+  assert.equal(answers.productName, 'Configured Product');
+  assert.equal(answers.primaryUser, 'Flag user');
+  assert.equal(answers.problemStatement, 'Configured problem');
+  assert.equal(answers.targetOutcome, 'configured outcome');
+  assert.equal(answers.preferredStack, 'Node + React');
+  assert.equal(answers.antiGoals, 'No billing; No marketplace');
+  assert.equal(answers.constraints, 'Ship in 2 weeks; low budget');
+  assert.equal(answers.doneCriteria, 'One user completes onboarding; One user syncs the roadmap');
+});
+
+test('getMissingZeroModeFields reports required non-interactive brief gaps with flag/config hints', () => {
+  const missing = getMissingZeroModeFields({
+    productName: 'Demo Product',
+    primaryUser: '',
+    problemStatement: '',
+    targetOutcome: 'Launch the beta',
+    doneCriteria: ''
+  });
+
+  assert.deepEqual(missing.map((item) => item.field), ['primaryUser', 'problemStatement', 'doneCriteria']);
+  assert.deepEqual(formatMissingZeroModeFields(missing), [
+    'primary user (--primary-user or config product.primaryUser)',
+    'problem statement (--problem-statement or config zeroMode.problemStatement)',
+    'done criteria (--done-criterion or config zeroMode.doneCriteria)'
+  ]);
 });

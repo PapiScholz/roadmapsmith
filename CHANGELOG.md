@@ -21,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `roadmapsmith doctor --json` now separates native slash surfaces (`claudeGui`, `claudeCli`, `codexGui`, `codexCli`) from the VS Code task plus Claude hook setup layer.
 - `roadmapsmith status` is now the visible classic readiness command, with `roadmapsmith doctor` kept as a compatibility alias to the same inspection payload.
 - `maintain` and `generate` are now documented as preserve-first updates for existing substantive managed blocks, while `/roadmap-update` replaces direct `/roadmap-sync` usage as the visible sync slash entrypoint.
+- `maintain` is now documented as conservative on non-empty authored roadmaps without managed markers, `update` is documented as the inline-annotation path for those files, and `zero` now documents config-plus-flag discovery in non-interactive environments.
 - The public slash namespace now prefers `/roadmap*` commands, uses `/roadmap-update` as the visible direct sync command, keeps `/roadmap-sync <action>` as the legacy root, and requires `--full-regen` before destructive regeneration.
 - Release and maintainer docs now require independent subagent-owned validation passes before push, and CI reuses the same gate commands.
 - Canonical, advanced, and compatibility command surfaces are now documented separately across code, skills, manifests, and docs.

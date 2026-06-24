@@ -14,14 +14,21 @@ const { generateRoadmapDocument } = require('../src/generator');
 const { parseRoadmap, tasksInManagedBlock } = require('../src/parser');
 const { buildValidationContext, validateTasks, auditValidation, CONFIDENCE_RANK, applyMinimumConfidence } = require('../src/validator');
 const { applySync } = require('../src/sync');
-const { buildZeroModeConfigPatch, buildZeroModeDefaults, collectZeroModeAnswers, isInteractiveTerminal } = require('../src/zero');
+const {
+  buildZeroModeConfigPatch,
+  collectZeroModeAnswers,
+  formatMissingZeroModeFields,
+  getMissingZeroModeFields,
+  isInteractiveTerminal,
+  resolveZeroModeAnswers
+} = require('../src/zero');
 
 function printHelp() {
   console.log([
     'Usage:',
     '  Canonical commands:',
-    '  roadmapsmith zero [--project-root <path>] [--config <path>]',
-    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--full-regen] [--refresh-annotations]',
+    '  roadmapsmith zero [--project-root <path>] [--config <path>] [--product-name <text>] [--primary-user <text>] [--problem-statement <text>] [--target-outcome <text>] [--anti-goal <text> ...] [--preferred-stack <text>] [--constraint <text> ...] [--done-criterion <text> ...]',
+    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--full-regen] [--refresh-annotations]',
     '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
     '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict]',
     '  roadmapsmith update [--task <stable-id> --evidence <text>] [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
@@ -140,6 +147,42 @@ function formatSetupVerb(result, dryRun) {
   return result.before == null ? 'Created' : 'Updated';
 }
 
+function emitPreWriteWarning(roadmapFile, options = {}) {
+  if (options.dryRun || options.suppressWarning) {
+    return;
+  }
+  if (options.warningState && options.warningState.emitted) {
+    return;
+  }
+
+  const commandName = options.commandName || 'roadmapsmith';
+  console.log(`Warning: ${commandName} will modify ${roadmapFile}. Review the preview first with --dry-run.`);
+  if (options.managedSectionNote) {
+    console.log(options.managedSectionNote);
+  }
+
+  if (options.warningState) {
+    options.warningState.emitted = true;
+  }
+}
+
+function assertMaintainCanWrite(roadmapFile, content) {
+  if (content == null || String(content).trim().length === 0) {
+    return;
+  }
+
+  const parsed = parseRoadmap(content);
+  if (parsed.hasManagedBlock) {
+    return;
+  }
+
+  throw new Error(
+    `Refusing to let roadmapsmith maintain seed a managed section into an authored roadmap without <!-- rs:managed:start --> markers: ${roadmapFile}\n` +
+    'For conservative inline annotations, run `roadmapsmith update --dry-run` then `roadmapsmith update`.\n' +
+    'To intentionally create a managed section, run `roadmapsmith generate --dry-run` then `roadmapsmith generate`.'
+  );
+}
+
 function runInitCommand(projectRoot, config, flags) {
   const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
   const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
@@ -187,6 +230,13 @@ function runGenerateCommand(projectRoot, config, flags, options = {}) {
     forceFullRegenerate: options.forceFullRegenerate === true || isEnabled(flags['full-regen'])
   });
 
+  emitPreWriteWarning(roadmapFile, {
+    commandName: options.commandName || 'roadmapsmith generate',
+    dryRun,
+    suppressWarning: options.suppressPreWriteWarning,
+    warningState: options.warningState,
+    managedSectionNote: 'This command may create or replace a managed roadmap section depending on the current file state and flags.'
+  });
   const writeResult = writeText(roadmapFile, document, { dryRun });
   if (dryRun) {
     if (writeResult.changed) {
@@ -229,6 +279,12 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
   const forceRefresh = isEnabled(flags['refresh-annotations']);
   const next = applySync(content, syncTasks, results, { forceRefresh });
   const dryRun = isEnabled(flags['dry-run']);
+  emitPreWriteWarning(roadmapFile, {
+    commandName: options.commandName || 'roadmapsmith sync',
+    dryRun,
+    suppressWarning: options.suppressPreWriteWarning,
+    warningState: options.warningState
+  });
   const writeResult = writeText(roadmapFile, next, { dryRun });
 
   if (dryRun) {
@@ -266,7 +322,7 @@ function runUpdateCommand(projectRoot, config, flags) {
   const hasTask = flags.task != null;
   const hasEvidence = flags.evidence != null;
   if (!hasTask && !hasEvidence) {
-    runSyncCommand(projectRoot, config, flags);
+    runSyncCommand(projectRoot, config, flags, { commandName: 'roadmapsmith update' });
     return;
   }
   if (!hasTask || !hasEvidence || Array.isArray(flags.task) || Array.isArray(flags.evidence)) {
@@ -306,6 +362,10 @@ function runUpdateCommand(projectRoot, config, flags) {
 
   const next = applySync(draft, [draftTask], { [taskId]: result });
   const dryRun = isEnabled(flags['dry-run']);
+  emitPreWriteWarning(roadmapFile, {
+    commandName: 'roadmapsmith update',
+    dryRun
+  });
   const writeResult = writeText(roadmapFile, next, { dryRun });
   if (dryRun) {
     if (writeResult.changed) {
@@ -371,40 +431,69 @@ function runStatusCommand(projectRoot, config, flags, options = {}) {
 async function runZeroCommand(projectRoot, flags) {
   const configPath = resolveConfigPath({ projectRoot, configPath: flags.config });
   const config = loadConfig({ projectRoot, configPath: flags.config });
-  if (!isInteractiveTerminal(process.stdin, process.stdout)) {
-    throw new Error('Zero Mode requires an interactive terminal. Run roadmapsmith zero from a terminal session, or add a config/brief workflow before retrying in non-interactive mode.');
-  }
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const roadmapExistedBeforeInit = fs.existsSync(roadmapFile);
+  const defaults = resolveZeroModeAnswers(projectRoot, config, flags);
+  const interactive = isInteractiveTerminal(process.stdin, process.stdout);
+  let answers = defaults;
 
-  const defaults = buildZeroModeDefaults(projectRoot, config);
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  try {
+  if (!interactive) {
+    const missingFields = getMissingZeroModeFields(defaults);
+    if (missingFields.length > 0) {
+      throw new Error(
+        'Zero Mode requires a complete brief in non-interactive environments. Missing: ' +
+        `${formatMissingZeroModeFields(missingFields).join(', ')}. ` +
+        'Provide the missing values with CLI flags or in roadmap-skill.config.json before retrying.'
+      );
+    }
     console.log('RoadmapSmith Zero Mode');
-    console.log('Answer the discovery interview to generate the first roadmap.\n');
-    const answers = await collectZeroModeAnswers((prompt) => rl.question(prompt), defaults);
-    const existingUserConfig = readUserConfig({ projectRoot, configPath: flags.config });
-    const nextUserConfig = buildZeroModeConfigPatch(projectRoot, existingUserConfig, answers);
-    writeText(configPath, JSON.stringify(nextUserConfig, null, 2));
-    console.log(`Updated ${configPath}`);
-    const nextConfig = loadConfig({ projectRoot, configPath: flags.config });
-    runInitCommand(projectRoot, nextConfig, flags);
-    runGenerateCommand(projectRoot, nextConfig, flags);
-  } finally {
-    rl.close();
+    console.log('Using config/flag discovery inputs in non-interactive mode.\n');
+  } else {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    try {
+      console.log('RoadmapSmith Zero Mode');
+      console.log('Answer the discovery interview to generate the first roadmap.\n');
+      answers = await collectZeroModeAnswers((prompt) => rl.question(prompt), defaults);
+    } finally {
+      rl.close();
+    }
   }
+
+  const existingUserConfig = readUserConfig({ projectRoot, configPath: flags.config });
+  const nextUserConfig = buildZeroModeConfigPatch(projectRoot, existingUserConfig, answers);
+  writeText(configPath, JSON.stringify(nextUserConfig, null, 2));
+  console.log(`Updated ${configPath}`);
+  const nextConfig = loadConfig({ projectRoot, configPath: flags.config });
+  runInitCommand(projectRoot, nextConfig, flags);
+  runGenerateCommand(projectRoot, nextConfig, flags, {
+    commandName: 'roadmapsmith zero',
+    suppressPreWriteWarning: true,
+    forceFullRegenerate: !roadmapExistedBeforeInit
+  });
 }
 
 function runMaintainCommand(projectRoot, flags) {
   const config = loadConfig({ projectRoot, configPath: flags.config });
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const existingContent = readTextIfExists(roadmapFile);
+  assertMaintainCanWrite(roadmapFile, existingContent);
   const fullRegen = isEnabled(flags['full-regen']);
+  const warningState = { emitted: false };
   runGenerateCommand(projectRoot, config, flags, {
+    commandName: 'roadmapsmith maintain',
     preserveManagedBlock: !fullRegen,
-    forceFullRegenerate: fullRegen
+    forceFullRegenerate: fullRegen,
+    warningState
   });
-  runSyncCommand(projectRoot, config, { ...flags, audit: true }, { audit: true });
+  runSyncCommand(projectRoot, config, { ...flags, audit: true }, {
+    audit: true,
+    commandName: 'roadmapsmith maintain',
+    warningState
+  });
 }
 
 async function run() {

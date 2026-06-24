@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- None yet.
+### Changed
+- make `maintain` fail fast on non-empty authored roadmaps that lack `<!-- rs:managed:* -->`, steering users to `update` for conservative annotations and `generate` for explicit managed-section creation
+- add pre-write `--dry-run` guidance to mutating roadmap commands and document managed-block ownership across CLI/docs/host surfaces
+- let `roadmapsmith zero` run without TTY when config plus CLI flags provide a complete discovery brief
 
 ## v0.9.33 - 2026-06-22
 

@@ -13,6 +13,12 @@ Public default path:
 - `validate`
 - `update`
 
+Behavioral contract:
+
+- `zero`: interactive discovery when TTY is available; config-plus-flags discovery when non-interactive
+- `maintain`: conservative managed-block maintenance; does not seed a managed block into a non-empty authored roadmap
+- `update`: conservative inline annotation path for existing task lines, with or without a managed block
+
 Native slash surfaces:
 
 - `/roadmap`
@@ -34,6 +40,8 @@ Available, but not the default path:
 - `generate --full-regen`
 - `sync` as the advanced alias for `update`
 - `sync --audit`
+
+`generate` is the explicit managed-section creation path. Prefer `generate --dry-run` before applying it to an authored roadmap.
 
 `update --task --evidence` remains part of the same canonical public `update` family.
 

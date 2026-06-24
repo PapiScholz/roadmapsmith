@@ -258,9 +258,34 @@ test('cli maintain runs generate, sync, and audit in one invocation', () => {
   const roadmapPath = path.join(projectRoot, CANONICAL_ROADMAP);
   const content = fs.readFileSync(roadmapPath, 'utf8');
 
+  assert.match(out, /Warning: roadmapsmith maintain will modify/);
   assert.match(out, /Updated .*ROADMAP\.md|No changes for .*ROADMAP\.md/);
   assert.match(out, /Audit summary:/);
   assert.match(content, /<!-- rs:managed:start -->/);
+});
+
+test('cli maintain refuses to seed a managed block into an authored roadmap without managed markers', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-maintain-authored-'));
+  writePackageJson(projectRoot);
+  const roadmapPath = path.join(projectRoot, CANONICAL_ROADMAP);
+  const before = [
+    '# Mi roadmap editorial',
+    '',
+    '## Prioridades',
+    '- [ ] Integrar facturacion AFIP <!-- rs:task=afip -->',
+    '- [ ] Cerrar caja diario <!-- rs:task=cierre-caja -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(roadmapPath, before, 'utf8');
+
+  const result = runResult(['maintain'], projectRoot);
+  const after = fs.readFileSync(roadmapPath, 'utf8');
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Refusing to let roadmapsmith maintain seed a managed section/i);
+  assert.match(result.stderr, /roadmapsmith update --dry-run/);
+  assert.match(result.stderr, /roadmapsmith generate --dry-run/);
+  assert.equal(after, before);
 });
 
 test('cli maintain preserves a substantive custom managed block for Electron desktop repos', () => {
@@ -326,6 +351,31 @@ test('cli /roadmap-update --dry-run is stable for the RoadmapSmith repo roadmap'
   assert.match(result.stdout, /No changes for .*ROADMAP\.md|Dry run: .*ROADMAP\.md/i);
   assert.doesNotMatch(result.stdout, /Add SEO metadata|Lighthouse performance score|responsive and mobile-first layout|accessibility baseline/i);
   assert.equal(after, before);
+});
+
+test('cli update refreshes inline annotations without adding a managed block to authored roadmaps', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-update-authored-'));
+  writePackageJson(projectRoot);
+  const roadmapPath = path.join(projectRoot, CANONICAL_ROADMAP);
+  fs.writeFileSync(
+    roadmapPath,
+    [
+      '# Mi roadmap editorial',
+      '',
+      '## Prioridades',
+      '- [ ] Integrar facturacion AFIP <!-- rs:task=afip -->',
+      '- [ ] Cerrar caja diario <!-- rs:task=cierre-caja -->',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
+
+  const out = run(['update'], projectRoot);
+  const content = fs.readFileSync(roadmapPath, 'utf8');
+
+  assert.match(out, /Warning: roadmapsmith update will modify/);
+  assert.match(content, /⚠️ no implementation evidence found yet/);
+  assert.doesNotMatch(content, /<!-- rs:managed:start -->/);
 });
 
 test('cli update completes one task only after its supplied evidence validates at high confidence', () => {
@@ -834,6 +884,15 @@ test('no args prints usage', () => {
   assert.match(out, /Usage:/);
   assert.match(out, /roadmapsmith zero/);
   assert.match(out, /roadmapsmith maintain/);
+  assert.match(out, /maintain .*--dry-run/);
+  assert.match(out, /--product-name/);
+  assert.match(out, /--primary-user/);
+  assert.match(out, /--problem-statement/);
+  assert.match(out, /--target-outcome/);
+  assert.match(out, /--anti-goal/);
+  assert.match(out, /--preferred-stack/);
+  assert.match(out, /--constraint/);
+  assert.match(out, /--done-criterion/);
   assert.match(out, /--full-regen/);
   assert.match(out, /\/roadmap-update/);
   assert.doesNotMatch(out, /\/roadmap-regenerate/);
@@ -857,6 +916,26 @@ test('cli /roadmap-maintain executes the one-command existing-repo flow', () => 
 
   assert.match(out, /Audit summary:/);
   assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
+});
+
+test('cli /roadmap-maintain refuses to seed a managed block into an authored roadmap without markers', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-maintain-authored-'));
+  writePackageJson(projectRoot);
+  const roadmapPath = path.join(projectRoot, CANONICAL_ROADMAP);
+  const before = [
+    '# Mi roadmap editorial',
+    '',
+    '## Prioridades',
+    '- [ ] Integrar facturacion AFIP <!-- rs:task=afip -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(roadmapPath, before, 'utf8');
+
+  const result = runResult(['/roadmap-maintain'], projectRoot);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /roadmapsmith update --dry-run/);
+  assert.equal(fs.readFileSync(roadmapPath, 'utf8'), before);
 });
 
 test('cli /roadmap sync resolves to the canonical update family without changing dry-run behavior', () => {
@@ -926,12 +1005,94 @@ test('cli unknown direct slash input shows related help safely', () => {
   assert.match(result.stdout, /\/roadmap-update/);
 });
 
-test('cli zero fails clearly in non-interactive mode', () => {
+test('cli zero succeeds in non-interactive mode when config provides a complete brief', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-zero-noninteractive-'));
+  fs.writeFileSync(
+    path.join(projectRoot, 'roadmap-skill.config.json'),
+    JSON.stringify({
+      product: {
+        name: 'Launchpad',
+        primaryUser: 'Solo founders',
+        targetOutcome: 'ship the first usable planning workflow',
+        successCriteria: ['One founder can sync the roadmap after coding']
+      },
+      zeroMode: {
+        problemStatement: 'They lose roadmap continuity between agent sessions'
+      }
+    }, null, 2),
+    'utf8'
+  );
   const result = runResult(['zero'], projectRoot);
 
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Using config\/flag discovery inputs in non-interactive mode/);
+  assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
+});
+
+test('cli zero succeeds in non-interactive mode when flags provide a complete brief', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-zero-flags-'));
+  const result = runResult([
+    'zero',
+    '--product-name', 'Launchpad',
+    '--primary-user', 'Solo founders',
+    '--problem-statement', 'They lose roadmap continuity between agent sessions',
+    '--target-outcome', 'ship the first usable planning workflow',
+    '--anti-goal', 'No billing',
+    '--constraint', 'Bootstrap in 2 weeks',
+    '--done-criterion', 'One founder can generate a roadmap',
+    '--done-criterion', 'One founder can sync it after code changes'
+  ], projectRoot);
+  const savedConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'roadmap-skill.config.json'), 'utf8'));
+
+  assert.equal(result.status, 0);
+  assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
+  assert.equal(savedConfig.product.primaryUser, 'Solo founders');
+  assert.deepEqual(savedConfig.product.antiGoals, ['No billing']);
+  assert.deepEqual(savedConfig.zeroMode.constraints, ['Bootstrap in 2 weeks']);
+  assert.deepEqual(savedConfig.zeroMode.doneCriteria, [
+    'One founder can generate a roadmap',
+    'One founder can sync it after code changes'
+  ]);
+});
+
+test('cli /roadmap-zero inherits non-interactive config-plus-brief behavior', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-slash-zero-'));
+  fs.writeFileSync(
+    path.join(projectRoot, 'roadmap-skill.config.json'),
+    JSON.stringify({
+      product: {
+        name: 'Launchpad',
+        primaryUser: 'Solo founders',
+        targetOutcome: 'ship the first usable planning workflow',
+        successCriteria: ['One founder can sync the roadmap after coding']
+      },
+      zeroMode: {
+        problemStatement: 'They lose roadmap continuity between agent sessions'
+      }
+    }, null, 2),
+    'utf8'
+  );
+
+  const result = runResult(['/roadmap-zero'], projectRoot);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Using config\/flag discovery inputs in non-interactive mode/);
+  assert.equal(fs.existsSync(path.join(projectRoot, CANONICAL_ROADMAP)), true);
+});
+
+test('cli zero fails clearly in non-interactive mode when the merged brief is incomplete', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-cli-zero-incomplete-'));
+  const result = runResult([
+    'zero',
+    '--problem-statement', 'They lose roadmap continuity between agent sessions'
+  ], projectRoot);
+
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /interactive terminal/i);
+  assert.match(result.stderr, /complete brief in non-interactive environments/i);
+  assert.match(result.stderr, /--primary-user/);
+  assert.match(result.stderr, /--target-outcome/);
+  assert.match(result.stderr, /--done-criterion/);
+  assert.equal(fs.existsSync(path.join(projectRoot, 'roadmap-skill.config.json')), false);
 });
 
 test('doctor --json reports missing integration state', () => {

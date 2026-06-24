@@ -12,7 +12,7 @@
     "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
     "roadmapsmith setup",
     "roadmapsmith zero",
-    "roadmapsmith maintain",
+    "roadmapsmith maintain --dry-run",
     "roadmapsmith /roadmap",
     "roadmapsmith update --task p2-customer-history --evidence \"src/app/api/customers/route.ts, test/customers.test.js\"",
     "roadmapsmith validate --json"
@@ -21,7 +21,7 @@
     "command": "npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code",
     "source": "PapiScholz/roadmapsmith",
     "skill": "*",
-    "notes": "Recommended Claude Code install path for native GUI slash commands. Canonical surfaces: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-validate, /roadmap-update, /roadmap-setup. The public CLI update family covers both checklist refresh and verified single-task completion; sync remains the advanced alias for the mutating refresh path. Advanced surfaces: /roadmap-init, /roadmap-generate, /roadmap-audit. DEPRECATED: /roadmap-sync remains only as a compatibility root for existing automation; use /roadmap-maintain or /roadmap-update for new workflows. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the public readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
+    "notes": "Recommended Claude Code install path for native GUI slash commands. Canonical surfaces: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-validate, /roadmap-update, /roadmap-setup. The public CLI update family covers both checklist refresh and verified single-task completion; sync remains the advanced alias for the mutating refresh path. /roadmap-maintain now owns only existing managed roadmap blocks, while /roadmap-update is the conservative annotation path for authored roadmaps without markers. /roadmap-zero can consume a complete discovery brief from config plus CLI flags in non-interactive environments. Advanced surfaces: /roadmap-init, /roadmap-generate, /roadmap-audit. DEPRECATED: /roadmap-sync remains only as a compatibility root for existing automation; use /roadmap-maintain or /roadmap-update for new workflows. Install the roadmapsmith CLI separately for actual command execution; roadmapsmith status is the public readiness command and roadmapsmith doctor remains a compatibility alias. Then run /reload-skills and, if applicable, /reload-plugins. Codex native plugin installs use the repo/package .codex-plugin surface instead of this Claude-specific skills CLI path."
   },
   "skills": [
     {
@@ -33,13 +33,13 @@
     {
       "name": "roadmap-zero",
       "path": "skills/roadmap-zero",
-      "description": "Native slash entrypoint for the one-command Zero Mode CLI workflow.",
+      "description": "Native slash entrypoint for Zero Mode, including non-interactive config-plus-flag discovery.",
       "version": "0.9.33"
     },
     {
       "name": "roadmap-maintain",
       "path": "skills/roadmap-maintain",
-      "description": "Native slash entrypoint for the preserve-first generate + sync + audit flow.",
+      "description": "Native slash entrypoint for conservative managed-block maintenance plus sync and audit output.",
       "version": "0.9.33"
     },
     {
@@ -69,7 +69,7 @@
     {
       "name": "roadmap-update",
       "path": "skills/roadmap-update",
-      "description": "Native slash entrypoint for evidence-backed sync and verified single-task completion.",
+      "description": "Native slash entrypoint for evidence-backed inline annotation refresh and verified single-task completion.",
       "version": "0.9.33"
     },
     {

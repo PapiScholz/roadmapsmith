@@ -20,7 +20,7 @@ Do not use Zero Mode for a repository that already has code, tests, or a partial
 
 ## How it works
 
-`roadmapsmith zero` is the public entrypoint. It does not expect the user to invent a free-form prompt. The CLI detects that Zero Mode applies, runs a terminal-native discovery interview, persists the brief into config, creates governance files when needed, and generates the first roadmap in one invocation.
+`roadmapsmith zero` is the public entrypoint. It does not expect the user to invent a free-form prompt. The CLI detects that Zero Mode applies, runs a terminal-native discovery interview when TTY is available, or consumes a complete brief from config plus flags in non-interactive environments. It then persists the brief into config, creates governance files when needed, and generates the first roadmap in one invocation.
 
 The `roadmap-sync` skill remains the policy layer for agent hosts that use skills, but it is no longer the only way to access Zero Mode.
 
@@ -57,6 +57,29 @@ A well-formed Zero Mode roadmap includes:
 roadmapsmith zero
 ```
 
+Non-interactive workflow:
+
+```bash
+roadmapsmith zero \
+  --product-name "Launchpad" \
+  --primary-user "Solo founders" \
+  --problem-statement "They lose roadmap continuity between agent sessions" \
+  --target-outcome "ship the first usable planning workflow" \
+  --done-criterion "One founder can generate a roadmap" \
+  --done-criterion "One founder can sync it after code changes"
+```
+
+Supported non-interactive inputs:
+
+- `--product-name`
+- `--primary-user`
+- `--problem-statement`
+- `--target-outcome`
+- `--anti-goal` (repeatable)
+- `--preferred-stack`
+- `--constraint` (repeatable)
+- `--done-criterion` (repeatable)
+
 Optional policy layer for skill-based hosts:
 
 ```bash
@@ -74,5 +97,5 @@ npx skills add PapiScholz/roadmapsmith --skill roadmap-sync
 ## Guardrails
 
 - Zero Mode must not generate a generic roadmap (for example: "Set up repo", "Add tests", "Deploy") without first completing discovery.
-- In non-interactive environments, `roadmapsmith zero` must fail clearly instead of guessing the missing brief.
+- In non-interactive environments, `roadmapsmith zero` must either receive a complete brief from config/flags or fail clearly while naming the missing fields.
 - Skill installation alone must not be presented as if it already enabled the CLI or VS Code task surface.

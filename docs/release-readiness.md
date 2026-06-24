@@ -23,6 +23,13 @@ Required taxonomy:
 - advanced: `init`, `generate`, `generate --full-regen`, `sync`, `sync --audit`
 - compatibility: `doctor`, `regenerate`, `/road <action>`, `/roadmap-sync <action>`, deprecated direct aliases
 
+Required behavior notes:
+
+- `maintain --dry-run` is documented and `maintain` refuses to seed a managed block into a non-empty authored roadmap
+- `update` is documented as the conservative inline-annotation path, including roadmaps without managed markers
+- `generate` is documented as the explicit managed-section creation path
+- `zero` documents config-plus-flag inputs for non-interactive environments
+
 ## Validator And Audit Checks
 
 Release only when all of the following are true:
