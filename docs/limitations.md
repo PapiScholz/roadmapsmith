@@ -8,6 +8,14 @@ RoadmapSmith is an evidence-based tool, not a mind-reader. This document is hone
 
 **No semantic understanding.** The validator cannot distinguish between a real implementation, a stub that returns `null`, or a comment that mentions the feature name.
 
+**`validate` is not yet an independent second opinion.** `validate` and `maintain` share the same
+proximity inferencer, so they agree on their evaluations — including false positives. A production
+audit of 0.9.33 found that 10 of 13 tasks reported as PASS by `validate` were false positives when
+the cited files were read directly. A content-verification layer that checks file bodies (not just
+file names) is planned as an independent module gated by `--strict-content`. See
+[Phase 3](audit-remediation.md#phase-3----validate-independence-content-verification-layer)
+in the remediation roadmap.
+
 **Heuristic test matching is not behavioral proof.** A related test can help locate a candidate implementation, but UI/runtime behavior only auto-completes when its `Verify: kind=behavior` metadata matches the source, test, case, trigger, assertion, and a fresh configured test result.
 
 ## Confidence Levels
@@ -22,7 +30,9 @@ RoadmapSmith is an evidence-based tool, not a mind-reader. This document is hone
 
 ## File Coverage
 
-**Generated outputs are not implementation evidence.** `dist-electron/`, `dist/`, `build/`, `out/`, `.next/`, and `coverage/` are excluded from heuristic code/test matching. A configured test report is read directly by its explicit path, not discovered as source evidence.
+**Generated outputs are not implementation evidence.** `dist-electron/`, `dist/`, `build/`, `out/`, `.next/`, and `coverage/` are flagged as generated output and excluded from most heuristic code/test matching passes. However, a production audit of 0.9.33 found that generated paths can still surface in evidence lists through path-hint resolution, authoritative evidence, and structural evidence passes that do not apply the same guard. Centralizing the filter into a single post-assembly step is planned in
+[Phase 2](audit-remediation.md#phase-2----artifact-contamination-in-evidence-lists)
+of the remediation roadmap. A configured test report is read directly by its explicit path, not discovered as source evidence.
 
 **Binary files are skipped.** Images, compiled assets, and other binaries are not inspected.
 

@@ -8,7 +8,7 @@ This package owns the RoadmapSmith CLI, validator, sync engine, host setup files
 
 - `roadmapsmith setup`
 - `roadmapsmith zero`
-- `roadmapsmith maintain`
+- `roadmapsmith maintain [--dry-run]`
 - `roadmapsmith status [--json]`
 - `roadmapsmith validate [--json] [--strict]`
 - `roadmapsmith update [--task <stable-id> --evidence "<single-line evidence>"]`
@@ -40,11 +40,39 @@ This package owns the RoadmapSmith CLI, validator, sync engine, host setup files
 
 ### Zero Mode
 
-Use for empty or low-context repositories. `roadmapsmith zero` runs the terminal interview, updates config, and generates the first roadmap.
+Use for empty or low-context repositories. `roadmapsmith zero` runs the terminal interview when TTY is available, or consumes a complete brief from config plus flags in non-interactive environments.
+
+Non-interactive inputs:
+
+- `--product-name`
+- `--primary-user`
+- `--problem-statement`
+- `--target-outcome`
+- `--anti-goal` (repeatable)
+- `--preferred-stack`
+- `--constraint` (repeatable)
+- `--done-criterion` (repeatable)
+
+Without TTY, Zero Mode requires a complete brief from config/flags and fails clearly when required fields are missing.
 
 ### Sync/Audit Mode
 
-Use for repositories that already contain code, tests, docs, TODOs, or an existing roadmap. `roadmapsmith maintain` is the preserve-first one-command flow.
+Use for repositories that already contain code, tests, docs, TODOs, or an existing roadmap. `roadmapsmith maintain` is the preserve-first one-command flow for an existing managed roadmap block.
+
+If `ROADMAP.md` is authored and non-empty but has no `<!-- rs:managed:* -->` block:
+
+- `maintain` refuses to seed managed content implicitly
+- `update` is the conservative inline-annotation path
+- `generate` is the explicit managed-section creation path
+
+For write-capable surfaces (`maintain`, `generate`, `sync`, `update`), prefer `--dry-run` first.
+
+## Managed Block Ownership
+
+- `maintain` owns the managed roadmap block only.
+- `update` can annotate existing task lines even when no managed block exists.
+- `generate` is the explicit path that creates or replaces managed roadmap content.
+- Manually inserting empty `<!-- rs:managed:start -->` markers is no longer required as a workaround.
 
 ## Verification Model
 
