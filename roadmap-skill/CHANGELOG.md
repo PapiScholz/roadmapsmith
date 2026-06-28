@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.37 - 2026-06-28
+
+### Changed
+- pass NODE_AUTH_TOKEN to auto-release step for npm publish (#69)
+
 ## v0.9.36 - 2026-06-28
 
 ### Added
