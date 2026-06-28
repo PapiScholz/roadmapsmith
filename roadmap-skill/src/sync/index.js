@@ -139,6 +139,13 @@ function applySync(content, parsedTasks, results, options) {
   const lines = [...parsed.lines];
   const tasks = parsedTasks || parsed.tasks;
 
+  const changes = {
+    newlyUnchecked: [],
+    newlyChecked: [],
+    warningsAdded: [],
+    warningsRemoved: []
+  };
+
   let offset = 0;
   for (const task of tasks) {
     const result = results[task.id];
@@ -151,7 +158,13 @@ function applySync(content, parsedTasks, results, options) {
       continue;
     }
 
+    const wasChecked = task.checked;
     lines[lineIndex] = setChecklistState(lines[lineIndex], result.passed);
+    if (wasChecked && !result.passed) {
+      changes.newlyUnchecked.push(task.id);
+    } else if (!wasChecked && result.passed) {
+      changes.newlyChecked.push(task.id);
+    }
 
     const reason = normalizeWarningReasons(result.reasons).join('; ');
     const warningText = formatWarning(task.indent || '', reason || 'validation failed', result.attempted);
@@ -198,6 +211,7 @@ function applySync(content, parsedTasks, results, options) {
     } else {
       lines.splice(lastChildLineIndex + 1, 0, warningText);
       offset += 1;
+      changes.warningsAdded.push(task.id);
     }
 
     const recipeIndex = findVerificationRecipeIndex(lines, lineIndex);
@@ -218,7 +232,7 @@ function applySync(content, parsedTasks, results, options) {
     }
   }
 
-  return ensureTrailingNewline(lines.join('\n'));
+  return { content: ensureTrailingNewline(lines.join('\n')), changes };
 }
 
 module.exports = {

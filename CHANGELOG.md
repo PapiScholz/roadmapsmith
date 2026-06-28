@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.35] — 2026-06-28
+
+### Added
+- `sync --audit` is now read-only: prints mismatch report, exits with code 2 on mismatches, never writes ROADMAP.md. Plain `sync` remains the destructive path.
+- `sync` now prints a per-run diff summary (`Unchecked N task(s): ...`) so consecutive runs no longer produce a misleading "0 problems" after the first run already un-checked everything.
+- `rs:kind=docs` marker flag: tasks whose completion is a Markdown artifact can be validated without code/test evidence. Validator accepts a matching `.md` file as authoritative.
+- `rs:verified-by=human` marker flag: manual-verification tasks require an `Evidence:` child line and pass with confidence `medium`. Visible in `sync --audit` under a `humanVerifiedTasks` bucket.
+- `config.scan.excludeDirs` in `roadmap-skill.config.json` lets users add project-specific directories to the scanner exclusion list.
+- `auditValidation` exposes `newlyUnchecked` and `humanVerifiedTasks` buckets.
+
+### Changed
+- `readFileIndex` now skips generated-output paths at index time instead of only tagging them, closing the main artifact contamination path.
+- `GENERATED_OUTPUT_PREFIXES` and `DEFAULT_IGNORED_DIRS` expanded: `.open-next/`, `.vercel/`, `.svelte-kit/`, `.parcel-cache/`, `.angular/`, `.expo/`, `.serverless/`, `.wrangler/`, `.tmp/`, `tmp/`.
+- `artifactPatterns` (doc-task path) now consistent with `GENERATED_OUTPUT_PREFIXES`.
+- `walkFiles` accepts `extraIgnoredDirs` option.
+- `applySync` returns `{ content, changes }` instead of a plain string.
+- `update` command: tasks with `rs:kind=docs` or `rs:verified-by=human` bypass the `confidence === high` gate.
+- `maintain` no longer triggers the `--audit` read-only path internally.
+- `docs/limitations.md` and `docs/audit-remediation.md` updated to reflect 0.9.35 changes.
+
 ### Added
 - Documented the new one-command product contract around `roadmapsmith setup`, `roadmapsmith zero`, and `roadmapsmith maintain`.
 - Added native Codex plugin docs for `.codex-plugin/plugin.json` and the repo-local marketplace surface at `.agents/plugins/marketplace.json`.

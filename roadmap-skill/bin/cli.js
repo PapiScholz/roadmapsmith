@@ -92,6 +92,15 @@ function printAudit(audit) {
       console.log(`- [${item.task.id}] ${item.task.text}`);
     });
   }
+  if (Array.isArray(audit.newlyUnchecked) && audit.newlyUnchecked.length > 0) {
+    console.log(`Unchecked by this run (${audit.newlyUnchecked.length}): ${audit.newlyUnchecked.join(', ')}`);
+  }
+  if (Array.isArray(audit.humanVerifiedTasks) && audit.humanVerifiedTasks.length > 0) {
+    console.log(`Human-verified tasks (${audit.humanVerifiedTasks.length}):`);
+    audit.humanVerifiedTasks.forEach((item) => {
+      console.log(`- [${item.task.id}] ${item.task.text}`);
+    });
+  }
 }
 
 function printReadinessSummary(summary) {
@@ -276,8 +285,18 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
   const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
   const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
   applyMinimumConfidence(results, config.validation?.minimumConfidence);
+  if (isEnabled(flags.audit)) {
+    const audit = auditValidation(syncTasks, results);
+    printAudit(audit);
+    const hasMismatch = audit.checkedWithoutEvidence.length > 0 || audit.readyButUnchecked.length > 0;
+    if (hasMismatch) {
+      process.exitCode = 2;
+    }
+    return;
+  }
+
   const forceRefresh = isEnabled(flags['refresh-annotations']);
-  const next = applySync(content, syncTasks, results, { forceRefresh });
+  const { content: next, changes } = applySync(content, syncTasks, results, { forceRefresh });
   const dryRun = isEnabled(flags['dry-run']);
   emitPreWriteWarning(roadmapFile, {
     commandName: options.commandName || 'roadmapsmith sync',
@@ -294,11 +313,17 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
       console.log(`No changes for ${roadmapFile}`);
     }
   } else {
+    if (changes.newlyUnchecked.length > 0) {
+      console.log(`Unchecked ${changes.newlyUnchecked.length} task(s): ${changes.newlyUnchecked.join(', ')}`);
+    }
+    if (changes.newlyChecked.length > 0) {
+      console.log(`Checked ${changes.newlyChecked.length} task(s): ${changes.newlyChecked.join(', ')}`);
+    }
     console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
   }
 
-  if (options.audit || isEnabled(flags.audit)) {
-    const audit = auditValidation(syncTasks, results);
+  if (options.audit) {
+    const audit = auditValidation(syncTasks, results, changes);
     printAudit(audit);
   }
 }
@@ -354,13 +379,16 @@ function runUpdateCommand(projectRoot, config, flags) {
   const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
   const result = validateTasks([draftTask], validationContext, config, validationContext.plugins)[taskId];
   const errors = (result.diagnostics || []).filter((item) => item.severity === 'error');
+  const isEscapeHatch = draftTask.verifiedBy === 'human' || draftTask.kind === 'docs';
   const suppliedEvidenceResolved = result.evidence.authoritative && result.evidence.authoritativeFiles.length > 0;
-  if (!suppliedEvidenceResolved || !result.passed || result.confidence !== 'high' || errors.length > 0) {
+  const evidenceAccepted = isEscapeHatch ? result.passed : (suppliedEvidenceResolved && result.passed && result.confidence === 'high');
+  if (!evidenceAccepted || errors.length > 0) {
     const reasons = result.reasons.length > 0 ? `: ${result.reasons.join('; ')}` : '';
-    throw new Error(`Task ${taskId} was not updated; supplied evidence must resolve in the repository and validate at high confidence${reasons}`);
+    const hint = isEscapeHatch ? '; escape-hatch task requires an Evidence: child line' : '; supplied evidence must resolve in the repository and validate at high confidence';
+    throw new Error(`Task ${taskId} was not updated${hint}${reasons}`);
   }
 
-  const next = applySync(draft, [draftTask], { [taskId]: result });
+  const { content: next } = applySync(draft, [draftTask], { [taskId]: result });
   const dryRun = isEnabled(flags['dry-run']);
   emitPreWriteWarning(roadmapFile, {
     commandName: 'roadmapsmith update',
@@ -489,7 +517,7 @@ function runMaintainCommand(projectRoot, flags) {
     forceFullRegenerate: fullRegen,
     warningState
   });
-  runSyncCommand(projectRoot, config, { ...flags, audit: true }, {
+  runSyncCommand(projectRoot, config, { ...flags, audit: undefined }, {
     audit: true,
     commandName: 'roadmapsmith maintain',
     warningState

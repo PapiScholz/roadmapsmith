@@ -30,6 +30,9 @@ const DEFAULT_CONFIG = {
     constraints: [],
     doneCriteria: []
   },
+  scan: {
+    excludeDirs: []
+  },
   validation: {
     minimumConfidence: 'low',
     testReports: [],
@@ -94,6 +97,11 @@ function mergeConfig(userConfig) {
       doneCriteria: (userConfig && userConfig.zeroMode && Array.isArray(userConfig.zeroMode.doneCriteria))
         ? userConfig.zeroMode.doneCriteria
         : DEFAULT_CONFIG.zeroMode.doneCriteria
+    },
+    scan: {
+      excludeDirs: Array.isArray(userConfig && userConfig.scan && userConfig.scan.excludeDirs)
+        ? userConfig.scan.excludeDirs
+        : DEFAULT_CONFIG.scan.excludeDirs
     },
     validation: {
       ...DEFAULT_CONFIG.validation,

@@ -13,7 +13,11 @@ const CODE_EXTENSIONS = new Set([
 ]);
 const TRANSLATION_DIR_SEGMENTS = ['locale', 'locales', 'i18n', 'translations'];
 const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/', 'roadmap-skill/'];
-const GENERATED_OUTPUT_PREFIXES = ['dist-electron/', 'dist/', 'build/', 'out/', '.next/', 'coverage/'];
+const GENERATED_OUTPUT_PREFIXES = [
+  'dist-electron/', 'dist/', 'build/', 'out/', '.next/', 'coverage/',
+  '.open-next/', '.vercel/', '.svelte-kit/', '.parcel-cache/', '.angular/',
+  '.expo/', '.serverless/', '.wrangler/', '.tmp/', 'tmp/'
+];
 const AUXILIARY_HEURISTIC_PATH_SEGMENTS = new Set(['scripts', 'tools', 'tooling', 'demo', 'demos']);
 
 // "docs" omitted from DOC_HINTS — it is a path prefix in scan tasks, not a doc-authoring keyword.
@@ -246,6 +250,7 @@ function readFileIndex(projectRoot, files, config) {
     if (SELF_REFERENTIAL_FILES.has(relativePath)) continue;
     if (isFixturePath(relativePath)) continue;
     if (shouldExcludeByDefaultPath(relativePath, config)) continue;
+    if (isGeneratedOutputPath(relativePath)) continue;
 
     const absolutePath = path.resolve(projectRoot, relativePath);
     const ext = path.extname(relativePath).toLowerCase();
@@ -1774,7 +1779,10 @@ function evaluateDeterministicVerification(task, context) {
 }
 
 function buildValidationContext(projectRoot, config, plugins, options = {}) {
-  const files = walkFiles(projectRoot);
+  const userExcludeDirs = Array.isArray(config && config.scan && config.scan.excludeDirs)
+    ? config.scan.excludeDirs
+    : [];
+  const files = walkFiles(projectRoot, { extraIgnoredDirs: userExcludeDirs });
   const fileIndex = readFileIndex(projectRoot, files, config);
   const testFrameworks = detectTestFrameworks(projectRoot, files);
   const pathHintResolver = buildPathHintResolver(fileIndex);
@@ -1852,6 +1860,39 @@ function buildDiscoveredEvidenceLine(evidence) {
 }
 
 function validateTask(task, context, config, plugins) {
+  if (task.verifiedBy === 'human') {
+    const hasEvidenceLine = Array.isArray(task.evidenceLines) &&
+      task.evidenceLines.some((e) => e.text && e.text.trim().length > 0);
+    if (!hasEvidenceLine) {
+      return {
+        passed: false,
+        confidence: 'low',
+        attempted: false,
+        reasons: ['human-verified tasks require an Evidence: child line'],
+        evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: false, authoritativeFiles: [], authoritativeSummaries: [] },
+        diagnostics: [],
+        verificationRecipe: null,
+        staleEvidenceDetected: false,
+        staleEvidenceResolved: false,
+        generatedTestEvidence: null
+      };
+    }
+    const evidenceText = task.evidenceLines[0].text;
+    return {
+      passed: true,
+      confidence: 'medium',
+      attempted: true,
+      reasons: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: true, authoritativeFiles: [], authoritativeSummaries: [evidenceText] },
+      diagnostics: [],
+      verificationRecipe: null,
+      staleEvidenceDetected: false,
+      staleEvidenceResolved: false,
+      generatedTestEvidence: null,
+      humanVerified: true
+    };
+  }
+
   const {
     paths: pathHints,
     externalPaths,
@@ -1943,6 +1984,7 @@ function validateTask(task, context, config, plugins) {
 
   const requiresTest =
     !task.noTest &&
+    task.kind !== 'docs' &&
     context.testFrameworks.length > 0 &&
     isCodeTask(task.text) &&
     !isDocTask(task.text) &&
@@ -2010,6 +2052,7 @@ function validateTask(task, context, config, plugins) {
   // Only pure path hints (not line-reference hints like file.ts:169) count as direct evidence.
   const hasDirectReferencePass = filesFromPurePathHints.length > 0 || filesFromSymbols.length > 0;
   const hasArtifactTaskPass = evidence.artifact && (
+    task.kind === 'docs' ||
     isDocTask(task.text) ||
     evidence.heuristicArtifacts.length > 0 ||
     filesFromPaths.some((relativePath) => !CODE_EXTENSIONS.has(path.extname(relativePath).toLowerCase()))
@@ -2226,16 +2269,22 @@ function validateTasks(tasks, context, config, plugins) {
   return result;
 }
 
-function auditValidation(tasks, results) {
+function auditValidation(tasks, results, changes) {
   const checkedWithoutEvidence = [];
   const readyButUnchecked = [];
   const checkedWithWeakEvidence = [];
   const documentationOnlyEvidenceForImplementation = [];
   const checkedWithNoStructuralEvidence = [];
+  const humanVerifiedTasks = [];
+  const newlyUnchecked = Array.isArray(changes && changes.newlyUnchecked) ? changes.newlyUnchecked : [];
 
   for (const task of tasks) {
     const result = results[task.id];
     if (!result) continue;
+
+    if (result.humanVerified) {
+      humanVerifiedTasks.push({ task, result });
+    }
 
     if (task.checked && !result.passed) {
       checkedWithoutEvidence.push({ task, result });
@@ -2265,6 +2314,8 @@ function auditValidation(tasks, results) {
     checkedWithWeakEvidence,
     documentationOnlyEvidenceForImplementation,
     checkedWithNoStructuralEvidence,
+    humanVerifiedTasks,
+    newlyUnchecked
   };
 }
 

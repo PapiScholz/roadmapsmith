@@ -30,7 +30,7 @@ test('sync marks task complete when validation passes', () => {
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[x\] App module/);
   assert.doesNotMatch(next, /validation failed/);
@@ -62,7 +62,7 @@ test('sync resolves stale warnings with high-confidence evidence and records dis
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[x\] Add notification system/);
   assert.match(next, /Evidence: src\/__tests__\/notification\.test\.ts, src\/lib\/notification\.ts/);
@@ -84,9 +84,9 @@ test('sync writes one warning line when validation fails', () => {
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
 
-  const first = applySync(content, parsed.tasks, results);
+  const { content: first } = applySync(content, parsed.tasks, results);
   const secondParsed = parseRoadmap(first);
-  const second = applySync(first, secondParsed.tasks, results);
+  const { content: second } = applySync(first, secondParsed.tasks, results);
 
   const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
   assert.equal(warningMatches.length, 1);
@@ -108,10 +108,10 @@ test('sync reaches a fixed point after the first warning write', () => {
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
 
-  const first = applySync(content, parsed.tasks, results);
+  const { content: first } = applySync(content, parsed.tasks, results);
   const secondParsed = parseRoadmap(first);
   const secondResults = validateTasks(secondParsed.tasks, context, config, []);
-  const second = applySync(first, secondParsed.tasks, secondResults);
+  const { content: second } = applySync(first, secondParsed.tasks, secondResults);
 
   assert.equal(second, first);
 });
@@ -129,7 +129,7 @@ test('sync inserts warning after Evidence lines when validation fails', () => {
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[ \] Implement inventory sync/);
   assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/lib\/inventory-sync\.ts/);
@@ -160,9 +160,9 @@ test('sync keeps an honest no-evidence warning when a task has no concrete attem
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
 
-  const first = applySync(content, parsed.tasks, results);
+  const { content: first } = applySync(content, parsed.tasks, results);
   const secondParsed = parseRoadmap(first);
-  const second = applySync(first, secondParsed.tasks, results);
+  const { content: second } = applySync(first, secondParsed.tasks, results);
 
   const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
   assert.equal(warningMatches.length, 1);
@@ -176,7 +176,7 @@ test('sync pipeline: low-confidence task stays unchecked when minimumConfidence 
   const results = { 'implement-xyzzy-module': { passed: true, confidence: 'low', reasons: [] } };
 
   applyMinimumConfidence(results, 'medium');
-  const next = applySync(content, tasks, results);
+  const { content: next } = applySync(content, tasks, results);
 
   assert.ok(next.includes('- [ ] implement xyzzy module'), 'Task should remain unchecked');
   assert.equal(results['implement-xyzzy-module'].passed, false);
@@ -188,7 +188,7 @@ test('sync pipeline: high-confidence task gets checked when minimumConfidence is
   const results = { 'implement-xyzzy-module': { passed: true, confidence: 'high', reasons: [] } };
 
   applyMinimumConfidence(results, 'medium');
-  const next = applySync(content, tasks, results);
+  const { content: next } = applySync(content, tasks, results);
 
   assert.ok(next.includes('- [x] implement xyzzy module'), 'Task should be checked');
 });
@@ -218,7 +218,7 @@ test('sync rewrites stale attempted wording when the task has no real attempt si
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[ \] Integración Mercado Pago Point/);
   assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
@@ -250,11 +250,11 @@ test('sync reaches a fixed point after rewriting a legacy no-evidence warning pr
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const firstResults = validateTasks(parsed.tasks, context, config, []);
-  const first = applySync(content, parsed.tasks, firstResults);
+  const { content: first } = applySync(content, parsed.tasks, firstResults);
 
   const secondParsed = parseRoadmap(first);
   const secondResults = validateTasks(secondParsed.tasks, context, config, []);
-  const second = applySync(first, secondParsed.tasks, secondResults);
+  const { content: second } = applySync(first, secondParsed.tasks, secondResults);
 
   assert.doesNotMatch(first, /⚠️ attempted but validation failed/);
   assert.match(first, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
@@ -273,7 +273,7 @@ test('sync preserves an already checked task with no evidence or path hints', ()
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.equal(results['milestone-v0-1'].passed, true);
   assert.equal(results['milestone-v0-1'].confidence, 'low');
@@ -299,7 +299,7 @@ test('sync preserves checked task when minimumConfidence is medium and state was
   };
 
   applyMinimumConfidence(results, 'medium');
-  const next = applySync(content, tasks, results);
+  const { content: next } = applySync(content, tasks, results);
 
   assert.equal(results['milestone-v0-1'].passed, true);
   assert.match(next, /- \[x\] Foundation baseline complete milestone/);
@@ -320,7 +320,7 @@ test('applySync preserves more specific existing warning over generic new messag
     }
   };
 
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(
     next,
@@ -343,7 +343,7 @@ test('applySync deduplicates warning reasons from a prior /api route sync run', 
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   const warningMatches = next.match(/⚠️ attempted but validation failed/g) || [];
   const missingEvidenceMatches = next.match(/evidence file\(s\) not found: src\/missing-backup\.js/g) || [];
@@ -369,9 +369,9 @@ test('sync records generated test evidence once and removes a stale verification
     attempted: true,
     generatedTestEvidence: 'file=src/__tests__/login.test.tsx; case=disables submit; status=PASS; verifiedAt=2026-06-20T12:00:00.000Z'
   };
-  const first = applySync(content, parsed.tasks, { 'login-submit': result });
+  const { content: first } = applySync(content, parsed.tasks, { 'login-submit': result });
   const secondParsed = parseRoadmap(first);
-  const second = applySync(first, secondParsed.tasks, { 'login-submit': result });
+  const { content: second } = applySync(first, secondParsed.tasks, { 'login-submit': result });
 
   assert.match(first, /- \[x\] Disable login submit/);
   assert.match(first, /Test evidence: file=src\/__tests__\/login\.test\.tsx/);
@@ -388,9 +388,9 @@ test('sync generates and replaces a single verification recipe for pending behav
     attempted: false,
     verificationRecipe: 'src/login.tsx:12 inspect disabled={isSubmitting}'
   };
-  const first = applySync(content, parsed.tasks, { 'login-submit': result });
+  const { content: first } = applySync(content, parsed.tasks, { 'login-submit': result });
   const secondParsed = parseRoadmap(first);
-  const second = applySync(first, secondParsed.tasks, { 'login-submit': result });
+  const { content: second } = applySync(first, secondParsed.tasks, { 'login-submit': result });
 
   assert.match(first, /Verification recipe: src\/login\.tsx:12/);
   assert.equal((second.match(/Verification recipe:/g) || []).length, 1);
@@ -413,7 +413,7 @@ test('applySync preserves specific existing warning when new reason is generic p
     }
   };
 
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /no content match in src\/lib\/stock\.ts/, 'specific existing message must survive generic policy overwrite');
   assert.doesNotMatch(next, /deterministic Verify metadata/);
@@ -434,7 +434,7 @@ test('applySync preserves external prose when new reason is generic policy messa
     }
   };
 
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /no in-app notification delivery/, 'external prose must survive generic policy overwrite');
   assert.doesNotMatch(next, /high-confidence evidence/);
@@ -455,7 +455,7 @@ test('applySync with forceRefresh replaces external prose annotation (Gap 2 esca
     }
   };
 
-  const next = applySync(content, parsed.tasks, results, { forceRefresh: true });
+  const { content: next } = applySync(content, parsed.tasks, results, { forceRefresh: true });
 
   assert.doesNotMatch(next, /no Customer model in prisma/, 'forceRefresh must replace stale external prose');
   assert.match(next, /no code, test, or artifact evidence found/);
@@ -478,7 +478,7 @@ test('applySync replaces a stale low-specificity warning with a more specific ne
     }
   };
 
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.doesNotMatch(next, /deterministic Verify metadata/, 'generic existing annotation must be replaced by specific new reason');
   assert.match(next, /missing referenced file\(s\): src\/backup\.ts/);
@@ -506,7 +506,7 @@ test('sync removes stale shared verification recipes after duplicate suppression
   const parsed = parseRoadmap(content);
   const context = buildValidationContext(projectRoot, config, []);
   const results = validateTasks(parsed.tasks, context, config, []);
-  const next = applySync(content, parsed.tasks, results);
+  const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.doesNotMatch(next, /Verification recipe:/);
 });

@@ -630,8 +630,11 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 **Tasks:**
 
 - [ ] `[P0]` Add `[fix]` remediation hint to `doctor`/`status` when canonical VS Code tasks are missing after upgrade <!-- rs:task=audit-p0-doctor-status-setup-hint -->
+  - ⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match; missing test evidence
 - [ ] `[P1]` Document `WARN:STALE_EVIDENCE` resolution paths in roadmap-validate skill <!-- rs:task=audit-p1a-stale-evidence-docs -->
+  - ⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match
 - [ ] `[P1]` Document `validate --json` Windows pipe limitation and add `--out <file>` flag <!-- rs:task=audit-p1b-validate-json-windows -->
+  - ⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match; missing test evidence
 
 #### Step 7.2: Artifact contamination fix
 
@@ -641,6 +644,7 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 **Tasks:**
 
 - [ ] `[P0]` Centralize generated-output filtering into `stripNonEvidencePaths()` applied after evidence assembly <!-- rs:task=audit-p2-artifact-filter-centralize -->
+  - ⚠️ no implementation evidence found yet: no code, test, or artifact evidence found
 
 #### Step 7.3: Validate independence — content verification layer
 
@@ -650,8 +654,12 @@ RoadmapSmith is a CLI tool and agent skill that auto-generates, validates, and s
 **Tasks:**
 
 - [ ] `[P1]` Spec and meta-tests for `contentVerifier.js` contract using real false-positive fixtures from audit <!-- rs:task=audit-p3a-content-verifier-spec -->
+  - ⚠️ no implementation evidence found yet: missing referenced file(s): contentVerifier.js; no code, test, or artifact evidence found; missing test evidence
 - [ ] `[P1]` Implement `src/validator/contentVerifier.js` behind `--strict-content` flag, report-only mode <!-- rs:task=audit-p3b-content-verifier-impl -->
+  - ⚠️ no implementation evidence found yet: missing referenced file(s): src/validator/contentVerifier.js; no code, test, or artifact evidence found; missing test evidence
 - [ ] `[P1]` Wire content verifier to exit-code and `WARN:UNVERIFIED_EVIDENCE` diagnostic under `--strict` <!-- rs:task=audit-p3c-content-verifier-gating -->
+  - ⚠️ no implementation evidence found yet: no code, test, or artifact evidence found
 - [ ] `[P2]` Integrate content verifier into `maintain` self-audit once `validate --strict-content` is stable <!-- rs:task=audit-p3d-content-verifier-maintain -->
+  - ⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match
 
 <!-- rs:managed:end -->
