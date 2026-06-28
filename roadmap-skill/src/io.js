@@ -12,6 +12,16 @@ const DEFAULT_IGNORED_DIRS = new Set([
   '.nuxt',
   '.turbo',
   '.cache',
+  '.open-next',
+  '.vercel',
+  '.svelte-kit',
+  '.parcel-cache',
+  '.angular',
+  '.expo',
+  '.serverless',
+  '.wrangler',
+  '.tmp',
+  'tmp',
   'dist',
   'dist-electron',
   'build',
@@ -68,7 +78,10 @@ function writeText(filePath, content, options = {}) {
 }
 
 function walkFiles(rootPath, options = {}) {
-  const ignoredDirs = options.ignoredDirs || DEFAULT_IGNORED_DIRS;
+  let ignoredDirs = options.ignoredDirs || DEFAULT_IGNORED_DIRS;
+  if (Array.isArray(options.extraIgnoredDirs) && options.extraIgnoredDirs.length > 0) {
+    ignoredDirs = new Set([...ignoredDirs, ...options.extraIgnoredDirs]);
+  }
   const result = [];
 
   function walk(current) {

@@ -28,8 +28,17 @@ here so progress can be tracked across releases without losing the technical ana
 | F0 | `doctor`/`status` exit 1 with no remediation hint after 0.9.33 upgrade | Breaking/Urgent | [ ] Fase 0 |
 | F1a | `WARN:STALE_EVIDENCE` resolution path undocumented | Doc gap | [ ] Fase 1 |
 | F1b | `validate --json \| command` fails on Windows | Platform gap | [ ] Fase 1 |
-| F2 | Build artifacts (`dist-electron/` etc.) still appear in evidence lists | Evidence noise | [ ] Fase 2 |
+| F2 | Build artifacts (`dist-electron/` etc.) still appear in evidence lists | Evidence noise | [x] Parcialmente resuelto en 0.9.35 |
 | F3 | `validate` shares the same inferencer as `maintain` — not an independent second opinion | Structural gap | [ ] Fase 3 |
+
+### Additional findings resolved in 0.9.35
+
+| # | Finding | Resolved |
+|---|---------|----------|
+| F4 | `sync --audit` was destructive (un-checked tasks) despite sounding read-only | [x] 0.9.35 |
+| F5 | No escape hatch for doc/human-verification tasks in `update` gate | [x] 0.9.35 |
+| F6 | Second `sync` reported "0 problems" after first run un-checked everything (no diff) | [x] 0.9.35 |
+| F7 | No user-configurable exclude dirs for scanner | [x] 0.9.35 |
 
 ---
 
@@ -124,7 +133,7 @@ stdout, sidestepping the pipe issue entirely. Implement alongside the output blo
 
 ## Phase 2 — Artifact contamination in evidence lists
 
-**Status:** `[ ]` pending
+**Status:** `[x]` Partially resolved in 0.9.35 — remaining work noted below
 
 ### Root cause (confirmed)
 
@@ -162,6 +171,18 @@ The result: build artifact paths leak into evidence display (the `⚠️` annota
 3. Complete `artifactPatterns` to match `GENERATED_OUTPUT_PREFIXES` for consistency
    (already gated by the `generatedOutput` flag in the main index scan, but the pattern list is a
    second read path).
+
+### What was fixed in 0.9.35
+
+- `readFileIndex` now **skips** generated-output paths at index time (instead of tagging them and relying on inconsistent per-pass guards). This closes the main contamination path.
+- `GENERATED_OUTPUT_PREFIXES` expanded to include `.open-next/`, `.vercel/`, `.svelte-kit/`, `.parcel-cache/`, `.angular/`, `.expo/`, `.serverless/`, `.wrangler/`, `.tmp/`, `tmp/`.
+- `io.js` `DEFAULT_IGNORED_DIRS` expanded to match.
+- `artifactPatterns` (doc-task path) now includes all entries from `GENERATED_OUTPUT_PREFIXES`.
+- New `config.scan.excludeDirs` field lets users add project-specific directories via `roadmap-skill.config.json`.
+
+### Remaining work
+
+The per-pass guards in `files`, `authoritativeFiles`, `structuralFiles` arrays were not yet centralized into a single `stripNonEvidencePaths` helper. The index-time skip (above) is the primary fix; the helper centralization and the fixture-based test remain for a future patch.
 
 ### Planned tests
 
