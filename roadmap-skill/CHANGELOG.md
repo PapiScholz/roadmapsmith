@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.36 - 2026-06-28
+
+### Added
+- sync --audit read-only, build artifact exclusion, docs/human escape hatches, sync diff (0.9.35) (#67)
+
 ## v0.9.34 - 2026-06-24
 
 ### Changed
