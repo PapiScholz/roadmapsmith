@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.9.38 - 2026-06-29
+
+### Changed
+- (deps) bump hashgraph-online/ai-plugin-scanner-action (#71)
+
 ## v0.9.37 - 2026-06-28
 
 ### Changed
