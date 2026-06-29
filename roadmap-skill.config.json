@@ -224,6 +224,69 @@
       ]
     }
   ],
+  "moduleMetadata": {
+    "generator": {
+      "state": "Compact and professional profiles supported; Phase→Step→Task model implemented.",
+      "tasks": [
+        { "text": "Improve Phase→Step→Task model inference quality", "priority": "P0", "id": "prof-mat-generator-improve-phase-step-task-inference" },
+        { "text": "Add scan-driven task suggestions per detected module", "priority": "P1", "id": "prof-mat-generator-scan-driven-task-suggestions" }
+      ]
+    },
+    "parser": {
+      "state": "Parses managed blocks, rs:task IDs, and checked state.",
+      "tasks": [
+        { "text": "Add parser validation for Phase→Step hierarchy markers", "priority": "P1", "id": "prof-mat-parser-phase-hierarchy-validation" },
+        { "text": "Improve section boundary detection for professional format", "priority": "P1", "id": "prof-mat-parser-professional-section-detection" }
+      ]
+    },
+    "renderer": {
+      "state": "Dispatcher supports compact, professional, and enterprise (error) profiles.",
+      "tasks": [
+        { "text": "Add snapshot regression fixtures for compact and professional", "priority": "P0", "id": "prof-mat-renderer-snapshot-regression-fixtures" },
+        { "text": "Harden priority label rendering for edge cases", "priority": "P1", "id": "prof-mat-renderer-priority-label-edge-cases" }
+      ]
+    },
+    "validator": {
+      "state": "Evidence-based validation against file, symbol, and test presence.",
+      "tasks": [
+        { "text": "Extend validator to verify Phase→Step→Task IDs survive sync", "priority": "P1", "id": "prof-mat-validator-phase-step-task-id-sync" },
+        { "text": "Add validation coverage for professional profile task IDs", "priority": "P1", "id": "prof-mat-validator-professional-task-id-coverage" }
+      ]
+    },
+    "match": {
+      "state": "Task similarity matching with edit-distance threshold.",
+      "tasks": [
+        { "text": "Tune similarity threshold to reduce false-positive merges", "priority": "P0", "id": "prof-mat-match-tune-similarity-threshold" }
+      ]
+    },
+    "sync": {
+      "state": "Applies validation outcomes to ROADMAP.md and can append warning lines for failed attempts.",
+      "tasks": [
+        { "text": "Define explicit contract for sync, sync --audit, and future promote-only flows", "priority": "P0", "id": "prof-mat-sync-define-command-contract" },
+        { "text": "Separate mutating sync behavior from future read-only audit mode", "priority": "P0", "id": "prof-mat-sync-separate-mutation-from-read-only-audit" },
+        { "text": "Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output", "priority": "P1", "id": "prof-mat-sync-expose-rich-audit-findings" },
+        { "text": "Claude PostToolUse hook must invoke the CLI without relying on bare \"node\" in PATH", "priority": "P0", "id": "prof-mat-sync-claude-hook-avoid-bare-node-path" },
+        { "text": "Claude PostToolUse hook must fail visibly when sync execution fails", "priority": "P0", "id": "prof-mat-sync-claude-hook-fail-visibly-on-sync-error" },
+        { "text": "Claude PostToolUse hook must keep lock-file cleanup on both success and failure", "priority": "P1", "id": "prof-mat-sync-claude-hook-cleanup-lockfile-on-both-paths" },
+        { "text": "Differentiate write-time hook sync from commit-time pre-commit sync in the command contract", "priority": "P1", "id": "prof-mat-sync-differentiate-write-time-and-pre-commit-sync" }
+      ]
+    },
+    "config": {
+      "state": "Supports roadmapProfile, product block, milestones, phaseTemplates, plugins.",
+      "tasks": [
+        { "text": "Add JSON schema validation for roadmap-skill.config.json", "priority": "P1", "id": "prof-mat-config-json-schema-validation" },
+        { "text": "Add init --professional or init --with-config bootstrap flow", "priority": "P0", "id": "prof-mat-config-add-init-with-config-bootstrap-flow" },
+        { "text": "Honor versioned roadmap config instead of regenerating from defaults", "priority": "P1", "id": "prof-mat-config-honor-versioned-config-before-defaults" },
+        { "text": "Define manual-to-managed migration flow and drift warnings between skill and CLI guidance", "priority": "P1", "id": "prof-mat-config-define-manual-to-managed-migration-and-drift-warnings" }
+      ]
+    },
+    "io": {
+      "state": "Scans files, detects languages, test frameworks, commands, modules.",
+      "tasks": [
+        { "text": "Improve module detection for monorepo workspace layouts", "priority": "P2", "id": "prof-mat-io-monorepo-workspace-detection" }
+      ]
+    }
+  },
   "milestones": [
     {
       "version": "v0.1",

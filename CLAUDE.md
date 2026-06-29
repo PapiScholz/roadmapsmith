@@ -80,6 +80,8 @@ The project uses `roadmap-skill.config.json` at the repo root (one level above `
 
 Config fields `northStar`, `targetUser`, `problemStatement`, etc. are forward-compatible: recognized by the agent skill today, not yet wired into the generator/validator.
 
+Config field `moduleMetadata` (object keyed by lowercased module/command name) drives Section 6 ("Maturity Path") of the professional profile. Each entry is `{ state: string, tasks: Array<{ text, priority, id }> }`. When a detected module/command name matches an entry, the renderer emits its `state` line and `tasks`; otherwise it falls back to generic "Document <name> public API" + "Add test coverage for <name>" tasks. See `roadmap-skill.config.json` in this monorepo root for a working example.
+
 ## PostToolUse Hook
 
 `.claude/settings.json` in this repo registers a Claude-specific `PostToolUse` hook that runs `node .claude/hooks/roadmap-sync.js` after every Write/Edit operation. Treat it as a repo-local example, not as a host-agnostic integration contract.
@@ -88,7 +90,7 @@ This is a write-time hook, not the same thing as the git `pre-commit` hook. The 
 
 ## Audit Semantics
 
-`sync --audit` currently runs the normal sync mutation path and then prints a mismatch summary. It is not yet a dedicated read-only audit mode with a separate exit-code contract.
+`sync --audit` and `/roadmap-audit` are read-only: they run validation, print the mismatch summary, and exit with code 2 if `checkedWithoutEvidence` or `readyButUnchecked` are non-empty. They never modify ROADMAP.md. The `maintain` command uses a separate internal path (`options.audit`) that mutates first and then prints audit output — that is intentional and distinct from the `--audit` flag contract.
 
 ## Publishing
 

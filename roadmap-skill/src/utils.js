@@ -15,8 +15,7 @@ function slugify(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-') || 'task';
+    .replace(/^-|-$/g, '') || 'task';
 }
 
 function normalizeText(text) {

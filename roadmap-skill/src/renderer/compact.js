@@ -1,7 +1,7 @@
 'use strict';
 
 const { slugify, ensureTrailingNewline } = require('../utils');
-const { taskLine, checkedState } = require('./helpers');
+const { taskLine, checkedState, plannedState } = require('./helpers');
 
 function renderCompact(model) {
   const lines = [];
@@ -22,17 +22,17 @@ function renderCompact(model) {
   lines.push('');
   lines.push('### Phase P0 (Critical)');
   for (const task of model.phases.P0) {
-    lines.push(taskLine(task));
+    lines.push(taskLine(task, plannedState(model, task.id)));
   }
   lines.push('');
   lines.push('### Phase P1 (Important)');
   for (const task of model.phases.P1) {
-    lines.push(taskLine(task));
+    lines.push(taskLine(task, plannedState(model, task.id)));
   }
   lines.push('');
   lines.push('### Phase P2 (Optimization)');
   for (const task of model.phases.P2) {
-    lines.push(taskLine(task));
+    lines.push(taskLine(task, plannedState(model, task.id)));
   }
   lines.push('');
 

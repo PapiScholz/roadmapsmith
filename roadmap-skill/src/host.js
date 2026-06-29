@@ -1318,7 +1318,10 @@ function inspectHostSetup(projectRoot, options = {}) {
   const agentsFile = options.agentsFile;
   const runtime = detectNodeRuntime(options.env || process.env);
   const cli = detectCliResolution(projectRoot, { currentCliPath: options.currentCliPath });
-  const vscode = inspectVsCodeTasks(projectRoot);
+  const skipVscode = Boolean(options.skipVscode);
+  const vscode = skipVscode
+    ? { skipped: true, launcher: { path: null, exists: false }, wrappers: { expectedCount: 2, presentCount: 0, ready: false, windows: { path: null, exists: false }, posix: { path: null, exists: false }, missingPaths: [] }, tasks: { path: null, exists: false, ready: false, expectedLabels: [], advancedLabels: [], presentLabels: [], missingLabels: [], missingAdvancedLabels: [] } }
+    : inspectVsCodeTasks(projectRoot);
   const claude = inspectClaudeSetup(projectRoot);
   const bundle = inspectSharedBundleSurface();
   const codexNative = inspectCodexPluginState(projectRoot, options);

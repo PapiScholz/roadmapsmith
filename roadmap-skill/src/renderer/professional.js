@@ -1,14 +1,15 @@
 'use strict';
 
 const { slugify, ensureTrailingNewline } = require('../utils');
-const { sectionHeader, checkedState, priorityLabel } = require('./helpers');
+const { sectionHeader, checkedState, plannedState, priorityLabel } = require('./helpers');
 
 function taskLineWithPriority(task, model) {
   const pri = task.priority ? `${priorityLabel(task.priority)} ` : '';
   const id = task.id || `prof-task-${slugify(task.text || String(task))}`;
   const text = task.text || String(task);
   const checked = task.checked || checkedState(model, id);
-  return `- [${checked ? 'x' : ' '}] ${pri}${text} <!-- rs:task=${id} -->`;
+  const plannedFlag = plannedState(model, id) ? ' planned' : '';
+  return `- [${checked ? 'x' : ' '}] ${pri}${text} <!-- rs:task=${id}${plannedFlag} -->`;
 }
 
 function exitLine(item, phN, stN, model) {
@@ -203,70 +204,6 @@ function renderSection5Milestones(model, lines) {
   }
 }
 
-const MODULE_METADATA = {
-  generator: {
-    state: 'Compact and professional profiles supported; Phase→Step→Task model implemented.',
-    tasks: [
-      { text: 'Improve Phase→Step→Task model inference quality', priority: 'P0', id: 'prof-mat-generator-improve-phase-step-task-inference' },
-      { text: 'Add scan-driven task suggestions per detected module', priority: 'P1', id: 'prof-mat-generator-scan-driven-task-suggestions' }
-    ]
-  },
-  parser: {
-    state: 'Parses managed blocks, rs:task IDs, and checked state.',
-    tasks: [
-      { text: 'Add parser validation for Phase→Step hierarchy markers', priority: 'P1', id: 'prof-mat-parser-phase-hierarchy-validation' },
-      { text: 'Improve section boundary detection for professional format', priority: 'P1', id: 'prof-mat-parser-professional-section-detection' }
-    ]
-  },
-  renderer: {
-    state: 'Dispatcher supports compact, professional, and enterprise (error) profiles.',
-    tasks: [
-      { text: 'Add snapshot regression fixtures for compact and professional', priority: 'P0', id: 'prof-mat-renderer-snapshot-regression-fixtures' },
-      { text: 'Harden priority label rendering for edge cases', priority: 'P1', id: 'prof-mat-renderer-priority-label-edge-cases' }
-    ]
-  },
-  validator: {
-    state: 'Evidence-based validation against file, symbol, and test presence.',
-    tasks: [
-      { text: 'Extend validator to verify Phase→Step→Task IDs survive sync', priority: 'P1', id: 'prof-mat-validator-phase-step-task-id-sync' },
-      { text: 'Add validation coverage for professional profile task IDs', priority: 'P1', id: 'prof-mat-validator-professional-task-id-coverage' }
-    ]
-  },
-  match: {
-    state: 'Task similarity matching with edit-distance threshold.',
-    tasks: [
-      { text: 'Tune similarity threshold to reduce false-positive merges', priority: 'P0', id: 'prof-mat-match-tune-similarity-threshold' }
-    ]
-  },
-  sync: {
-    state: 'Applies validation outcomes to ROADMAP.md and can append warning lines for failed attempts.',
-    tasks: [
-      { text: 'Define explicit contract for sync, sync --audit, and future promote-only flows', priority: 'P0', id: 'prof-mat-sync-define-command-contract' },
-      { text: 'Separate mutating sync behavior from future read-only audit mode', priority: 'P0', id: 'prof-mat-sync-separate-mutation-from-read-only-audit' },
-      { text: 'Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output', priority: 'P1', id: 'prof-mat-sync-expose-rich-audit-findings' },
-      { text: 'Claude PostToolUse hook must invoke the CLI without relying on bare "node" in PATH', priority: 'P0', id: 'prof-mat-sync-claude-hook-avoid-bare-node-path' },
-      { text: 'Claude PostToolUse hook must fail visibly when sync execution fails', priority: 'P0', id: 'prof-mat-sync-claude-hook-fail-visibly-on-sync-error' },
-      { text: 'Claude PostToolUse hook must keep lock-file cleanup on both success and failure', priority: 'P1', id: 'prof-mat-sync-claude-hook-cleanup-lockfile-on-both-paths' },
-      { text: 'Differentiate write-time hook sync from commit-time pre-commit sync in the command contract', priority: 'P1', id: 'prof-mat-sync-differentiate-write-time-and-pre-commit-sync' }
-    ]
-  },
-  config: {
-    state: 'Supports roadmapProfile, product block, milestones, phaseTemplates, plugins.',
-    tasks: [
-      { text: 'Add JSON schema validation for roadmap-skill.config.json', priority: 'P1', id: 'prof-mat-config-json-schema-validation' },
-      { text: 'Add init --professional or init --with-config bootstrap flow', priority: 'P0', id: 'prof-mat-config-add-init-with-config-bootstrap-flow' },
-      { text: 'Honor versioned roadmap config instead of regenerating from defaults', priority: 'P1', id: 'prof-mat-config-honor-versioned-config-before-defaults' },
-      { text: 'Define manual-to-managed migration flow and drift warnings between skill and CLI guidance', priority: 'P1', id: 'prof-mat-config-define-manual-to-managed-migration-and-drift-warnings' }
-    ]
-  },
-  io: {
-    state: 'Scans files, detects languages, test frameworks, commands, modules.',
-    tasks: [
-      { text: 'Improve module detection for monorepo workspace layouts', priority: 'P2', id: 'prof-mat-io-monorepo-workspace-detection' }
-    ]
-  }
-};
-
 function renderSection6MaturityPath(model, lines) {
   lines.push(sectionHeader(6, 'Command-by-Command / Module-by-Module Maturity Path'));
   lines.push('');
@@ -275,31 +212,40 @@ function renderSection6MaturityPath(model, lines) {
 
   if (allAreas.length === 0) {
     const id = 'prof-mat-identify-boundaries';
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P1]\` Identify command/module boundaries for the next increment <!-- rs:task=${id} -->`);
+    const implSummary = (model.currentState && model.currentState.implementedSummary) || '';
+    const hasDetectedFiles = /^[1-9]/.test(implSummary);
+    const taskText = hasDetectedFiles
+      ? `Define module boundaries (scanner detected files but no top-level structure)`
+      : `Identify command/module boundaries for the next increment`;
+    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P1]\` ${taskText} <!-- rs:task=${id} -->`);
     lines.push('');
     return;
   }
 
+  const moduleMetadata = (model.moduleMetadata && typeof model.moduleMetadata === 'object') ? model.moduleMetadata : {};
+
   for (const area of allAreas) {
     const rawName = area.replace(/^(Module:|Command:)\s*/i, '').trim();
-    const meta = MODULE_METADATA[rawName.toLowerCase()];
+    const meta = moduleMetadata[rawName.toLowerCase()];
     const displayName = rawName;
 
     lines.push(`### ${displayName}`);
     lines.push('');
-    if (meta) {
+    if (meta && typeof meta === 'object') {
       lines.push(`**Current state:** ${meta.state}`);
       lines.push('');
-      for (const task of meta.tasks) {
+      for (const task of (Array.isArray(meta.tasks) ? meta.tasks : [])) {
         lines.push(`- [${checkedState(model, task.id) ? 'x' : ' '}] ${priorityLabel(task.priority)} ${task.text} <!-- rs:task=${task.id} -->`);
       }
     } else {
       const isCommand = /^Command:/i.test(area);
       const kind = isCommand ? 'command' : 'module';
-      const nextId = `prof-mat-${slugify(rawName)}-define-maturity-criteria`;
+      const docId = `prof-mat-${slugify(rawName)}-document-api`;
+      const testId = `prof-mat-${slugify(rawName)}-add-test-coverage`;
       lines.push(`**Current state:** ${kind} detected in scan.`);
       lines.push('');
-      lines.push(`- [${checkedState(model, nextId) ? 'x' : ' '}] \`[P1]\` Define maturity criteria and testability gates for ${displayName} <!-- rs:task=${nextId} -->`);
+      lines.push(`- [${checkedState(model, docId) ? 'x' : ' '}] \`[P1]\` Document ${displayName} public API <!-- rs:task=${docId} -->`);
+      lines.push(`- [${checkedState(model, testId) ? 'x' : ' '}] \`[P1]\` Add test coverage for ${displayName} <!-- rs:task=${testId} -->`);
     }
     lines.push('');
   }

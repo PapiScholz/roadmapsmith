@@ -4,6 +4,24 @@
 
 - None yet.
 
+## v0.9.39 - 2026-06-29
+
+### Added
+- `--done-criterion` flags now generate concrete P0 tasks in the Phased Roadmap (Zero Mode), auto-marked `rs:planned` so `validate` skips them until work begins
+- `validate` recognises `<!-- rs:planned -->` marker: planned tasks print as `PLAN:<id>` with no exit-1 penalty; `--hide-planned` suppresses them
+- `status`/`doctor` auto-skip VS Code checks when `.vscode/` is absent; `--no-vscode` forces the skip; exit code is clean for CLI-only repos
+- `detectCommands` reads `package.json` `bin` field and `pyproject.toml` `[project.scripts]`/`[tool.poetry.scripts]`; `detectModules` finds Python flat-layout packages (`__init__.py` at root)
+- Section 6 (Maturity Path) generates 2 fallback tasks per module when no metadata is configured; module metadata moved from hardcoded renderer constant to `moduleMetadata` config field
+- `inspectHostSetup` accepts `options.skipVscode` — skips `inspectVsCodeTasks` entirely for repos without `.vscode/`
+- `/roadmap-audit` is now read-only (same contract as `sync --audit`): validates without mutating ROADMAP.md, exits 2 on mismatch
+- `compact` profile (default) emits `rs:planned` marker for Zero Mode tasks; `--full-regen` respects manual marker removal (unlock workflow)
+- Preserve-mode insertions emit `rs:planned` marker for new Zero Mode tasks
+
+### Fixed
+- `detectCommands` now emits a stderr warning on malformed `package.json` instead of swallowing `SyntaxError` silently
+- `inspectHostSetup` skip stub now includes `wrappers.windows` and `wrappers.posix` fields to match real payload shape
+- ReDoS vulnerability in `slugify` (`/^-+|-+$/` → `/^-|-$/`); dead identity-replacement removed from `normalizePathCandidateToken`
+
 ## v0.9.38 - 2026-06-29
 
 ### Changed

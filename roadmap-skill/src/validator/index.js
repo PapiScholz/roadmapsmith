@@ -450,11 +450,7 @@ function normalizePathCandidateToken(rawToken) {
   if (!stripped) {
     return '';
   }
-  const normalized = stripped.replace(/\\/g, '/');
-  if (/^~\//.test(normalized)) {
-    return normalized;
-  }
-  return normalized.replace(/^~(?=\/)/, '~');
+  return stripped.replace(/\\/g, '/');
 }
 
 function isExternalPathToken(token) {
@@ -1860,6 +1856,22 @@ function buildDiscoveredEvidenceLine(evidence) {
 }
 
 function validateTask(task, context, config, plugins) {
+  if (task.planned) {
+    return {
+      passed: true,
+      planned: true,
+      confidence: 'low',
+      attempted: false,
+      reasons: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: false, authoritativeFiles: [], authoritativeSummaries: [] },
+      diagnostics: [],
+      verificationRecipe: null,
+      staleEvidenceDetected: false,
+      staleEvidenceResolved: false,
+      generatedTestEvidence: null
+    };
+  }
+
   if (task.verifiedBy === 'human') {
     const hasEvidenceLine = Array.isArray(task.evidenceLines) &&
       task.evidenceLines.some((e) => e.text && e.text.trim().length > 0);

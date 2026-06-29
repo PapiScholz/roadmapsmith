@@ -29,8 +29,8 @@ function printHelp() {
     '  Canonical commands:',
     '  roadmapsmith zero [--project-root <path>] [--config <path>] [--product-name <text>] [--primary-user <text>] [--problem-statement <text>] [--target-outcome <text>] [--anti-goal <text> ...] [--preferred-stack <text>] [--constraint <text> ...] [--done-criterion <text> ...]',
     '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--full-regen] [--refresh-annotations]',
-    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json]',
-    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict]',
+    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json] [--no-vscode]',
+    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict] [--hide-planned]',
     '  roadmapsmith update [--task <stable-id> --evidence <text>] [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
     '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
     '',
@@ -58,6 +58,9 @@ function isEnabled(value) {
 }
 
 function formatResultLine(task, result) {
+  if (result.planned) {
+    return `PLAN [${task.id}] ${task.text}`;
+  }
   const diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
   const primaryError = diagnostics.find((item) => item.severity === 'error');
   const warnings = diagnostics.filter((item) => item.severity === 'warning');
@@ -322,6 +325,8 @@ function runSyncCommand(projectRoot, config, flags, options = {}) {
     console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
   }
 
+  // options.audit (distinct from flags.audit early return above): used only by
+  // runMaintainCommand to print audit summary AFTER mutating ROADMAP.md.
   if (options.audit) {
     const audit = auditValidation(syncTasks, results, changes);
     printAudit(audit);
@@ -412,19 +417,21 @@ function printHumanStatus(payload) {
   console.log(`CLI resolution: ${payload.cli.kind}${payload.cli.path ? ` (${payload.cli.path})` : ''}${payload.cli.ready ? '' : ' [missing]'}`);
   console.log(`Roadmap file: ${payload.roadmap.exists ? 'ready' : 'missing'} (${payload.roadmap.path})`);
   console.log(`Agent rules: ${payload.agents.exists ? 'ready' : 'missing'} (${payload.agents.path})`);
-  console.log(`VS Code launcher: ${payload.vscode.launcher.exists ? 'ready' : 'missing'} (${payload.vscode.launcher.path})`);
-  console.log(`VS Code task wrappers: ${payload.vscode.wrappers.ready ? 'ready' : 'incomplete'} (${payload.vscode.wrappers.presentCount}/${payload.vscode.wrappers.expectedCount} files)`);
-  console.log(`VS Code tasks: ${payload.vscode.tasks.ready ? 'ready' : 'incomplete'} (${payload.vscode.tasks.presentLabels.length}/${payload.vscode.tasks.expectedLabels.length} tasks)`);
+  if (!payload.vscode.skipped) {
+    console.log(`VS Code launcher: ${payload.vscode.launcher.exists ? 'ready' : 'missing'} (${payload.vscode.launcher.path})`);
+    console.log(`VS Code task wrappers: ${payload.vscode.wrappers.ready ? 'ready' : 'incomplete'} (${payload.vscode.wrappers.presentCount}/${payload.vscode.wrappers.expectedCount} files)`);
+    console.log(`VS Code tasks: ${payload.vscode.tasks.ready ? 'ready' : 'incomplete'} (${payload.vscode.tasks.presentLabels.length}/${payload.vscode.tasks.expectedLabels.length} tasks)`);
+    if (!payload.vscode.tasks.ready && payload.vscode.tasks.missingLabels.length > 0) {
+      console.log(`Missing VS Code tasks: ${payload.vscode.tasks.missingLabels.join(', ')}`);
+    }
+    if (Array.isArray(payload.vscode.tasks.missingAdvancedLabels) && payload.vscode.tasks.missingAdvancedLabels.length > 0) {
+      console.log(`Missing advanced VS Code tasks: ${payload.vscode.tasks.missingAdvancedLabels.join(', ')}`);
+    }
+    if (!payload.vscode.wrappers.ready) {
+      console.log(`Missing task wrapper files: ${payload.vscode.wrappers.missingPaths.join(', ')}`);
+    }
+  }
   console.log(`Node runtime: ${payload.runtime.ready ? `ready (${payload.runtime.kind}${payload.runtime.path ? `: ${payload.runtime.path}` : ''})` : 'missing'}`);
-  if (!payload.vscode.tasks.ready && payload.vscode.tasks.missingLabels.length > 0) {
-    console.log(`Missing VS Code tasks: ${payload.vscode.tasks.missingLabels.join(', ')}`);
-  }
-  if (Array.isArray(payload.vscode.tasks.missingAdvancedLabels) && payload.vscode.tasks.missingAdvancedLabels.length > 0) {
-    console.log(`Missing advanced VS Code tasks: ${payload.vscode.tasks.missingAdvancedLabels.join(', ')}`);
-  }
-  if (!payload.vscode.wrappers.ready) {
-    console.log(`Missing task wrapper files: ${payload.vscode.wrappers.missingPaths.join(', ')}`);
-  }
   console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
   console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
   printReadinessSummary(payload.summary);
@@ -434,15 +441,20 @@ function printHumanStatus(payload) {
   if (!payload.cli.ready) {
     console.log('\nInstalling the skill alone does not expose the CLI in VS Code. Install the CLI and rerun roadmapsmith setup.');
   }
-  if (!payload.runtime.ready) {
+  if (!payload.vscode.skipped && !payload.runtime.ready) {
     console.log('\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun RoadmapSmith: Status.');
   }
 }
 
+function shouldSkipVscode(projectRoot, flags) {
+  return isEnabled(flags['no-vscode']) || !fs.existsSync(path.join(projectRoot, '.vscode'));
+}
+
 function runStatusCommand(projectRoot, config, flags, options = {}) {
+  const skipVscode = shouldSkipVscode(projectRoot, flags);
   const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
   const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, currentCliPath: __filename });
+  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, currentCliPath: __filename, skipVscode });
 
   if (options.json) {
     process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
@@ -450,7 +462,7 @@ function runStatusCommand(projectRoot, config, flags, options = {}) {
     printHumanStatus(payload);
   }
 
-  const ready = payload.cli.ready && payload.roadmap.exists && payload.agents.exists && payload.vscode.tasks.ready && payload.runtime.ready && payload.claude.ready;
+  const ready = payload.cli.ready && payload.roadmap.exists && payload.agents.exists && (payload.vscode.skipped || payload.vscode.tasks.ready) && payload.runtime.ready && payload.claude.ready;
   if (!ready) {
     process.exitCode = 1;
   }
@@ -661,7 +673,12 @@ async function run() {
     const results = validateTasks(tasks, validationContext, config, validationContext.plugins);
 
     const minRank = CONFIDENCE_RANK[config.validation && config.validation.minimumConfidence] ?? 0;
-    const visibleTasks = tasks.filter((task) => (CONFIDENCE_RANK[results[task.id].confidence] ?? 0) >= minRank);
+    const hidePlanned = isEnabled(flags['hide-planned']);
+    const visibleTasks = tasks.filter((task) => {
+      if ((CONFIDENCE_RANK[results[task.id].confidence] ?? 0) < minRank) return false;
+      if (hidePlanned && results[task.id].planned) return false;
+      return true;
+    });
 
     if (isEnabled(flags.json)) {
       const payload = visibleTasks.map((task) => ({ task, result: results[task.id] }));
@@ -672,7 +689,7 @@ async function run() {
       });
     }
 
-    const failed = visibleTasks.some((task) => !results[task.id].passed);
+    const failed = visibleTasks.some((task) => !results[task.id].passed && !results[task.id].planned);
     if (failed) {
       process.exitCode = 1;
     }
@@ -681,6 +698,7 @@ async function run() {
 
   if (effectiveCommand === 'status' || effectiveCommand === 'doctor') {
     const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+    const skipVscode = shouldSkipVscode(projectRoot, flags);
     let ok = true;
     const jsonMode = isEnabled(flags.json);
     const log = jsonMode ? () => {} : console.log;
@@ -718,7 +736,7 @@ async function run() {
     let hostStatus = null;
     if (config) {
       try {
-        hostStatus = inspectHostSetup(projectRoot, { roadmapFile, agentsFile });
+        hostStatus = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, skipVscode });
       } catch (error) {
         logError(`[fail] Host integration error: ${error.message}`);
         ok = false;
@@ -733,35 +751,37 @@ async function run() {
         ok = false;
       }
 
-      if (hostStatus.vscode.launcher.exists) {
-        log(`[ok] VS Code launcher found: ${hostStatus.vscode.launcher.path}`);
-      } else {
-        logError(`[fail] VS Code launcher missing: ${hostStatus.vscode.launcher.path}`);
-        ok = false;
-      }
+      if (!skipVscode) {
+        if (hostStatus.vscode.launcher.exists) {
+          log(`[ok] VS Code launcher found: ${hostStatus.vscode.launcher.path}`);
+        } else {
+          logError(`[fail] VS Code launcher missing: ${hostStatus.vscode.launcher.path}`);
+          ok = false;
+        }
 
-      if (hostStatus.vscode.wrappers.ready) {
-        log(`[ok] VS Code task wrappers ready: ${hostStatus.vscode.wrappers.presentCount}/${hostStatus.vscode.wrappers.expectedCount} files`);
-      } else {
-        logError(`[fail] VS Code task wrappers incomplete: missing ${hostStatus.vscode.wrappers.missingPaths.join(', ') || 'wrapper files'}`);
-        ok = false;
-      }
+        if (hostStatus.vscode.wrappers.ready) {
+          log(`[ok] VS Code task wrappers ready: ${hostStatus.vscode.wrappers.presentCount}/${hostStatus.vscode.wrappers.expectedCount} files`);
+        } else {
+          logError(`[fail] VS Code task wrappers incomplete: missing ${hostStatus.vscode.wrappers.missingPaths.join(', ') || 'wrapper files'}`);
+          ok = false;
+        }
 
-      if (hostStatus.vscode.tasks.ready) {
-        log(`[ok] VS Code tasks ready: ${hostStatus.vscode.tasks.presentLabels.length}/${hostStatus.vscode.tasks.expectedLabels.length} tasks`);
-      } else {
-        logError(`[fail] VS Code tasks incomplete: missing ${hostStatus.vscode.tasks.missingLabels.join(', ') || 'managed labels'}`);
-        ok = false;
-      }
-      if (Array.isArray(hostStatus.vscode.tasks.missingAdvancedLabels) && hostStatus.vscode.tasks.missingAdvancedLabels.length > 0) {
-        log(`[warn] Advanced VS Code tasks missing: ${hostStatus.vscode.tasks.missingAdvancedLabels.join(', ')}`);
-      }
+        if (hostStatus.vscode.tasks.ready) {
+          log(`[ok] VS Code tasks ready: ${hostStatus.vscode.tasks.presentLabels.length}/${hostStatus.vscode.tasks.expectedLabels.length} tasks`);
+        } else {
+          logError(`[fail] VS Code tasks incomplete: missing ${hostStatus.vscode.tasks.missingLabels.join(', ') || 'managed labels'}`);
+          ok = false;
+        }
+        if (Array.isArray(hostStatus.vscode.tasks.missingAdvancedLabels) && hostStatus.vscode.tasks.missingAdvancedLabels.length > 0) {
+          log(`[warn] Advanced VS Code tasks missing: ${hostStatus.vscode.tasks.missingAdvancedLabels.join(', ')}`);
+        }
 
-      if (hostStatus.runtime.ready) {
-        log(`[ok] Node runtime: ${hostStatus.runtime.kind}${hostStatus.runtime.path ? ` (${hostStatus.runtime.path})` : ''}`);
-      } else {
-        logError('[fail] Node runtime missing for VS Code task execution');
-        ok = false;
+        if (hostStatus.runtime.ready) {
+          log(`[ok] Node runtime: ${hostStatus.runtime.kind}${hostStatus.runtime.path ? ` (${hostStatus.runtime.path})` : ''}`);
+        } else {
+          logError('[fail] Node runtime missing for VS Code task execution');
+          ok = false;
+        }
       }
 
       if (hostStatus.claude.ready) {

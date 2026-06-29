@@ -147,6 +147,7 @@ function parseRoadmap(content) {
 
     const { indent, checked, text, markerId, markerFlags } = taskLine;
     const noTest = /\brs:no-test\b/i.test(markerFlags);
+    const isPlanned = /\bplanned\b/i.test(markerFlags);
     const kindMatch = markerFlags.match(/\brs:kind=(\S+)/i);
     const taskKind = kindMatch ? kindMatch[1].toLowerCase() : null;
     const verifiedByMatch = markerFlags.match(/\brs:verified-by=(\S+)/i);
@@ -247,6 +248,7 @@ function parseRoadmap(content) {
       blockedByIds,
       markerId,
       noTest,
+      planned: isPlanned,
       kind: taskKind,
       verifiedBy: taskVerifiedBy,
       indent,
