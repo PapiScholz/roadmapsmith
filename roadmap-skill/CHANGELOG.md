@@ -7,6 +7,11 @@
 ## v0.9.39 - 2026-06-29
 
 ### Added
+- Zero Mode doneCriteria tasks, rs:planned marker, VS Code skip, module detection (0.9.39)
+
+## v0.9.39 - 2026-06-29
+
+### Added
 - `--done-criterion` flags now generate concrete P0 tasks in the Phased Roadmap (Zero Mode), auto-marked `rs:planned` so `validate` skips them until work begins
 - `validate` recognises `<!-- rs:planned -->` marker: planned tasks print as `PLAN:<id>` with no exit-1 penalty; `--hide-planned` suppresses them
 - `status`/`doctor` auto-skip VS Code checks when `.vscode/` is absent; `--no-vscode` forces the skip; exit code is clean for CLI-only repos
