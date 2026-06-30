@@ -59,9 +59,9 @@ test('mergeVsCodeTasks preserves unrelated tasks and replaces managed labels', (
   assert.equal(merged.tasks.filter((task) => task.label === 'RoadmapSmith: Status').length, 1);
   assert.equal(merged.tasks[0].type, 'process');
   assert.equal(merged.tasks[0].command, 'sh');
-  assert.deepEqual(merged.tasks[0].args, ['.vscode/roadmapsmith-task.sh', 'zero']);
+  assert.deepEqual(merged.tasks[0].args, ['.vscode/roadmapsmith-task.sh', 'init']);
   assert.equal(merged.tasks[0].windows.command, 'cmd.exe');
-  assert.deepEqual(merged.tasks[0].windows.args, ['/d', '/c', '.vscode\\roadmapsmith-task.cmd', 'zero']);
+  assert.deepEqual(merged.tasks[0].windows.args, ['/d', '/c', '.vscode\\roadmapsmith-task.cmd', 'init']);
 });
 
 test('mergeClaudeSettings preserves unrelated hooks and replaces roadmapsmith hook', () => {
@@ -215,7 +215,7 @@ test('inspectHostSetup keeps VS Code readiness healthy when only advanced tasks 
         label,
         type: 'process',
         command: 'sh',
-        args: ['.vscode/roadmapsmith-task.sh', ['zero', 'maintain', 'status', 'validate', 'update', 'setup'][index]]
+        args: ['.vscode/roadmapsmith-task.sh', ['init', 'update'][index]]
       }))
     }, null, 2),
     'utf8'

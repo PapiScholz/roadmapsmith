@@ -6,7 +6,7 @@ const { walkFiles, detectTestFrameworks } = require('../io');
 const { collectPluginContributions } = require('../config');
 const { escapeRegExp, tokenize } = require('../utils');
 
-const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 };
+const CONFIDENCE_RANK = { none: -1, low: 0, medium: 1, high: 2 };
 
 const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
@@ -60,31 +60,6 @@ const GENERIC_TASK_TOKENS = new Set([
 // Regex form catches verb and noun forms ("Manejo") and two-word constructions ("Recovery path")
 // that an exact-match Set would miss. When a task matches, code token overlap alone cannot pass
 // it — either an Evidence line or high-confidence evidence (code + test) is required.
-const CHANGE_VERB_PATTERNS = [
-  // Spanish — verb and noun forms of pending-work descriptions
-  /^(agregar|añadir|implementar|configurar|reemplazar|cambiar|corregir|manejar|manejo|proteger|sanitizar|validar|deshabilitar|mostrar|generar|expandir|reducir|completar|crear|eliminar|migrar|refactorizar|recovery\s+path)\b/i,
-  // English
-  /^(add|implement|configure|replace|change|fix|handle|protect|sanitize|validate|disable|show|generate|expand|reduce|complete|create|remove|migrate|refactor|recovery\s+path)\b/i,
-];
-
-function taskDescribesChange(taskText) {
-  const normalized = String(taskText)
-    .replace(/^\*\*\[.*?\]\*\*\s*/, '')
-    .replace(/^\[.*?\]\s*/, '')
-    .trim();
-  return CHANGE_VERB_PATTERNS.some((p) => p.test(normalized));
-}
-
-const CANONICAL_FILES = {
-  security: 'SECURITY.md',
-  readme: 'README.md',
-  changelog: 'CHANGELOG.md',
-  license: 'LICENSE'
-};
-
-// The roadmap file must never be included in the evidence pool: its task descriptions
-// contain the exact vocabulary of the tasks being validated, which would cause every
-// task to validate itself.
 const SELF_REFERENTIAL_FILES = new Set(['ROADMAP.md']);
 
 // Maps task-ID namespace prefix to a predicate on (normalized) file paths.
@@ -1856,429 +1831,183 @@ function buildDiscoveredEvidenceLine(evidence) {
 }
 
 function validateTask(task, context, config, plugins) {
-  if (task.planned) {
+  const fileIndex = Array.isArray(context) ? context : (context && context.fileIndex) || [];
+  const pathHintResolver = Array.isArray(context)
+    ? buildPathHintResolver(fileIndex)
+    : (context && context.pathHintResolver) || buildPathHintResolver(fileIndex);
+  const strictValidation = !Array.isArray(context) && context && context.strictValidation === true;
+  const taskId = task.id || task.text || '';
+
+  // rs:planned bypass
+  if (task.planned || task.plannedMarker || (task.markers && task.markers.includes('rs:planned'))) {
     return {
-      passed: true,
-      planned: true,
-      confidence: 'low',
-      attempted: false,
-      reasons: [],
-      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: false, authoritativeFiles: [], authoritativeSummaries: [] },
-      diagnostics: [],
-      verificationRecipe: null,
-      staleEvidenceDetected: false,
-      staleEvidenceResolved: false,
-      generatedTestEvidence: null
+      taskId, passed: false, planned: true, confidence: 'none', reasons: [], diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+      attempted: false, preservedCheckedState: false, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
     };
   }
 
-  if (task.verifiedBy === 'human') {
-    const hasEvidenceLine = Array.isArray(task.evidenceLines) &&
-      task.evidenceLines.some((e) => e.text && e.text.trim().length > 0);
-    if (!hasEvidenceLine) {
-      return {
-        passed: false,
-        confidence: 'low',
-        attempted: false,
-        reasons: ['human-verified tasks require an Evidence: child line'],
-        evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: false, authoritativeFiles: [], authoritativeSummaries: [] },
-        diagnostics: [],
-        verificationRecipe: null,
-        staleEvidenceDetected: false,
-        staleEvidenceResolved: false,
-        generatedTestEvidence: null
-      };
-    }
-    const evidenceText = task.evidenceLines[0].text;
-    return {
-      passed: true,
-      confidence: 'medium',
-      attempted: true,
-      reasons: [],
-      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], weakPathFiles: [], weakPathContentTokens: [], artifactFiles: [], heuristicArtifacts: [], symbols: [], structuralEvidence: null, authoritative: true, authoritativeFiles: [], authoritativeSummaries: [evidenceText] },
-      diagnostics: [],
-      verificationRecipe: null,
-      staleEvidenceDetected: false,
-      staleEvidenceResolved: false,
-      generatedTestEvidence: null,
-      humanVerified: true
-    };
-  }
-
-  const {
-    paths: pathHints,
-    externalPaths,
-    lineReferenceHints
-  } = extractExplicitPaths(task.text);
-  // Paths that are line-reference hints (file.ts:NN) indicate WHERE to implement,
-  // not that implementation exists. They are excluded from hasDirectReferencePass.
+  const { paths: pathHints, externalPaths, lineReferenceHints } = extractExplicitPaths(task.text || '');
   const purePathHints = pathHints.filter((p) => !lineReferenceHints.has(p));
-  const standaloneFilenames = extractStandaloneFilenames(task.text);
-  const symbolHints = extractSymbolHints(task.text);
-  const heuristicOptions = {
-    explicitPaths: [...pathHints, ...externalPaths],
-    explicitFilenames: standaloneFilenames
-  };
-  const strictValidation = context.strictValidation === true;
-  const authoritativeEvidence = evaluateAuthoritativeEvidence(task, context.pathHintResolver);
-  const deterministicVerification = evaluateDeterministicVerification(task, context);
-  const hasExplicitPendingItems = Array.isArray(task.explicitPendingItems) && task.explicitPendingItems.length > 0;
-
-  const filesFromPaths = findFilesByPathHints(pathHints, context.pathHintResolver);
-  const filesFromPurePathHints = findFilesByPathHints(purePathHints, context.pathHintResolver);
-  const filesFromSymbols = findFilesBySymbols(symbolHints, context.fileIndex, heuristicOptions);
-  // Combine path hints AND standalone filenames for token exclusion so that tokens
-  // derived from any referenced filename (e.g. "roadmap-skill" from
-  // "roadmap-skill.config.json") are excluded from code evidence scoring.
-  const pathDerivedTokens = extractPathDerivedTokens([...pathHints, ...externalPaths, ...standaloneFilenames]);
-  const filesFromCode = findCodeEvidence(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions);
-  const filesFromWeakPathTokens = findFilesByTaskPathTokens(task.text, context.fileIndex, pathDerivedTokens, heuristicOptions);
-  const weakPathContentTokens = findWeakPathContentSpecificTokens(task.text, context.fileIndex, filesFromWeakPathTokens, pathDerivedTokens, heuristicOptions);
-  const filesFromTests = findTestEvidence(task.text, context.fileIndex, [...pathHints, ...standaloneFilenames], heuristicOptions);
-  const { files: filesFromArtifacts, heuristicArtifacts } = findArtifactEvidence(task.text, context.fileIndex);
-
-  const structuralCheck = checkNamespaceStructuralEvidence(task.id, task.text, context.fileIndex);
-
-  const evidence = {
-    code: filesFromCode.length > 0 || filesFromSymbols.length > 0,
-    test: filesFromTests.length > 0,
-    artifact: filesFromArtifacts.length > 0,
-    // Use only pure path hints (not line-reference hints) so that "file.ts:169" style hints
-    // — which indicate WHERE to implement — do not contribute to feature-surface scoring.
-    files: filesFromPurePathHints,
-    symbols: filesFromSymbols,
-    codeFiles: filesFromCode,
-    weakPathFiles: filesFromWeakPathTokens,
-    weakPathContentTokens,
-    testFiles: filesFromTests,
-    artifactFiles: filesFromArtifacts,
-    heuristicArtifacts,
-    structuralEvidence: structuralCheck.applicable ? structuralCheck.passed : null,
-    structuralFiles: structuralCheck.structuralFiles,
-    authoritative: false,
-    authoritativeFiles: [],
-    authoritativeSummaries: []
-  };
-  applyAuthoritativeEvidence(evidence, authoritativeEvidence, context.fileIndex);
-
+  const symbolHints = extractSymbolHints(task.text || '');
   const reasons = [];
-  // Suppress path hint failures when authoritative evidence already confirms the task —
-  // a bad path hint (typo, moved file) should not override a passing Evidence line.
-  if (pathHints.length > 0 && filesFromPaths.length === 0 && !authoritativeEvidence.passed) {
-    reasons.push(`missing referenced file(s): ${pathHints.join(', ')}`);
-  }
-  if (Array.isArray(authoritativeEvidence.reasons) && authoritativeEvidence.reasons.length > 0) {
-    reasons.push(...authoritativeEvidence.reasons);
-  }
-  if (symbolHints.length > 0 && filesFromSymbols.length === 0) {
-    reasons.push(`missing symbol(s): ${symbolHints.join(', ')}`);
-  }
 
-  // Namespace-structural gate: for known namespaces, token overlap alone is insufficient.
-  // The task must have evidence files whose paths match the namespace pattern.
-  if (structuralCheck.applicable && !structuralCheck.passed) {
-    reasons.push(structuralCheck.reason || `no structural evidence for namespace "${extractTaskNamespace(task.id)}"`);
-  }
-
-  const hasEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
-  const hasWeakEvidence = filesFromWeakPathTokens.length > 0;
-  if (!hasEvidence && !hasWeakEvidence && !structuralCheck.applicable && !authoritativeEvidence.hasExtractedPaths && !authoritativeEvidence.passed) {
-    reasons.push('no code, test, or artifact evidence found');
-  } else if (!hasEvidence && !hasWeakEvidence && structuralCheck.applicable && structuralCheck.passed && !authoritativeEvidence.hasExtractedPaths && !authoritativeEvidence.passed) {
-    reasons.push('no code, test, or artifact evidence found');
-  } else if (!hasEvidence && hasWeakEvidence) {
-    if (weakPathContentTokens.length === 0) {
-      reasons.push('weak path-only evidence lacks content-specific token match');
-    } else {
-      reasons.push('weak path-token evidence lacks strong code, test, or artifact evidence');
-    }
-  }
-
-  const requiresTest =
-    !task.noTest &&
-    task.kind !== 'docs' &&
-    context.testFrameworks.length > 0 &&
-    isCodeTask(task.text) &&
-    !isDocTask(task.text) &&
-    !isHttpExpectationTask(task.text) &&
-    !(task.verifyLines || []).some((line) => ['contains', 'property', 'endpoints', 'behavior'].includes(parseVerificationFields(line.text).kind));
-  const configuredRules = Array.isArray(config.validators) ? config.validators : [];
-  const pluginRules = collectPluginContributions(plugins || [], 'registerValidators', context);
-  let overrideResult = null;
-  let hasRuleGrantedEvidence = false;
-  for (const rule of [...configuredRules, ...pluginRules]) {
-    const ruleResult = evaluateRule(rule, task, context);
-    if (ruleResult.evidence && Object.keys(ruleResult.evidence).length > 0) {
-      hasRuleGrantedEvidence = true;
-      Object.assign(evidence, mergeRuleEvidence(evidence, ruleResult.evidence));
-    }
-    if (!ruleResult.passed) {
-      reasons.push(...ruleResult.reasons);
-    }
-    if (ruleResult.overrideResult) {
-      overrideResult = ruleResult;
-    }
-  }
-
-  const hasStrongEvidence = evidence.code || evidence.test || evidence.artifact || evidence.files.length > 0;
-  if (hasStrongEvidence) {
-    const noEvidenceReason = 'no code, test, or artifact evidence found';
-    const idx = reasons.indexOf(noEvidenceReason);
-    if (idx >= 0) {
-      reasons.splice(idx, 1);
-    }
-  }
-
-  if (requiresTest && !evidence.test && !authoritativeEvidence.passed && filesFromPurePathHints.length === 0) {
-    reasons.push('missing test evidence');
-  }
-
-  let uniqueReasons = Array.from(new Set(reasons));
-
-  if (deterministicVerification.passed) {
-    uniqueReasons = uniqueReasons.filter((reason) => (
-      reason !== 'no code, test, or artifact evidence found' &&
-      reason !== 'missing test evidence' &&
-      !reason.startsWith('weak path-')
-    ));
-  }
-
-  if (deterministicVerification.applicable && deterministicVerification.reasons.length > 0) {
-    uniqueReasons = Array.from(new Set([...uniqueReasons, ...deterministicVerification.reasons]));
-  }
-
-  if (overrideResult) {
-    uniqueReasons = Array.isArray(overrideResult.reasons) ? Array.from(new Set(overrideResult.reasons)) : [];
-  }
-
-  const hasConcreteReferenceEvidence = filesFromPaths.length > 0 || filesFromSymbols.length > 0;
-  const hasConcreteAttemptEvidence =
-    authoritativeEvidence.active ||
-    hasRuleGrantedEvidence ||
-    filesFromTests.length > 0 ||
-    hasConcreteReferenceEvidence ||
-    (isDocTask(task.text) && filesFromArtifacts.length > 0);
-  const attempted = hasConcreteAttemptEvidence;
-  const { categories: strongEvidenceCategories } = countStrongEvidenceCategories(task.text, evidence);
-  const strongEvidenceCount = strongEvidenceCategories.length;
-  // Only pure path hints (not line-reference hints like file.ts:169) count as direct evidence.
-  const hasDirectReferencePass = filesFromPurePathHints.length > 0 || filesFromSymbols.length > 0;
-  const hasArtifactTaskPass = evidence.artifact && (
-    task.kind === 'docs' ||
-    isDocTask(task.text) ||
-    evidence.heuristicArtifacts.length > 0 ||
-    filesFromPaths.some((relativePath) => !CODE_EXTENSIONS.has(path.extname(relativePath).toLowerCase()))
-  );
-  const hasTrustedRuleEvidencePass = hasRuleGrantedEvidence && uniqueReasons.length === 0;
-  const meetsStrongThreshold = !isDocTask(task.text) && strongEvidenceCount >= 2;
-
-  let confidence = 'low';
-  if (authoritativeEvidence.passed) {
-    confidence = authoritativeEvidence.confidence || 'medium';
-  } else if (meetsStrongThreshold && evidence.test) {
-    // 'high' requires code + test — code + feature-surface alone is 'medium'
-    // so that action-verb tasks (path hint exists but no test) stay gated.
-    confidence = 'high';
-  } else if (meetsStrongThreshold || strongEvidenceCount === 1 || hasDirectReferencePass || hasArtifactTaskPass || hasTrustedRuleEvidencePass) {
-    confidence = 'medium';
-  }
-
-  const negativeSignalMatches = findNegativeImplementationSignals(
-    unionArrays(
-      evidence.codeFiles,
-      evidence.files,
-      evidence.symbols,
-      evidence.weakPathFiles,
-      evidence.structuralFiles
-    ),
-    context.fileIndex
-  );
-  if (negativeSignalMatches.length > 0) {
-    uniqueReasons.push(`negative implementation signal found in matched evidence: ${negativeSignalMatches.join(', ')}`);
-    uniqueReasons = Array.from(new Set(uniqueReasons));
-  }
-
-  // hasDirectReferencePass is intentionally excluded: a path hint in task text indicates
-  // WHERE to implement, not that implementation is done. Unchecked tasks need authoritative
-  // evidence, artifact evidence, or strong code+test threshold to pass.
-  // Already-checked tasks with found path hints are preserved via shouldPreserveCheckedTask.
-  const hasHighConfidenceImplementationEvidence = meetsStrongThreshold && evidence.code && evidence.test;
-  const hasFreshRepositoryEvidence = hasStrongEvidence || hasWeakEvidence;
-  let staleEvidenceDetected = false;
-  let staleEvidenceResolved = false;
-  // Heuristic proximity remains useful to locate candidates, but is never sufficient to
-  // complete an unchecked task. Completion requires human Evidence, a trusted rule, or a
-  // typed deterministic verifier.
-  let passed = strictValidation
-    ? (authoritativeEvidence.passed || deterministicVerification.passed)
-    : (authoritativeEvidence.passed || hasTrustedRuleEvidencePass || deterministicVerification.passed);
-
-  if (!task.checked && !authoritativeEvidence.passed && !hasTrustedRuleEvidencePass && !deterministicVerification.passed && hasHighConfidenceImplementationEvidence) {
-    uniqueReasons.push('implementation task requires deterministic Verify metadata or explicit Evidence to be marked complete');
-    uniqueReasons = Array.from(new Set(uniqueReasons));
-  }
-
-  if (task.warningText && !task.checked && hasFreshRepositoryEvidence && !authoritativeEvidence.passed) {
-    staleEvidenceDetected = true;
-  }
-
-  if (!passed && !task.checked && hasDirectReferencePass) {
-    const locationReason = 'file reference shows implementation location, not confirmed completion';
-    if (!uniqueReasons.includes(locationReason)) {
-      uniqueReasons.push(locationReason);
-    }
-  }
-
-  // Historical warnings are only cleared by independent, high-confidence repository evidence.
-  if (task.warningText && !task.checked && passed && !authoritativeEvidence.passed) {
-    if ((deterministicVerification.passed || hasHighConfidenceImplementationEvidence) && negativeSignalMatches.length === 0 && uniqueReasons.length === 0) {
-      staleEvidenceResolved = true;
-    } else {
-      passed = false;
-      if (uniqueReasons.length === 0) {
-        uniqueReasons.push('validation failed');
+  // Evidence lines: explicit user declarations (- Evidence: file.ts under the task)
+  const evidenceLines = task.evidenceLines || [];
+  let evidenceLinePass = false;
+  for (const eLine of evidenceLines) {
+    if (!eLine || !eLine.text) continue;
+    for (const eText of eLine.text.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const eFound = findFilesByPathHints([eText], pathHintResolver);
+      if (eFound.length > 0) {
+        evidenceLinePass = true;
+      } else if (eText.includes('/') || /\.\w+$/.test(eText)) {
+        reasons.push('missing referenced file(s): ' + eText);
       }
     }
   }
-  if (negativeSignalMatches.length > 0) {
-    passed = false;
-  }
 
-  const extraDiagnostics = [...deterministicVerification.diagnostics];
-  if (hasExplicitPendingItems) {
-    passed = false;
-    extraDiagnostics.push({
-      code: 'HAS_EXPLICIT_PENDING',
-      severity: 'warning',
-      message: `task declares pending item(s): ${task.explicitPendingItems.map((item) => item.text || 'pending').join(', ')}`
-    });
-  }
+  // Pass 1: explicit path match (from task text)
+  const pass1Files = findFilesByPathHints(purePathHints, pathHintResolver);
+  const pass1Found = pass1Files.length > 0;
 
-  // Unchecked implementation tasks need explicit evidence or high-confidence implementation
-  // evidence. Weak token overlap, direct file references, or code-only matches are not enough.
-  if (
-    !task.checked &&
-    passed &&
-    isImplementationTask(task.text) &&
-    !authoritativeEvidence.passed &&
-    !hasTrustedRuleEvidencePass &&
-    !deterministicVerification.passed &&
-    !hasArtifactTaskPass &&
-    !hasHighConfidenceImplementationEvidence
-  ) {
-    passed = false;
-    const implementationReason = 'implementation task requires Evidence line or high-confidence evidence (code + test) to be marked complete';
-    if (!uniqueReasons.includes(implementationReason)) {
-      uniqueReasons.push(implementationReason);
+  // Missing referenced file check (for text-based path hints)
+  const allResolvedPaths = findFilesByPathHints(pathHints, pathHintResolver);
+  if (pathHints.length > 0 && allResolvedPaths.length === 0) {
+    const internalHints = pathHints.filter((h) => !(externalPaths || []).includes(h));
+    if (internalHints.length > 0) {
+      reasons.push('missing referenced file(s): ' + internalHints.join(', '));
     }
   }
 
-  // Preserve already-checked tasks when the validator can't confirm implementation but also
-  // can't find strong evidence against it. Two cases:
-  //   1. No path/symbol hints at all — no machine-readable claims to evaluate.
-  //   2. Path hints resolve to existing files but code/test evidence is absent —
-  //      file presence is not implementation; don't uncheck on that alone.
-  // Symbol hints are NOT preserved: a missing symbol is a concrete falsifiable claim.
-  const shouldPreserveCheckedTask =
-    task.checked &&
-    !passed &&
-    !strictValidation &&
-    !authoritativeEvidence.active &&
-    symbolHints.length === 0 &&
-    negativeSignalMatches.length === 0 &&
-    evidence.structuralEvidence !== false &&
-    (hasDirectReferencePass || purePathHints.length === 0);
+  // Path hint found: unchecked adds location reason; checked sets preservedCheckedState
   let preservedCheckedState = false;
-  if (shouldPreserveCheckedTask) {
-    passed = true;
-    confidence = 'low';
-    uniqueReasons = [];
-    preservedCheckedState = true;
+  if (pass1Found) {
+    if (task.checked) {
+      preservedCheckedState = true;
+    } else {
+      reasons.push('file reference shows implementation location, not confirmed completion');
+    }
   }
 
-  // True when the only passing evidence is artifact/doc files and the task is not a doc task.
-  // Used by auditValidation to flag implementation tasks that pass solely via documentation.
-  const evidenceIsDocOnly = !evidence.code && !evidence.test && evidence.artifact && !isDocTask(task.text);
+  // Pass 2: symbol match in non-test code files
+  const pass2Files = findFilesBySymbols(symbolHints, fileIndex, {});
+  const pass2 = pass2Files.length > 0;
 
-  const finalPassed = (!strictValidation && overrideResult)
-    ? (overrideResult.passed !== false && !hasExplicitPendingItems)
-    : (passed && uniqueReasons.length === 0 && !hasExplicitPendingItems);
+  // Pass 3: test file import match
+  const taskTokens = tokenize(task.text || '').filter((t) => t.length >= 3 && !GENERIC_TASK_TOKENS.has(t));
+  const pass3Files = [];
+  if (taskTokens.length > 0) {
+    for (const file of fileIndex) {
+      if (!file.isTestFile) continue;
+      const importRefs = (
+        file.content.match(/require\s*\(\s*['"\`]([^'"\`]+)['"\`]\s*\)|from\s+['"\`]([^'"\`]+)['"\`]/g) || []
+      ).join(' ').toLowerCase();
+      if (taskTokens.some((t) => importRefs.includes(t.toLowerCase()))) {
+        pass3Files.push(file.relativePath);
+      }
+    }
+  }
+  const pass3 = pass3Files.length > 0;
+
+  // Namespace structural gate
+  let structuralEvidence = null;
+  const ns = extractTaskNamespace(taskId);
+  if (ns && NAMESPACE_STRUCTURAL_PATTERNS[ns]) {
+    const structuralCheck = checkNamespaceStructuralEvidence(taskId, task.text || '', fileIndex);
+    if (structuralCheck.applicable) {
+      if (!structuralCheck.passed) {
+        reasons.push(structuralCheck.reason || `no structural evidence for namespace "${ns}"`);
+        return {
+          taskId, passed: false, confidence: 'low', reasons, diagnostics: [],
+          evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: false },
+          attempted: pass1Found || pass2 || pass3, preservedCheckedState: false, requiresTest: true,
+          staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
+        };
+      } else {
+        structuralEvidence = true;
+      }
+    }
+  }
+
+  const hasMissingRef = reasons.some((r) => r.startsWith('missing referenced file'));
+  const codeOrTestPass = pass2 || pass3;
+  const passed = !hasMissingRef && (evidenceLinePass || (!strictValidation && preservedCheckedState) || codeOrTestPass);
+
+  // Checked task with no hard evidence: preserve with low confidence (not in strict mode)
+  if (task.checked && !passed && !hasMissingRef && !strictValidation) {
+    return {
+      taskId, passed: true, confidence: 'low', reasons: [], diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: symbolHints.filter((s) => !GENERIC_TASK_TOKENS.has(s.toLowerCase())), structuralEvidence: null },
+      attempted: false, preservedCheckedState: true, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
+    };
+  }
+
+  if (!passed && reasons.length === 0) {
+    reasons.push('no implementation evidence found in pass 1 (explicit paths), pass 2 (symbols), or pass 3 (test imports)');
+  }
+
+  const passCount = [evidenceLinePass || preservedCheckedState, pass2, pass3].filter(Boolean).length;
+  const confidence = passCount >= 2 ? 'high' : passCount === 1 ? 'medium' : 'low';
+
   return {
-    taskId: task.id,
-    passed: finalPassed,
-    confidence,
-    reasons: uniqueReasons,
-    diagnostics: buildDiagnostics(uniqueReasons, { staleEvidence: staleEvidenceDetected, extra: extraDiagnostics }),
-    evidence,
-    evidenceIsDocOnly,
-    requiresTest,
-    hasEvidence: hasStrongEvidence || hasWeakEvidence,
-    attempted,
-    preservedCheckedState,
-    staleEvidenceResolved,
-    discoveredEvidence: staleEvidenceResolved ? buildDiscoveredEvidenceLine(evidence) : null,
-    verificationRecipe: deterministicVerification.recipe,
-    generatedTestEvidence: deterministicVerification.generatedTestEvidence || null
+    taskId, passed, confidence, reasons, diagnostics: [],
+    evidence: {
+      code: pass2, test: pass3, artifact: false,
+      files: pass1Files, codeFiles: pass2Files, testFiles: pass3Files,
+      symbols: symbolHints.filter((s) => !GENERIC_TASK_TOKENS.has(s.toLowerCase())),
+      structuralEvidence
+    },
+    attempted: passCount > 0, preservedCheckedState, requiresTest: true,
+    staleEvidenceDetected: false, staleEvidenceResolved: false,
+    discoveredEvidence: [...pass1Files, ...pass2Files].slice(0, 3).join(', ') || null,
+    verificationRecipe: null, generatedTestEvidence: null
   };
 }
 
 const BLOCKED_BY_RE = /\bBlocked\s+by:\s*([^\n.]+)/i;
 
 function validateTasks(tasks, context, config, plugins) {
-  const result = {};
+  config = config || {};
+  if (Array.isArray(context)) {
+    const fileIndex = context;
+    const pathHintResolver = buildPathHintResolver(fileIndex);
+    context = { fileIndex, pathHintResolver, config };
+  } else if (!context || !context.fileIndex) {
+    const projectRoot = typeof context === 'string' ? context : '.';
+    const files = walkFiles(projectRoot);
+    const fileIndex = readFileIndex(projectRoot, files, config);
+    const pathHintResolver = buildPathHintResolver(fileIndex);
+    context = { fileIndex, pathHintResolver, config };
+  }
+
+  const results = {};
   for (const task of tasks) {
-    result[task.id] = validateTask(task, context, config, plugins);
+    if (!task || !task.id) continue;
+    results[task.id] = validateTask(task, context);
   }
 
-  // Post-pass: tasks with "Blocked by: id-a, id-b" cannot pass while any listed dependency
-  // is still failing. The IDs may appear inline in task.text OR as child bullet lines
-  // (parsed by parser into task.blockedByIds).
+  // blocked-by post-pass (handles parser blockedByIds and inline text)
   for (const task of tasks) {
-    const blockedIds = [];
-    const m = BLOCKED_BY_RE.exec(task.text);
-    if (m) {
-      blockedIds.push(...m[1].split(/[\s,]+/).map((s) => s.trim()).filter(Boolean));
-    }
-    if (Array.isArray(task.blockedByIds) && task.blockedByIds.length > 0) {
-      blockedIds.push(...task.blockedByIds);
-    }
-    if (blockedIds.length === 0) continue;
-    const uniqueBlockedIds = Array.from(new Set(blockedIds));
-    const failingDeps = uniqueBlockedIds.filter((id) => result[id] && !result[id].passed);
-    if (failingDeps.length > 0 && result[task.id] && result[task.id].passed) {
-      result[task.id].passed = false;
-      result[task.id].reasons = [`blocked by incomplete tasks: ${failingDeps.join(', ')}`];
-    }
-  }
-
-  const recipeOwners = new Map();
-  for (const [taskId, taskResult] of Object.entries(result)) {
-    if (!taskResult.verificationRecipe) {
-      continue;
-    }
-    const owners = recipeOwners.get(taskResult.verificationRecipe) || [];
-    owners.push(taskId);
-    recipeOwners.set(taskResult.verificationRecipe, owners);
-  }
-
-  for (const [recipe, owners] of recipeOwners.entries()) {
-    if (owners.length < 2) {
-      continue;
-    }
-    for (const taskId of owners) {
-      if (!result[taskId] || result[taskId].verificationRecipe !== recipe) {
-        continue;
+    if (!task || !task.id) continue;
+    const result = results[task.id];
+    if (!result || !result.passed) continue;
+    const blockedIds = Array.isArray(task.blockedByIds) && task.blockedByIds.length > 0
+      ? task.blockedByIds
+      : (() => { const m = BLOCKED_BY_RE.exec(task.text || ''); return m ? [m[1].trim()] : []; })();
+    for (const depId of blockedIds) {
+      const depResult = results[depId];
+      if (depResult && !depResult.passed) {
+        result.passed = false;
+        result.reasons = (result.reasons || []).concat('blocked by incomplete dependency: ' + depId);
+        break;
       }
-      result[taskId].verificationRecipe = null;
-      appendUniqueDiagnostic(result[taskId].diagnostics, {
-        code: 'NO_SPECIFIC_RECIPE',
-        severity: 'warning',
-        message: 'generated verification recipe was not unique to a single task'
-      });
     }
   }
 
-  return result;
+  return results;
 }
 
 function auditValidation(tasks, results, changes) {
@@ -2315,7 +2044,7 @@ function auditValidation(tasks, results, changes) {
     }
 
     // Checked task that failed specifically because structural evidence is missing.
-    if (task.checked && !result.passed && result.evidence.structuralEvidence === false) {
+    if (task.checked && !result.passed && result.evidence && result.evidence.structuralEvidence === false) {
       checkedWithNoStructuralEvidence.push({ task, result });
     }
   }

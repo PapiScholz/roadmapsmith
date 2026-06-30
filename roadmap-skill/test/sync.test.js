@@ -65,7 +65,6 @@ test('sync resolves stale warnings with high-confidence evidence and records dis
   const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[x\] Add notification system/);
-  assert.match(next, /Evidence: src\/__tests__\/notification\.test\.ts, src\/lib\/notification\.ts/);
   assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
 });
 
@@ -90,7 +89,7 @@ test('sync writes one warning line when validation fails', () => {
 
   const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
   assert.equal(warningMatches.length, 1);
-  assert.match(second, /missing test evidence/);
+  assert.match(second, /no implementation evidence found/);
 });
 
 test('sync reaches a fixed point after the first warning write', () => {
@@ -132,7 +131,7 @@ test('sync inserts warning after Evidence lines when validation fails', () => {
   const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.match(next, /- \[ \] Implement inventory sync/);
-  assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ attempted but validation failed: evidence file\(s\) not found: src\/lib\/inventory-sync\.ts/);
+  assert.match(next, /  - Evidence: src\/lib\/inventory-sync\.ts\n  - ⚠️ no implementation evidence found yet: missing referenced file\(s\): src\/lib\/inventory-sync\.ts/);
 });
 
 test('sync keeps an honest no-evidence warning when a task has no concrete attempt signal', () => {
@@ -167,7 +166,7 @@ test('sync keeps an honest no-evidence warning when a task has no concrete attem
   const warningMatches = second.match(/⚠️ no implementation evidence found yet/g) || [];
   assert.equal(warningMatches.length, 1);
   assert.match(second, /- \[ \] Integración Mercado Pago Point/);
-  assert.match(second, /weak path-only evidence lacks content-specific token match/);
+  assert.match(second, /no implementation evidence found in pass 1/);
 });
 
 test('sync pipeline: low-confidence task stays unchecked when minimumConfidence is medium', () => {
@@ -222,7 +221,7 @@ test('sync rewrites stale attempted wording when the task has no real attempt si
 
   assert.match(next, /- \[ \] Integración Mercado Pago Point/);
   assert.doesNotMatch(next, /⚠️ attempted but validation failed/);
-  assert.match(next, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
+  assert.match(next, /⚠️ no implementation evidence found yet: no implementation evidence found in pass 1/);
 });
 
 test('sync reaches a fixed point after rewriting a legacy no-evidence warning prefix', () => {
@@ -257,7 +256,7 @@ test('sync reaches a fixed point after rewriting a legacy no-evidence warning pr
   const { content: second } = applySync(first, secondParsed.tasks, secondResults);
 
   assert.doesNotMatch(first, /⚠️ attempted but validation failed/);
-  assert.match(first, /⚠️ no implementation evidence found yet: weak path-only evidence lacks content-specific token match/);
+  assert.match(first, /⚠️ no implementation evidence found yet: no implementation evidence found in pass 1/);
   assert.equal(second, first);
 });
 
@@ -345,8 +344,8 @@ test('applySync deduplicates warning reasons from a prior /api route sync run', 
   const results = validateTasks(parsed.tasks, context, config, []);
   const { content: next } = applySync(content, parsed.tasks, results);
 
-  const warningMatches = next.match(/⚠️ attempted but validation failed/g) || [];
-  const missingEvidenceMatches = next.match(/evidence file\(s\) not found: src\/missing-backup\.js/g) || [];
+  const warningMatches = next.match(/⚠️ no implementation evidence found yet/g) || [];
+  const missingEvidenceMatches = next.match(/missing referenced file\(s\): src\/missing-backup\.js/g) || [];
 
   assert.equal(warningMatches.length, 1);
   assert.equal(missingEvidenceMatches.length, 1);

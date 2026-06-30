@@ -7,7 +7,6 @@ const { readTextIfExists } = require('./io');
 const DEFAULT_CONFIG = {
   roadmapFile: './ROADMAP.md',
   agentsFile: './AGENTS.md',
-  roadmapProfile: 'compact',
   taskMatchers: [],
   validators: [],
   customSections: [],

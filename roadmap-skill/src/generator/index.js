@@ -734,10 +734,10 @@ function createModel(scan, tasks, config, customSections, checkedById, plannedBy
   ];
 
   const commandBreakdown = [];
-  for (const moduleName of scan.modules.slice(0, 8)) {
+  for (const moduleName of scan.modules) {
     commandBreakdown.push(`Module: ${moduleName}`);
   }
-  for (const command of scan.commands.slice(0, 8)) {
+  for (const command of scan.commands) {
     commandBreakdown.push(`Command: ${command}`);
   }
 
@@ -919,8 +919,7 @@ function generateRoadmapDocument(options) {
     includeUnmatchedExisting: false
   });
   const model = createModel(scan, merged, config, [profileSection, ...generatedZeroModeSection, ...configSections, ...pluginSections], existingCheckedById, plannedById);
-  const profile = config.roadmapProfile || 'compact';
-  const managedBody = renderBody(model, profile);
+  const managedBody = renderBody(model);
 
   return upsertManagedBlock(existingContent, managedBody);
 }

@@ -3,83 +3,119 @@
 
 const fs = require('fs');
 const path = require('path');
-const readline = require('node:readline/promises');
-const { ensureTrailingNewline, parseArgv } = require('../src/utils');
-const { loadConfig, resolveRoadmapFile, resolveAgentsFile, loadPlugins, readUserConfig, resolveConfigPath } = require('../src/config');
-const { readTextIfExists, writeText, printDryRunDiff } = require('../src/io');
-const { buildSetupFiles, applySetupFiles, inspectHostSetup, parseHosts, assertSupportedEditor } = require('../src/host');
-const { getSlashAction, renderSlashPalette, resolveSlashInvocation } = require('../src/slash');
+
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
-const { generateRoadmapDocument } = require('../src/generator');
-const { parseRoadmap, tasksInManagedBlock } = require('../src/parser');
-const { buildValidationContext, validateTasks, auditValidation, CONFIDENCE_RANK, applyMinimumConfidence } = require('../src/validator');
+const { resolveRoadmapFile, loadConfig, loadPlugins } = require('../src/config');
+const { readTextIfExists, writeText } = require('../src/io');
+const { importTasks } = require('../src/importer');
+const { addTask } = require('../src/addTask');
+const { detectDrift } = require('../src/drift');
+const { parseRoadmap } = require('../src/parser');
+const { generateRoadmapDocument, scanProject } = require('../src/generator');
+const { validateTasks, buildValidationContext, auditValidation } = require('../src/validator');
 const { applySync } = require('../src/sync');
-const {
-  buildZeroModeConfigPatch,
-  collectZeroModeAnswers,
-  formatMissingZeroModeFields,
-  getMissingZeroModeFields,
-  isInteractiveTerminal,
-  resolveZeroModeAnswers
-} = require('../src/zero');
+const { buildSetupFiles, applySetupFiles, parseHosts, assertSupportedEditor } = require('../src/host');
+const { parseArgv } = require('../src/utils');
 
-function printHelp() {
-  console.log([
-    'Usage:',
-    '  Canonical commands:',
-    '  roadmapsmith zero [--project-root <path>] [--config <path>] [--product-name <text>] [--primary-user <text>] [--problem-statement <text>] [--target-outcome <text>] [--anti-goal <text> ...] [--preferred-stack <text>] [--constraint <text> ...] [--done-criterion <text> ...]',
-    '  roadmapsmith maintain [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--full-regen] [--refresh-annotations]',
-    '  roadmapsmith status [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--json] [--no-vscode]',
-    '  roadmapsmith validate [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--task <id|text>] [--json] [--strict] [--hide-planned]',
-    '  roadmapsmith update [--task <stable-id> --evidence <text>] [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run]',
-    '  roadmapsmith setup [--project-root <path>] [--config <path>] [--editor vscode] [--hosts <codex,claude>] [--dry-run]',
-    '',
-    '  Advanced commands:',
-    '  roadmapsmith init [--roadmap-file <path>] [--agents-file <path>] [--dry-run]',
-    '  roadmapsmith generate [--project-root <path>] [--config <path>] [--roadmap-file <path>] [--dry-run] [--audit] [--full-regen]',
-    '  roadmapsmith sync [--roadmap-file <path>] [--project-root <path>] [--config <path>] [--dry-run] [--audit] [--refresh-annotations]',
-    '  roadmapsmith /roadmap',
-    '  roadmapsmith /roadmap <action>',
-    '  roadmapsmith /roadmap-zero | /roadmap-maintain | /roadmap-status | /roadmap-validate | /roadmap-update | /roadmap-setup | /roadmap-init | /roadmap-generate | /roadmap-audit',
-    '',
-    '  Compatibility notes:',
-    '  roadmapsmith doctor [--json]            # compatibility alias for status',
-    '  roadmapsmith regenerate                 # deprecated alias for generate --full-regen',
-    '  roadmapsmith /road <action>             # deprecated compatibility alias',
-    '  roadmapsmith /roadmap-sync <action>     # deprecated legacy compatibility root'
-  ].join('\n'));
+function isEnabled(v) {
+  return v === true || v === 'true' || v === '1' || v === 'yes';
 }
 
-function isEnabled(value) {
-  if (value === true) return true;
-  if (typeof value !== 'string') return false;
-  const normalized = value.toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
-}
+// ─── Help ─────────────────────────────────────────────────────────────────────
 
-function formatResultLine(task, result) {
-  if (result.planned) {
-    return `PLAN [${task.id}] ${task.text}`;
+const HELP = `roadmapsmith — living evidence-backed roadmap tool
+
+Commands:
+  init     Create ROADMAP.md and AGENTS.md in a project
+  update   Refresh or modify an existing ROADMAP.md
+
+init flags:
+  --product-name <name>         Product/project name
+  --primary-user <user>         Primary user persona
+  --problem-statement <text>    Problem being solved
+  --done-criterion <text>       Done criterion
+  --anti-goal <text>            Anti-goal
+  --preferred-stack <text>      Tech stack preference
+  --constraint <text>           Constraint
+  --import <file>               Import tasks from file
+  --hosts <codex,claude>        Host integrations to set up (default: codex,claude)
+  --editor <name>               Editor for host setup (default: vscode)
+  --setup-only                  Only set up host files, skip ROADMAP creation
+  --dry-run                     Preview without writing
+  --project-root <path>         Project root (default: cwd)
+
+update flags:
+  --add-task <text>             Add a new task to the managed block
+  --task <id>                   Task ID to target (use with --evidence)
+  --evidence <text>             Evidence to add to --task
+  --audit                       Show validation audit after refresh
+  --check-drift                 Check alignment of northStar vs repo state
+  --strict                      Use strict validation mode
+  --dry-run                     Preview without writing
+  --json                        Output in JSON format
+  --project-root <path>         Project root (default: cwd)`.trim();
+
+// ─── runInit ──────────────────────────────────────────────────────────────────
+
+function runInit(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const setupOnly = isEnabled(flags['setup-only']);
+
+  if (!setupOnly) {
+    const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+    const agentsFile = path.resolve(projectRoot, flags['agents-file'] || 'AGENTS.md');
+
+    if (!fs.existsSync(roadmapFile)) {
+      const replacements = {
+        productName: flags['product-name'] || 'Project Roadmap',
+        productNorthStar: 'Ship validated increments with transparent completion evidence and deterministic planning artifacts.',
+        problemStatement: flags['problem-statement'] ? `\n\n**Problem being solved:** ${flags['problem-statement']}` : '',
+        primaryUser: flags['primary-user'] ? `\n\n**Primary user:** ${flags['primary-user']}` : '',
+      };
+
+      let content = renderRoadmapTemplate(replacements);
+
+      const importFiles = [flags['import']].flat().filter(Boolean);
+      if (importFiles.length > 0) {
+        const imported = importTasks(importFiles);
+        for (const task of imported) {
+          content = addTask(task.text, content, {});
+        }
+      }
+
+      writeText(roadmapFile, content, { dryRun });
+      console.log(`${dryRun ? 'Would create' : 'Created'} ${roadmapFile}`);
+    } else {
+      console.log(`Skipped existing ${roadmapFile}`);
+    }
+
+    if (!fs.existsSync(agentsFile)) {
+      const agentsContent = renderAgentsTemplate({
+        roadmapPath: path.relative(projectRoot, roadmapFile)
+      });
+      writeText(agentsFile, agentsContent, { dryRun });
+      console.log(`${dryRun ? 'Would create' : 'Created'} ${agentsFile}`);
+    } else {
+      console.log(`Skipped existing ${agentsFile}`);
+    }
   }
-  const diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
-  const primaryError = diagnostics.find((item) => item.severity === 'error');
-  const warnings = diagnostics.filter((item) => item.severity === 'warning');
-  const status = primaryError
-    ? `FAIL:${primaryError.code}`
-    : (result.passed ? 'PASS' : (warnings[0] ? `WARN:${warnings[0].code}` : 'FAIL'));
-  const parts = [...result.reasons];
-  warnings.forEach((item) => parts.push(`WARN:${item.code} ${item.message}`));
-  const reason = parts.length > 0 ? ` :: ${parts.join('; ')}` : '';
-  return `${status} [${task.id}] ${task.text}${reason}`;
+
+  try {
+    const editor = assertSupportedEditor(flags.editor || 'vscode');
+    const hosts = parseHosts(flags.hosts || 'codex,claude');
+    const setupPlan = buildSetupFiles(projectRoot, { editor, hosts });
+    const results = applySetupFiles(setupPlan, { dryRun });
+    for (const r of results) {
+      if (r.written || r.dryRun) {
+        console.log(`${dryRun ? 'Would write' : 'Wrote'} ${r.path}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`Setup skipped: ${e.message}`);
+  }
 }
 
-function maybeFilterTasks(tasks, filterValue) {
-  if (!filterValue) return tasks;
-  const normalized = String(filterValue).toLowerCase();
-  return tasks.filter((task) => {
-    return task.id.toLowerCase() === normalized || task.text.toLowerCase().includes(normalized);
-  });
-}
+// ─── printAudit ───────────────────────────────────────────────────────────────
 
 function printAudit(audit) {
   console.log(`Audit summary: ${audit.checkedWithoutEvidence.length} checked-without-evidence, ${audit.readyButUnchecked.length} ready-but-unchecked.`);
@@ -106,722 +142,112 @@ function printAudit(audit) {
   }
 }
 
-function printReadinessSummary(summary) {
-  if (!summary || typeof summary !== 'object') {
+// ─── runUpdate ────────────────────────────────────────────────────────────────
+
+function runUpdate(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const useJson = isEnabled(flags.json);
+  const strict = isEnabled(flags.strict);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+
+  if (flags['add-task']) {
+    const existing = readTextIfExists(roadmapFile) || '';
+    const updated = addTask(flags['add-task'], existing, {});
+    writeText(roadmapFile, updated, { dryRun });
+    console.log(`${dryRun ? 'Would add' : 'Added'} task: ${flags['add-task']}`);
     return;
   }
 
-  console.log('\nStructured readiness summary:');
-  console.log(`- Workspace readiness: ${summary.workspaceReady ? 'ready' : 'needs setup'}`);
-  console.log(`- Codex readiness: ${summary.codexReady ? 'ready' : 'needs setup'}`);
-  console.log(`- Claude readiness: ${summary.claudeReady ? 'ready' : 'needs setup'}`);
-  console.log(`- Canonical native surfaces: ${summary.canonicalSurfaceReady ? 'ready' : 'needs attention'}`);
-  if (Array.isArray(summary.advancedSurfaceWarnings) && summary.advancedSurfaceWarnings.length > 0) {
-    summary.advancedSurfaceWarnings.forEach((warning) => {
-      console.log(`- Advanced warning: ${warning}`);
+  if (flags.task && flags.evidence) {
+    const existing = readTextIfExists(roadmapFile) || '';
+    const { tasks } = parseRoadmap(existing);
+    const target = tasks.find((t) => t.markerId === flags.task || t.id === flags.task);
+    if (!target) {
+      console.error(`Task not found: ${flags.task}`);
+      process.exitCode = 1;
+      return;
+    }
+    const lines = existing.split('\n');
+    const insertAt = (target.lastChildLineIndex != null ? target.lastChildLineIndex : target.lineIndex) + 1;
+    lines.splice(insertAt, 0, `  - Evidence: ${flags.evidence}`);
+    writeText(roadmapFile, lines.join('\n'), { dryRun });
+    console.log(`${dryRun ? 'Would add' : 'Added'} evidence to ${flags.task}`);
+    return;
+  }
+
+  if (isEnabled(flags['check-drift'])) {
+    const northStar = config && config.product && config.product.northStar;
+    if (!northStar) {
+      console.error('No northStar configured. Set product.northStar in roadmap-skill.config.json');
+      process.exitCode = 1;
+      return;
+    }
+    const scan = scanProject(projectRoot);
+    const drift = detectDrift(northStar, {
+      languages: scan.languages,
+      testFrameworks: scan.testFrameworks,
+      modules: scan.modules,
+      projectType: scan.projectType
     });
-  }
-}
-
-function formatSurfaceLabel(surfaceKey) {
-  return surfaceKey
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (character) => character.toUpperCase());
-}
-
-function printNativeSurfaceStatus(surfaces) {
-  if (!surfaces || typeof surfaces !== 'object') {
-    return;
-  }
-
-  console.log('\nNative slash surfaces:');
-  for (const [surfaceKey, surface] of Object.entries(surfaces)) {
-    const label = formatSurfaceLabel(surfaceKey);
-    console.log(`- ${label}: ${surface.ready ? 'ready' : 'needs attention'} (${surface.message})`);
-    console.log(`  Source: ${surface.source}`);
-    console.log(`  Verification: ${surface.verification}`);
-    if (Array.isArray(surface.missingCommands) && surface.missingCommands.length > 0) {
-      console.log(`  Missing commands: ${surface.missingCommands.join(', ')}`);
-    }
-    if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {
-      const duplicateSummary = surface.duplicates
-        .map((duplicate) => `${duplicate.command}${duplicate.reason ? ` (${duplicate.reason})` : ''}`)
-        .join(', ');
-      console.log(`  Duplicates: ${duplicateSummary}`);
-    }
-  }
-}
-
-function formatSetupVerb(result, dryRun) {
-  if (dryRun) {
-    return result.before == null ? 'Would create' : 'Would update';
-  }
-  return result.before == null ? 'Created' : 'Updated';
-}
-
-function emitPreWriteWarning(roadmapFile, options = {}) {
-  if (options.dryRun || options.suppressWarning) {
-    return;
-  }
-  if (options.warningState && options.warningState.emitted) {
-    return;
-  }
-
-  const commandName = options.commandName || 'roadmapsmith';
-  console.log(`Warning: ${commandName} will modify ${roadmapFile}. Review the preview first with --dry-run.`);
-  if (options.managedSectionNote) {
-    console.log(options.managedSectionNote);
-  }
-
-  if (options.warningState) {
-    options.warningState.emitted = true;
-  }
-}
-
-function assertMaintainCanWrite(roadmapFile, content) {
-  if (content == null || String(content).trim().length === 0) {
-    return;
-  }
-
-  const parsed = parseRoadmap(content);
-  if (parsed.hasManagedBlock) {
-    return;
-  }
-
-  throw new Error(
-    `Refusing to let roadmapsmith maintain seed a managed section into an authored roadmap without <!-- rs:managed:start --> markers: ${roadmapFile}\n` +
-    'For conservative inline annotations, run `roadmapsmith update --dry-run` then `roadmapsmith update`.\n' +
-    'To intentionally create a managed section, run `roadmapsmith generate --dry-run` then `roadmapsmith generate`.'
-  );
-}
-
-function runInitCommand(projectRoot, config, flags) {
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-  const dryRun = isEnabled(flags['dry-run']);
-
-  const roadmapExists = fs.existsSync(roadmapFile);
-  const agentsExists = fs.existsSync(agentsFile);
-
-  if (!roadmapExists) {
-    const roadmap = renderRoadmapTemplate();
-    const result = writeText(roadmapFile, roadmap, { dryRun });
-    if (dryRun && result.changed) {
-      printDryRunDiff(roadmapFile, result.before, result.after);
-    }
-    console.log(`${dryRun ? 'Would create' : 'Created'} ${roadmapFile}`);
-  } else {
-    console.log(`Skipped existing ${roadmapFile}`);
-  }
-
-  if (!agentsExists) {
-    const agents = renderAgentsTemplate({ roadmapPath: path.basename(roadmapFile) });
-    const result = writeText(agentsFile, agents, { dryRun });
-    if (dryRun && result.changed) {
-      printDryRunDiff(agentsFile, result.before, result.after);
-    }
-    console.log(`${dryRun ? 'Would create' : 'Created'} ${agentsFile}`);
-  } else {
-    console.log(`Skipped existing ${agentsFile}`);
-  }
-}
-
-function runGenerateCommand(projectRoot, config, flags, options = {}) {
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const plugins = loadPlugins(projectRoot, config.plugins);
-  const existingContent = readTextIfExists(roadmapFile) || '';
-  const dryRun = isEnabled(flags['dry-run']);
-
-  const document = generateRoadmapDocument({
-    projectRoot,
-    roadmapPath: roadmapFile,
-    existingContent,
-    config,
-    plugins,
-    preserveManagedBlock: options.preserveManagedBlock === true,
-    forceFullRegenerate: options.forceFullRegenerate === true || isEnabled(flags['full-regen'])
-  });
-
-  emitPreWriteWarning(roadmapFile, {
-    commandName: options.commandName || 'roadmapsmith generate',
-    dryRun,
-    suppressWarning: options.suppressPreWriteWarning,
-    warningState: options.warningState,
-    managedSectionNote: 'This command may create or replace a managed roadmap section depending on the current file state and flags.'
-  });
-  const writeResult = writeText(roadmapFile, document, { dryRun });
-  if (dryRun) {
-    if (writeResult.changed) {
-      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
+    if (useJson) {
+      console.log(JSON.stringify(drift, null, 2));
     } else {
-      console.log(`No changes for ${roadmapFile}`);
+      console.log(`Drift score: ${drift.score}/100 — ${drift.drifted ? 'DRIFTED' : 'aligned'}`);
+      console.log(drift.summary);
+      drift.details.forEach((d) => console.log(`  - ${d}`));
     }
-  } else {
-    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
+    return;
   }
 
-  if (options.audit || isEnabled(flags.audit)) {
-    const parsedRoadmap = parseRoadmap(document);
-    const validationContext = buildValidationContext(projectRoot, config, plugins);
-    const results = validateTasks(parsedRoadmap.tasks, validationContext, config, plugins);
-    const audit = auditValidation(parsedRoadmap.tasks, results);
-    printAudit(audit);
-  }
-}
+  // Default: refresh existing tasks (parse → validate → apply)
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const plugins = loadPlugins(projectRoot, config.plugins || []);
+  const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
 
-function runRegenerateCommand(projectRoot, config, flags, options = {}) {
-  runGenerateCommand(projectRoot, config, flags, {
-    ...options,
-    forceFullRegenerate: true
-  });
-}
+  const { tasks } = parseRoadmap(existingContent);
+  const resultMap = validateTasks(tasks, context, config, plugins);
+  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true });
 
-function runSyncCommand(projectRoot, config, flags, options = {}) {
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const content = readTextIfExists(roadmapFile);
-  if (content == null) {
-    throw new Error(`Roadmap not found: ${roadmapFile}`);
-  }
+  writeText(roadmapFile, synced, { dryRun });
+  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}`);
 
-  const parsedRoadmap = parseRoadmap(content);
-  const syncTasks = tasksInManagedBlock(parsedRoadmap);
-  const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
-  const results = validateTasks(syncTasks, validationContext, config, validationContext.plugins);
-  applyMinimumConfidence(results, config.validation?.minimumConfidence);
   if (isEnabled(flags.audit)) {
-    const audit = auditValidation(syncTasks, results);
-    printAudit(audit);
-    const hasMismatch = audit.checkedWithoutEvidence.length > 0 || audit.readyButUnchecked.length > 0;
-    if (hasMismatch) {
+    const audit = auditValidation(tasks, resultMap, changes);
+    if (useJson) {
+      console.log(JSON.stringify(audit, null, 2));
+    } else {
+      printAudit(audit);
+    }
+    if (audit.checkedWithoutEvidence.length > 0 || audit.readyButUnchecked.length > 0) {
       process.exitCode = 2;
     }
+  }
+}
+
+// ─── main ─────────────────────────────────────────────────────────────────────
+
+function main() {
+  const { flags, command: cmd } = parseArgv(process.argv.slice(2));
+
+  if (isEnabled(flags.help) || isEnabled(flags.h)) {
+    console.log(HELP);
     return;
   }
-
-  const forceRefresh = isEnabled(flags['refresh-annotations']);
-  const { content: next, changes } = applySync(content, syncTasks, results, { forceRefresh });
-  const dryRun = isEnabled(flags['dry-run']);
-  emitPreWriteWarning(roadmapFile, {
-    commandName: options.commandName || 'roadmapsmith sync',
-    dryRun,
-    suppressWarning: options.suppressPreWriteWarning,
-    warningState: options.warningState
-  });
-  const writeResult = writeText(roadmapFile, next, { dryRun });
-
-  if (dryRun) {
-    if (writeResult.changed) {
-      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
-    } else {
-      console.log(`No changes for ${roadmapFile}`);
-    }
-  } else {
-    if (changes.newlyUnchecked.length > 0) {
-      console.log(`Unchecked ${changes.newlyUnchecked.length} task(s): ${changes.newlyUnchecked.join(', ')}`);
-    }
-    if (changes.newlyChecked.length > 0) {
-      console.log(`Checked ${changes.newlyChecked.length} task(s): ${changes.newlyChecked.join(', ')}`);
-    }
-    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
-  }
-
-  // options.audit (distinct from flags.audit early return above): used only by
-  // runMaintainCommand to print audit summary AFTER mutating ROADMAP.md.
-  if (options.audit) {
-    const audit = auditValidation(syncTasks, results, changes);
-    printAudit(audit);
-  }
-}
-
-function addEvidenceToTask(content, task, evidenceText) {
-  const lines = String(content || '').split(/\r?\n/);
-  const evidenceLine = `${task.indent || ''}  - Evidence: ${evidenceText}`;
-  if (Array.isArray(task.evidenceLines) && task.evidenceLines.length > 0) {
-    lines[task.evidenceLines[0].lineIndex] = evidenceLine;
-    return ensureTrailingNewline(lines.join('\n'));
-  }
-
-  const insertionIndex = task.warningLineIndex != null
-    ? task.warningLineIndex
-    : task.lastChildLineIndex + 1;
-  lines.splice(insertionIndex, 0, evidenceLine);
-  return ensureTrailingNewline(lines.join('\n'));
-}
-
-function runUpdateCommand(projectRoot, config, flags) {
-  const hasTask = flags.task != null;
-  const hasEvidence = flags.evidence != null;
-  if (!hasTask && !hasEvidence) {
-    runSyncCommand(projectRoot, config, flags, { commandName: 'roadmapsmith update' });
+  if (isEnabled(flags.version) || isEnabled(flags.v)) {
+    console.log(require('../package.json').version);
     return;
   }
-  if (!hasTask || !hasEvidence || Array.isArray(flags.task) || Array.isArray(flags.evidence)) {
-    throw new Error('update requires exactly one --task <stable-id> and one --evidence <text> value');
-  }
+  const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
+  const config = loadConfig({ projectRoot, configPath: flags.config });
 
-  const taskId = String(flags.task).trim();
-  const evidenceText = String(flags.evidence).trim();
-  if (!taskId || !evidenceText || /[\r\n]/.test(evidenceText)) {
-    throw new Error('update requires a non-empty single-line --task and --evidence value');
-  }
-
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const content = readTextIfExists(roadmapFile);
-  if (content == null) {
-    throw new Error(`Roadmap not found: ${roadmapFile}`);
-  }
-
-  const parsedRoadmap = parseRoadmap(content);
-  const matches = tasksInManagedBlock(parsedRoadmap).filter((task) => task.id === taskId);
-  if (matches.length !== 1) {
-    throw new Error(matches.length === 0
-      ? `Roadmap task not found: ${taskId}`
-      : `Roadmap task ID is ambiguous: ${taskId}`);
-  }
-
-  const draft = addEvidenceToTask(content, matches[0], evidenceText);
-  const draftTask = tasksInManagedBlock(parseRoadmap(draft)).find((task) => task.id === taskId);
-  const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins));
-  const result = validateTasks([draftTask], validationContext, config, validationContext.plugins)[taskId];
-  const errors = (result.diagnostics || []).filter((item) => item.severity === 'error');
-  const isEscapeHatch = draftTask.verifiedBy === 'human' || draftTask.kind === 'docs';
-  const suppliedEvidenceResolved = result.evidence.authoritative && result.evidence.authoritativeFiles.length > 0;
-  const evidenceAccepted = isEscapeHatch ? result.passed : (suppliedEvidenceResolved && result.passed && result.confidence === 'high');
-  if (!evidenceAccepted || errors.length > 0) {
-    const reasons = result.reasons.length > 0 ? `: ${result.reasons.join('; ')}` : '';
-    const hint = isEscapeHatch ? '; escape-hatch task requires an Evidence: child line' : '; supplied evidence must resolve in the repository and validate at high confidence';
-    throw new Error(`Task ${taskId} was not updated${hint}${reasons}`);
-  }
-
-  const { content: next } = applySync(draft, [draftTask], { [taskId]: result });
-  const dryRun = isEnabled(flags['dry-run']);
-  emitPreWriteWarning(roadmapFile, {
-    commandName: 'roadmapsmith update',
-    dryRun
-  });
-  const writeResult = writeText(roadmapFile, next, { dryRun });
-  if (dryRun) {
-    if (writeResult.changed) {
-      printDryRunDiff(roadmapFile, writeResult.before, writeResult.after);
-    } else {
-      console.log(`No changes for ${roadmapFile}`);
-    }
+  if (cmd === 'init') {
+    runInit(projectRoot, config, flags);
+  } else if (cmd === 'update') {
+    runUpdate(projectRoot, config, flags);
   } else {
-    console.log(writeResult.changed ? `Updated ${roadmapFile}` : `No changes for ${roadmapFile}`);
-  }
-}
-
-function printHumanStatus(payload) {
-  console.log('RoadmapSmith status\n');
-  console.log(`Project root: ${payload.projectRoot}`);
-  console.log(`CLI resolution: ${payload.cli.kind}${payload.cli.path ? ` (${payload.cli.path})` : ''}${payload.cli.ready ? '' : ' [missing]'}`);
-  console.log(`Roadmap file: ${payload.roadmap.exists ? 'ready' : 'missing'} (${payload.roadmap.path})`);
-  console.log(`Agent rules: ${payload.agents.exists ? 'ready' : 'missing'} (${payload.agents.path})`);
-  if (!payload.vscode.skipped) {
-    console.log(`VS Code launcher: ${payload.vscode.launcher.exists ? 'ready' : 'missing'} (${payload.vscode.launcher.path})`);
-    console.log(`VS Code task wrappers: ${payload.vscode.wrappers.ready ? 'ready' : 'incomplete'} (${payload.vscode.wrappers.presentCount}/${payload.vscode.wrappers.expectedCount} files)`);
-    console.log(`VS Code tasks: ${payload.vscode.tasks.ready ? 'ready' : 'incomplete'} (${payload.vscode.tasks.presentLabels.length}/${payload.vscode.tasks.expectedLabels.length} tasks)`);
-    if (!payload.vscode.tasks.ready && payload.vscode.tasks.missingLabels.length > 0) {
-      console.log(`Missing VS Code tasks: ${payload.vscode.tasks.missingLabels.join(', ')}`);
-    }
-    if (Array.isArray(payload.vscode.tasks.missingAdvancedLabels) && payload.vscode.tasks.missingAdvancedLabels.length > 0) {
-      console.log(`Missing advanced VS Code tasks: ${payload.vscode.tasks.missingAdvancedLabels.join(', ')}`);
-    }
-    if (!payload.vscode.wrappers.ready) {
-      console.log(`Missing task wrapper files: ${payload.vscode.wrappers.missingPaths.join(', ')}`);
-    }
-  }
-  console.log(`Node runtime: ${payload.runtime.ready ? `ready (${payload.runtime.kind}${payload.runtime.path ? `: ${payload.runtime.path}` : ''})` : 'missing'}`);
-  console.log(`Codex readiness: ${payload.hosts.codex.ready ? 'ready' : 'needs setup'} (${payload.hosts.codex.message})`);
-  console.log(`Claude readiness: ${payload.hosts.claude.ready ? 'ready' : 'needs setup'} (${payload.hosts.claude.message})`);
-  printReadinessSummary(payload.summary);
-  printNativeSurfaceStatus(payload.surfaces);
-  console.log('\nRecommended entrypoints: roadmapsmith zero (empty repo), roadmapsmith maintain (existing repo), roadmapsmith update (canonical checklist refresh/task completion).');
-  console.log('Compatibility note: roadmapsmith doctor mirrors this payload for existing automation.');
-  if (!payload.cli.ready) {
-    console.log('\nInstalling the skill alone does not expose the CLI in VS Code. Install the CLI and rerun roadmapsmith setup.');
-  }
-  if (!payload.vscode.skipped && !payload.runtime.ready) {
-    console.log('\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun RoadmapSmith: Status.');
-  }
-}
-
-function shouldSkipVscode(projectRoot, flags) {
-  return isEnabled(flags['no-vscode']) || !fs.existsSync(path.join(projectRoot, '.vscode'));
-}
-
-function runStatusCommand(projectRoot, config, flags, options = {}) {
-  const skipVscode = shouldSkipVscode(projectRoot, flags);
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-  const payload = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, currentCliPath: __filename, skipVscode });
-
-  if (options.json) {
-    process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
-  } else {
-    printHumanStatus(payload);
-  }
-
-  const ready = payload.cli.ready && payload.roadmap.exists && payload.agents.exists && (payload.vscode.skipped || payload.vscode.tasks.ready) && payload.runtime.ready && payload.claude.ready;
-  if (!ready) {
+    console.error(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
     process.exitCode = 1;
   }
 }
 
-async function runZeroCommand(projectRoot, flags) {
-  const configPath = resolveConfigPath({ projectRoot, configPath: flags.config });
-  const config = loadConfig({ projectRoot, configPath: flags.config });
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const roadmapExistedBeforeInit = fs.existsSync(roadmapFile);
-  const defaults = resolveZeroModeAnswers(projectRoot, config, flags);
-  const interactive = isInteractiveTerminal(process.stdin, process.stdout);
-  let answers = defaults;
-
-  if (!interactive) {
-    const missingFields = getMissingZeroModeFields(defaults);
-    if (missingFields.length > 0) {
-      throw new Error(
-        'Zero Mode requires a complete brief in non-interactive environments. Missing: ' +
-        `${formatMissingZeroModeFields(missingFields).join(', ')}. ` +
-        'Provide the missing values with CLI flags or in roadmap-skill.config.json before retrying.'
-      );
-    }
-    console.log('RoadmapSmith Zero Mode');
-    console.log('Using config/flag discovery inputs in non-interactive mode.\n');
-  } else {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    try {
-      console.log('RoadmapSmith Zero Mode');
-      console.log('Answer the discovery interview to generate the first roadmap.\n');
-      answers = await collectZeroModeAnswers((prompt) => rl.question(prompt), defaults);
-    } finally {
-      rl.close();
-    }
-  }
-
-  const existingUserConfig = readUserConfig({ projectRoot, configPath: flags.config });
-  const nextUserConfig = buildZeroModeConfigPatch(projectRoot, existingUserConfig, answers);
-  writeText(configPath, JSON.stringify(nextUserConfig, null, 2));
-  console.log(`Updated ${configPath}`);
-  const nextConfig = loadConfig({ projectRoot, configPath: flags.config });
-  runInitCommand(projectRoot, nextConfig, flags);
-  runGenerateCommand(projectRoot, nextConfig, flags, {
-    commandName: 'roadmapsmith zero',
-    suppressPreWriteWarning: true,
-    forceFullRegenerate: !roadmapExistedBeforeInit
-  });
-}
-
-function runMaintainCommand(projectRoot, flags) {
-  const config = loadConfig({ projectRoot, configPath: flags.config });
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const existingContent = readTextIfExists(roadmapFile);
-  assertMaintainCanWrite(roadmapFile, existingContent);
-  const fullRegen = isEnabled(flags['full-regen']);
-  const warningState = { emitted: false };
-  runGenerateCommand(projectRoot, config, flags, {
-    commandName: 'roadmapsmith maintain',
-    preserveManagedBlock: !fullRegen,
-    forceFullRegenerate: fullRegen,
-    warningState
-  });
-  runSyncCommand(projectRoot, config, { ...flags, audit: undefined }, {
-    audit: true,
-    commandName: 'roadmapsmith maintain',
-    warningState
-  });
-}
-
-async function run() {
-  const parsed = parseArgv(process.argv.slice(2));
-  const command = parsed.command;
-  const flags = parsed.flags;
-  let effectiveCommand = command;
-
-  if (isEnabled(flags.version) || isEnabled(flags.v)) {
-    const pkg = require(path.join(__dirname, '..', 'package.json'));
-    process.stdout.write(pkg.version + '\n');
-    process.exit(0);
-  }
-
-  if (!command || isEnabled(flags.help) || isEnabled(flags.h)) {
-    printHelp();
-    return;
-  }
-
-  const slashInvocation = resolveSlashInvocation(command, parsed.args);
-  if (slashInvocation) {
-    if (slashInvocation.kind === 'palette') {
-      process.stdout.write(renderSlashPalette(slashInvocation) + '\n');
-      return;
-    }
-
-    const slashAction = getSlashAction(slashInvocation.actionId);
-    if (!slashAction) {
-      process.stdout.write(renderSlashPalette(slashInvocation) + '\n');
-      return;
-    }
-
-    if (slashInvocation.deprecated && slashInvocation.deprecationMessage) {
-      process.stderr.write(`${slashInvocation.deprecationMessage}\n`);
-    }
-
-    if (slashAction.id === 'status') {
-      const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-      const config = loadConfig({ projectRoot, configPath: flags.config });
-      runStatusCommand(projectRoot, config, flags, { json: isEnabled(flags.json) });
-      return;
-    }
-
-    if (slashAction.id === 'audit') {
-      flags.audit = true;
-      effectiveCommand = 'sync';
-    } else {
-      effectiveCommand = slashAction.id;
-    }
-  }
-
-  if (effectiveCommand === 'zero') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    await runZeroCommand(projectRoot, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'maintain') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    runMaintainCommand(projectRoot, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'init') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    runInitCommand(projectRoot, config, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'generate') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    runGenerateCommand(projectRoot, config, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'regenerate') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    process.stderr.write('The regenerate command is deprecated. Use generate --full-regen for the public destructive rebuild path.\n');
-    runRegenerateCommand(projectRoot, config, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'setup') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    loadConfig({ projectRoot, configPath: flags.config });
-    const editor = assertSupportedEditor(flags.editor || 'vscode');
-    const hosts = parseHosts(flags.hosts || 'codex,claude');
-    const dryRun = isEnabled(flags['dry-run']);
-    const setupPlan = buildSetupFiles(projectRoot, { editor, hosts });
-    const results = applySetupFiles(setupPlan, { dryRun });
-
-    results.forEach((result) => {
-      if (dryRun && result.changed) {
-        printDryRunDiff(result.path, result.before, result.after);
-      }
-      if (!result.changed) {
-        console.log(`No changes for ${result.path}`);
-        return;
-      }
-      console.log(`${formatSetupVerb(result, dryRun)} ${result.path}`);
-    });
-
-    return;
-  }
-
-  if (effectiveCommand === 'sync') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    runSyncCommand(projectRoot, config, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'update') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    runUpdateCommand(projectRoot, config, flags);
-    return;
-  }
-
-  if (effectiveCommand === 'validate') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const config = loadConfig({ projectRoot, configPath: flags.config });
-    const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-    const content = readTextIfExists(roadmapFile);
-    if (content == null) {
-      throw new Error(`Roadmap not found: ${roadmapFile}`);
-    }
-
-    const parsedRoadmap = parseRoadmap(content);
-    const tasks = maybeFilterTasks(parsedRoadmap.tasks, flags.task);
-    const validationContext = buildValidationContext(projectRoot, config, loadPlugins(projectRoot, config.plugins), {
-      strictValidation: isEnabled(flags.strict)
-    });
-    const results = validateTasks(tasks, validationContext, config, validationContext.plugins);
-
-    const minRank = CONFIDENCE_RANK[config.validation && config.validation.minimumConfidence] ?? 0;
-    const hidePlanned = isEnabled(flags['hide-planned']);
-    const visibleTasks = tasks.filter((task) => {
-      if ((CONFIDENCE_RANK[results[task.id].confidence] ?? 0) < minRank) return false;
-      if (hidePlanned && results[task.id].planned) return false;
-      return true;
-    });
-
-    if (isEnabled(flags.json)) {
-      const payload = visibleTasks.map((task) => ({ task, result: results[task.id] }));
-      console.log(JSON.stringify(payload, null, 2));
-    } else {
-      visibleTasks.forEach((task) => {
-        console.log(formatResultLine(task, results[task.id]));
-      });
-    }
-
-    const failed = visibleTasks.some((task) => !results[task.id].passed && !results[task.id].planned);
-    if (failed) {
-      process.exitCode = 1;
-    }
-    return;
-  }
-
-  if (effectiveCommand === 'status' || effectiveCommand === 'doctor') {
-    const projectRoot = path.resolve(String(flags['project-root'] || process.cwd()));
-    const skipVscode = shouldSkipVscode(projectRoot, flags);
-    let ok = true;
-    const jsonMode = isEnabled(flags.json);
-    const log = jsonMode ? () => {} : console.log;
-    const logError = jsonMode ? () => {} : console.error;
-
-    let config;
-    let roadmapFile = null;
-    let agentsFile = null;
-    try {
-      config = loadConfig({ projectRoot, configPath: flags.config });
-      log('[ok] Config loaded without errors');
-    } catch (error) {
-      logError(`[fail] Config error: ${error.message}`);
-      ok = false;
-    }
-
-    if (config) {
-      roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-      if (fs.existsSync(roadmapFile)) {
-        log(`[ok] ROADMAP file found: ${roadmapFile}`);
-      } else {
-        logError(`[fail] ROADMAP file not found: ${roadmapFile}`);
-        ok = false;
-      }
-
-      agentsFile = resolveAgentsFile(projectRoot, config, flags['agents-file']);
-      if (fs.existsSync(agentsFile)) {
-        log(`[ok] Agent rules file found: ${agentsFile}`);
-      } else {
-        logError(`[fail] Agent rules file not found: ${agentsFile}`);
-        ok = false;
-      }
-    }
-
-    let hostStatus = null;
-    if (config) {
-      try {
-        hostStatus = inspectHostSetup(projectRoot, { roadmapFile, agentsFile, skipVscode });
-      } catch (error) {
-        logError(`[fail] Host integration error: ${error.message}`);
-        ok = false;
-      }
-    }
-
-    if (hostStatus) {
-      if (hostStatus.cli.ready) {
-        log(`[ok] CLI resolution: ${hostStatus.cli.kind}${hostStatus.cli.path ? ` (${hostStatus.cli.path})` : ''}`);
-      } else {
-        logError('[fail] CLI resolution: missing local package and global command');
-        ok = false;
-      }
-
-      if (!skipVscode) {
-        if (hostStatus.vscode.launcher.exists) {
-          log(`[ok] VS Code launcher found: ${hostStatus.vscode.launcher.path}`);
-        } else {
-          logError(`[fail] VS Code launcher missing: ${hostStatus.vscode.launcher.path}`);
-          ok = false;
-        }
-
-        if (hostStatus.vscode.wrappers.ready) {
-          log(`[ok] VS Code task wrappers ready: ${hostStatus.vscode.wrappers.presentCount}/${hostStatus.vscode.wrappers.expectedCount} files`);
-        } else {
-          logError(`[fail] VS Code task wrappers incomplete: missing ${hostStatus.vscode.wrappers.missingPaths.join(', ') || 'wrapper files'}`);
-          ok = false;
-        }
-
-        if (hostStatus.vscode.tasks.ready) {
-          log(`[ok] VS Code tasks ready: ${hostStatus.vscode.tasks.presentLabels.length}/${hostStatus.vscode.tasks.expectedLabels.length} tasks`);
-        } else {
-          logError(`[fail] VS Code tasks incomplete: missing ${hostStatus.vscode.tasks.missingLabels.join(', ') || 'managed labels'}`);
-          ok = false;
-        }
-        if (Array.isArray(hostStatus.vscode.tasks.missingAdvancedLabels) && hostStatus.vscode.tasks.missingAdvancedLabels.length > 0) {
-          log(`[warn] Advanced VS Code tasks missing: ${hostStatus.vscode.tasks.missingAdvancedLabels.join(', ')}`);
-        }
-
-        if (hostStatus.runtime.ready) {
-          log(`[ok] Node runtime: ${hostStatus.runtime.kind}${hostStatus.runtime.path ? ` (${hostStatus.runtime.path})` : ''}`);
-        } else {
-          logError('[fail] Node runtime missing for VS Code task execution');
-          ok = false;
-        }
-      }
-
-      if (hostStatus.claude.ready) {
-        log(`[ok] Claude hook ready: ${hostStatus.claude.hookFile.path}`);
-      } else {
-        logError(`[fail] Claude hook incomplete: ${hostStatus.hosts.claude.message}`);
-        ok = false;
-      }
-
-      if (hostStatus.surfaces) {
-        Object.entries(hostStatus.surfaces).forEach(([surfaceKey, surface]) => {
-          const prefix = surface.ready ? '[ok]' : '[warn]';
-          log(`${prefix} ${formatSurfaceLabel(surfaceKey)}: ${surface.message}`);
-          if (Array.isArray(surface.duplicates) && surface.duplicates.length > 0) {
-            const duplicateSummary = surface.duplicates.map((duplicate) => duplicate.command).join(', ');
-            log(`[warn] ${formatSurfaceLabel(surfaceKey)} duplicates: ${duplicateSummary}`);
-          }
-        });
-      }
-    }
-
-    if (jsonMode) {
-      process.stdout.write(JSON.stringify(hostStatus || {
-        projectRoot,
-        error: 'doctor failed before host inspection'
-      }, null, 2) + '\n');
-    }
-
-    if (!ok) {
-      process.exitCode = 1;
-      return;
-    }
-    log('doctor: all checks passed');
-    return;
-  }
-
-  throw new Error(`Unknown command: ${effectiveCommand}`);
-}
-
-run().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+main();

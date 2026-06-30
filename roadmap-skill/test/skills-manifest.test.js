@@ -11,27 +11,14 @@ const PACKAGE_JSON_PATH = path.join(PACKAGE_ROOT, 'package.json');
 const SKILLS_JSON_PATH = path.join(REPO_ROOT, 'skills.json');
 const CLAUDE_PLUGIN_JSON_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 const CODEX_PLUGIN_JSON_PATH = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
-const ROADMAP_SYNC_OPENAI_YAML_PATH = path.join(REPO_ROOT, 'skills', 'roadmap-sync', 'agents', 'openai.yaml');
-const ROADMAP_SYNC_OPENAI_YAML_PLUGIN_PATH = path.join(REPO_ROOT, 'plugins', 'roadmapsmith', 'skills', 'roadmap-sync', 'agents', 'openai.yaml');
 const RELEASE_READINESS_DOC_PATH = path.join(REPO_ROOT, 'docs', 'release-readiness.md');
 const MIRRORED_SKILL_PATHS = [
-  'roadmap-status/SKILL.md',
-  'roadmap-sync/SKILL.md',
-  'roadmap-update/SKILL.md',
-  'roadmap-sync/agents/openai.yaml'
+  'roadmap-init/SKILL.md',
+  'roadmap-update/SKILL.md'
 ];
 const EXPECTED_SKILL_NAMES = [
-  'roadmap',
-  'roadmap-zero',
-  'roadmap-maintain',
-  'roadmap-status',
   'roadmap-init',
-  'roadmap-generate',
-  'roadmap-validate',
-  'roadmap-update',
-  'roadmap-sync',
-  'roadmap-audit',
-  'roadmap-setup'
+  'roadmap-update'
 ];
 
 function readJson(filePath) {
@@ -58,7 +45,7 @@ test('skills.json lists the complete Claude GUI skill bundle', () => {
   assert.deepEqual(names, EXPECTED_SKILL_NAMES);
   assert.match(manifest.install.command, /--skill '\*' -a claude-code/);
   assert.match(manifest.install.notes, /\/roadmap/);
-  assert.match(manifest.install.notes, /\/roadmap-sync/);
+  assert.match(manifest.install.notes, /\/roadmap-update/);
 });
 
 test('bundle metadata versions stay aligned with roadmap-skill package.json', () => {
@@ -122,15 +109,6 @@ test('root skills directory contains only the declared namespaced RoadmapSmith b
   assert.deepEqual(skillDirs, EXPECTED_SKILL_NAMES.slice().sort((left, right) => left.localeCompare(right)));
 });
 
-test('roadmap-sync Codex metadata parses cleanly and stays short enough for the loader', () => {
-  const metadata = JSON.parse(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PATH, 'utf8'));
-
-  assert.equal(metadata.interface.display_name, 'Roadmap Sync (Deprecated)');
-  assert.match(metadata.interface.short_description, /deprecated/i);
-  assert.match(metadata.interface.default_prompt, /\/roadmap-update/);
-  assert.ok(metadata.interface.default_prompt.length <= 128);
-});
-
 test('affected root skills stay identical to plugin mirrors', () => {
   MIRRORED_SKILL_PATHS.forEach((relativePath) => {
     const rootPath = path.join(REPO_ROOT, 'skills', relativePath);
@@ -148,9 +126,3 @@ test('release runbook does not document codex marketplace add from roadmap-skill
   );
 });
 
-test('roadmap-sync loader metadata is mirrored exactly in the plugin bundle', () => {
-  assert.equal(
-    normalizeText(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PATH, 'utf8')),
-    normalizeText(fs.readFileSync(ROADMAP_SYNC_OPENAI_YAML_PLUGIN_PATH, 'utf8'))
-  );
-});

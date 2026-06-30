@@ -1,8 +1,8 @@
 <!-- rs:managed:start -->
-# Project Roadmap
+# {{productName}}
 
 ## Product North Star
-Ship validated increments with transparent completion evidence and deterministic planning artifacts.
+{{productNorthStar}}{{problemStatement}}{{primaryUser}}
 
 ## Current State
 - Implemented surface: 0 implementation files detected

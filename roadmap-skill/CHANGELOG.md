@@ -1,8 +1,21 @@
 # Changelog
 
-## Unreleased
+## v0.10.0 - 2026-06-29
 
-- None yet.
+### Breaking
+
+- CLI reduced from 11 commands to 2: `init` and `update`. Commands removed: `zero`, `generate`, `maintain`, `sync`, `validate`, `setup`, `doctor`, `status`, `regenerate`.
+- Skills bundle reduced from 11 skills to 2: `roadmap-init` and `roadmap-update`. Removed skills: `roadmap`, `roadmap-audit`, `roadmap-generate`, `roadmap-maintain`, `roadmap-setup`, `roadmap-status`, `roadmap-sync`, `roadmap-validate`, `roadmap-zero`.
+- `src/zero.js` removed from the package.
+
+### Added
+
+- `roadmapsmith init` — creates ROADMAP.md (from parameterised template with `--product-name`, `--primary-user`, `--problem-statement`), AGENTS.md, and host integration files. Accepts `--import <file>` to pull tasks from an existing file, `--setup-only` to skip document creation, and `--dry-run`.
+- `roadmapsmith update` — four modes: default refresh (evidence-backed validate + sync), `--add-task`, `--task + --evidence`, and `--check-drift`. Accepts `--audit`, `--strict`, `--json`, `--dry-run`.
+- `src/importer.js` — imports tasks from any Markdown file with `<!-- rs:task= -->` markers, deduplicating by first-seen ID.
+- `src/drift.js` — detects northStar alignment vs. detected repo languages, test frameworks, and project type.
+- `src/addTask.js` — inserts a task into the managed block with a stable slugified ID.
+- Roadmap template now accepts `{{productName}}`, `{{productNorthStar}}`, `{{primaryUser}}`, `{{problemStatement}}` tokens.
 
 ## v0.9.39 - 2026-06-29
 

@@ -21,21 +21,10 @@ const VSCODE_LAUNCHER_RELATIVE_PATH = '.vscode/roadmapsmith-launcher.js';
 const WINDOWS_TASK_WRAPPER_RELATIVE_PATH = '.vscode/roadmapsmith-task.cmd';
 const POSIX_TASK_WRAPPER_RELATIVE_PATH = '.vscode/roadmapsmith-task.sh';
 const ROADMAPSMITH_CANONICAL_TASK_LABELS = [
-  'RoadmapSmith: Zero Mode',
-  'RoadmapSmith: Maintain',
-  'RoadmapSmith: Status',
-  'RoadmapSmith: Validate',
-  'RoadmapSmith: Update',
-  'RoadmapSmith: Refresh Setup'
-];
-const ROADMAPSMITH_ADVANCED_TASK_LABELS = [
-  'RoadmapSmith: Explain Workflow',
   'RoadmapSmith: Init',
-  'RoadmapSmith: Generate',
-  'RoadmapSmith: Sync',
-  'RoadmapSmith: Sync Dry Run',
-  'RoadmapSmith: Sync Audit'
+  'RoadmapSmith: Update'
 ];
+const ROADMAPSMITH_ADVANCED_TASK_LABELS = [];
 const ROADMAPSMITH_TASK_LABELS = [
   ...ROADMAPSMITH_CANONICAL_TASK_LABELS,
   ...ROADMAPSMITH_ADVANCED_TASK_LABELS
@@ -308,18 +297,8 @@ function createTask(action, label, detail) {
 
 function createManagedTasks() {
   return [
-    createTask('zero', 'RoadmapSmith: Zero Mode', 'Run the Zero Mode interview and generate the first roadmap in one command.'),
-    createTask('maintain', 'RoadmapSmith: Maintain', 'Run the preserve-first existing-repo flow: generate, sync, and audit in one command.'),
-    createTask('status', 'RoadmapSmith: Status', 'Inspect readiness and learn the slash entrypoints like /roadmap, /roadmap-update, and legacy /roadmap-sync <action>.'),
-    createTask('validate', 'RoadmapSmith: Validate', 'Inspect per-task evidence status as JSON.'),
-    createTask('update', 'RoadmapSmith: Update', 'Apply evidence-backed checklist refresh or complete one task with verified evidence.'),
-    createTask('setup', 'RoadmapSmith: Refresh Setup', 'Reapply RoadmapSmith VS Code and host integration files.'),
-    createTask('explain', 'RoadmapSmith: Explain Workflow', 'Explain how zero, maintain, the skill, setup, slash routing, and VS Code tasks work together.'),
-    createTask('init', 'RoadmapSmith: Init', 'Create ROADMAP.md and AGENTS.md when they are missing.'),
-    createTask('generate', 'RoadmapSmith: Generate', 'Update ROADMAP.md and refuse destructive replacement unless rerun with --full-regen.'),
-    createTask('sync', 'RoadmapSmith: Sync', 'Apply evidence-backed checklist sync to ROADMAP.md.'),
-    createTask('sync-dry-run', 'RoadmapSmith: Sync Dry Run', 'Preview the next roadmap sync without writing files.'),
-    createTask('sync-audit', 'RoadmapSmith: Sync Audit', 'Run sync and print the post-sync mismatch summary.')
+    createTask('init', 'RoadmapSmith: Init', 'Create ROADMAP.md, AGENTS.md, and host integration files for a project.'),
+    createTask('update', 'RoadmapSmith: Update', 'Refresh ROADMAP.md with evidence-backed validation, add tasks, or record evidence.')
   ];
 }
 
@@ -409,11 +388,11 @@ function renderClaudeHookScript() {
     '',
     '  try {',
     '    fs.writeFileSync(LOCK_FILE, String(process.pid));',
-    '    execFileSync(process.execPath, [CLI, \'sync\', \'--project-root\', PROJECT_ROOT], {',
+    '    execFileSync(process.execPath, [CLI, \'update\', \'--project-root\', PROJECT_ROOT], {',
     '      stdio: \'inherit\'',
     '    });',
     '  } catch (err) {',
-    '    process.stderr.write(\'roadmapsmith sync failed: \' + (err.message || String(err)) + \'\\n\');',
+    '    process.stderr.write(\'roadmapsmith update failed: \' + (err.message || String(err)) + \'\\n\');',
     '  } finally {',
     '    try { fs.unlinkSync(LOCK_FILE); } catch (_) {}',
     '  }',
@@ -1026,9 +1005,8 @@ function renderVsCodeLauncher() {
     '  if (!payload.runtime.ready) {',
     '    console.log(\'\\nThe VS Code task runtime is missing. Install Node.js or set ROADMAPSMITH_NODE, then rerun "RoadmapSmith: Status".\');',
     '  }',
-    '  console.log(\'\\nRecommended entrypoints: roadmapsmith zero, roadmapsmith maintain, roadmapsmith update\');',
-    '  console.log(\'Compatibility note: roadmapsmith doctor mirrors this payload for existing automation.\');',
-    '  console.log(\'Slash entrypoints: /roadmap, /roadmap-zero, /roadmap-maintain, /roadmap-status, /roadmap-init, /roadmap-generate, /roadmap-validate, /roadmap-update, /roadmap-audit, /roadmap-setup, plus legacy /roadmap-sync <action>.\');',
+    '  console.log(\'\\nCommands: roadmapsmith init, roadmapsmith update\');',
+    '  console.log(\'Slash entrypoints: /roadmap-init, /roadmap-update\');',
     '}',
     '',
     'function printMissingCliStatus() {',

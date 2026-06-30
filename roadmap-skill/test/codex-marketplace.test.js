@@ -44,7 +44,7 @@ test('repo-local Codex marketplace points at a valid local RoadmapSmith plugin r
   assert.equal(fs.existsSync(path.join(pluginRoot, 'skills')), true);
   assert.deepEqual(marketplacePluginManifest, rootCodexPluginManifest);
   assert.deepEqual(mirroredSkillDirs, rootSkillDirs, 'marketplace mirror skills must match the root skills bundle exactly');
-  assert.equal(fs.existsSync(path.join(pluginRoot, 'skills', 'roadmap', 'SKILL.md')), true);
+  assert.equal(fs.existsSync(path.join(pluginRoot, 'skills', 'roadmap-init', 'SKILL.md')), true);
   assert.equal(fs.existsSync(path.join(pluginRoot, 'skills', 'roadmap-update', 'SKILL.md')), true);
   assert.equal(fs.existsSync(path.join(pluginRoot, 'skills', 'roadmap-regenerate', 'SKILL.md')), false);
   assert.equal(fs.existsSync(path.join(pluginRoot, 'assets', 'palette.png')), true);

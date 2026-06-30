@@ -19,11 +19,11 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
-test('docs present status as the public readiness command and doctor as compatibility-only', () => {
-  const combined = [read(ROOT_README_PATH), read(PACKAGE_README_PATH), read(COMMAND_SURFACES_DOC_PATH)].join('\n');
+test('docs present init and update as the two canonical commands', () => {
+  const combined = [read(ROOT_README_PATH), read(PACKAGE_README_PATH)].join('\n');
 
-  assert.match(combined, /roadmapsmith status --json/);
-  assert.match(combined, /doctor[\s\S]*compatibility/i);
+  assert.match(combined, /roadmapsmith init/);
+  assert.match(combined, /roadmapsmith update/);
 });
 
 test('docs present generate --full-regen as the public destructive path and regenerate as compatibility-only', () => {

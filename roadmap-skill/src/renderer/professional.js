@@ -1,7 +1,7 @@
 'use strict';
 
 const { slugify, ensureTrailingNewline } = require('../utils');
-const { sectionHeader, checkedState, plannedState, priorityLabel } = require('./helpers');
+const { taskLine, sectionHeader, checkedState, plannedState, priorityLabel } = require('./helpers');
 
 function taskLineWithPriority(task, model) {
   const pri = task.priority ? `${priorityLabel(task.priority)} ` : '';
@@ -36,13 +36,10 @@ function renderSection1NorthStar(model, lines) {
 }
 
 function renderSection2Positioning(model, lines) {
+  if (!model.product.positioning) return;
   lines.push(sectionHeader(2, 'Positioning and Competitive Advantage'));
   lines.push('');
-  if (model.product.positioning) {
-    lines.push(model.product.positioning);
-  } else {
-    lines.push('_No positioning statement configured. Add `product.positioning` to roadmap-skill.config.json._');
-  }
+  lines.push(model.product.positioning);
   lines.push('');
 }
 
@@ -54,7 +51,7 @@ function renderSection3CurrentState(model, lines) {
   lines.push('');
   if (model.currentState.implemented && model.currentState.implemented.length > 0) {
     for (const item of model.currentState.implemented) {
-      lines.push(`- [x] ${item} <!-- rs:task=prof-state-impl-${slugify(item)} -->`);
+      lines.push(`- ${item}`);
     }
   } else {
     lines.push(`- Detected implementation surface: ${model.currentState.implementedSummary}`);
@@ -67,7 +64,7 @@ function renderSection3CurrentState(model, lines) {
   if (model.currentState.scaffold && model.currentState.scaffold.length > 0) {
     for (const item of model.currentState.scaffold) {
       const id = `prof-state-scaffold-${slugify(item)}`;
-      lines.push(`- [ ] ${item} <!-- rs:task=${id} -->`);
+      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} -->`);
     }
   } else {
     lines.push('_No scaffold modules detected. Improve detection by adding `product.steps` to config._');
@@ -86,7 +83,7 @@ function renderSection3CurrentState(model, lines) {
   if (model.currentState.knownLimitations && model.currentState.knownLimitations.length > 0) {
     for (const item of model.currentState.knownLimitations) {
       const id = `prof-state-limit-${slugify(item)}`;
-      lines.push(`- [ ] ${item} <!-- rs:task=${id} -->`);
+      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} -->`);
     }
   } else {
     lines.push(`- Code-level TODO/FIXME surface: ${model.currentState.todoSummary}`);
@@ -94,11 +91,30 @@ function renderSection3CurrentState(model, lines) {
   lines.push('');
 }
 
-function renderSection4PhasedExecution(model, lines) {
-  lines.push(sectionHeader(4, 'Phased Execution Roadmap'));
+function renderSection4PhasedRoadmap(model, lines) {
+  lines.push(sectionHeader(4, 'Phased Roadmap'));
   lines.push('');
 
   const detailedPhases = [...(model.phasesDetailed || [])].sort((a, b) => a.phaseNumber - b.phaseNumber);
+
+  if (detailedPhases.length === 0) {
+    lines.push('### Phase P0 (Critical)');
+    for (const task of model.phases.P0) {
+      lines.push(taskLine(task, plannedState(model, task.id)));
+    }
+    lines.push('');
+    lines.push('### Phase P1 (Important)');
+    for (const task of model.phases.P1) {
+      lines.push(taskLine(task, plannedState(model, task.id)));
+    }
+    lines.push('');
+    lines.push('### Phase P2 (Optimization)');
+    for (const task of model.phases.P2) {
+      lines.push(taskLine(task, plannedState(model, task.id)));
+    }
+    lines.push('');
+    return;
+  }
 
   for (const phase of detailedPhases) {
     lines.push(`### Phase ${phase.phaseNumber}: ${phase.title}`);
@@ -251,152 +267,8 @@ function renderSection6MaturityPath(model, lines) {
   }
 }
 
-function renderSection7OutputContract(model, lines) {
-  lines.push(sectionHeader(7, 'Output Contract Roadmap'));
-  lines.push('');
-
-  lines.push('### Output Format');
-  lines.push('');
-  const formatItems = [
-    { text: 'Define stable public output format (stdout, files, exit codes)', priority: 'P0' },
-    { text: 'Version output format alongside package version', priority: 'P1' },
-    { text: 'Define explicit contract for sync, sync --audit, and future promote-only flows', priority: 'P0' },
-    { text: 'Document current gap: sync --audit is not yet a dedicated read-only audit command', priority: 'P1' },
-    { text: 'Add machine-readable audit output (JSON)', priority: 'P1' },
-    { text: 'Add audit summary-only output mode', priority: 'P1' },
-    { text: 'Define explicit exit-code semantics for sync and audit commands', priority: 'P0' }
-  ];
-  for (const item of formatItems) {
-    const id = `prof-out-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-
-  lines.push('### Breaking Changes');
-  lines.push('');
-  const breakingItems = [
-    { text: 'Document breaking vs. non-breaking output changes', priority: 'P1' },
-    { text: 'Add output schema validation to CI', priority: 'P1' },
-    { text: 'Separate mutating sync behavior from future read-only audit mode', priority: 'P0' },
-    { text: 'Expose weak-evidence, documentation-only, and structural-mismatch findings in audit output', priority: 'P1' }
-  ];
-  for (const item of breakingItems) {
-    const id = `prof-out-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-}
-
-function renderSection8Testing(model, lines) {
-  lines.push(sectionHeader(8, 'Testing and Quality-Gate Roadmap'));
-  lines.push('');
-
-  lines.push('### Test Coverage');
-  lines.push('');
-  const coverageItems = [
-    { text: 'Unit test coverage for all core modules', priority: 'P0' },
-    { text: 'Integration tests covering the full generate → sync → validate pipeline', priority: 'P0' },
-    { text: 'Regression fixtures for compact and professional profile output', priority: 'P1' },
-    { text: 'Edge case coverage: empty repo, no config, large monorepo scan', priority: 'P1' },
-    { text: 'Add direct tests for .claude/hooks/roadmap-sync.js payload parsing', priority: 'P1' },
-    { text: 'Add direct tests for ROADMAP.md self-edit skip behavior', priority: 'P1' },
-    { text: 'Add direct tests for lock-file reentry guard', priority: 'P1' },
-    { text: 'Add direct tests for sync failure surfacing when the child process cannot be spawned', priority: 'P0' },
-    { text: 'Add regression coverage for environments where node is not available on PATH', priority: 'P0' },
-    { text: 'Add integration coverage for pre-commit sync using the absolute Node path', priority: 'P1' }
-  ];
-  for (const item of coverageItems) {
-    const id = `prof-test-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-
-  lines.push('### Quality Gates');
-  lines.push('');
-  const gateItems = [
-    { text: 'CI quality gate: tests must pass before merge', priority: 'P0' },
-    { text: 'Block merge when generated roadmap loses checked state', priority: 'P0' },
-    { text: 'Add professional renderer snapshot tests', priority: 'P1' }
-  ];
-  for (const item of gateItems) {
-    const id = `prof-test-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-}
-
-function renderSection9Distribution(model, lines) {
-  lines.push(sectionHeader(9, 'Distribution Roadmap'));
-  lines.push('');
-
-  lines.push('### npm Registry');
-  lines.push('');
-  const npmItems = [
-    { text: 'Publish to npm registry with stable semver', priority: 'P0' },
-    { text: 'Ensure CLI binary is correctly linked in package.json `bin`', priority: 'P0' }
-  ];
-  for (const item of npmItems) {
-    const id = `prof-dist-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-
-  lines.push('### Release Process');
-  lines.push('');
-  const releaseItems = [
-    { text: 'Tag git releases aligned with npm publish', priority: 'P1' },
-    { text: 'Document install instructions for npm global and npx usage', priority: 'P1' }
-  ];
-  for (const item of releaseItems) {
-    const id = `prof-dist-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-}
-
-function renderSection10Documentation(model, lines) {
-  lines.push(sectionHeader(10, 'Documentation Roadmap'));
-  lines.push('');
-
-  lines.push('### Core Docs');
-  lines.push('');
-  const coreItems = [
-    { text: 'README.md covers install, commands, and profile selection', priority: 'P0' },
-    { text: 'SKILL.md reflects current feature set and guardrails', priority: 'P0' },
-    { text: 'CHANGELOG.md maintained for each release', priority: 'P1' },
-    { text: 'README.md documents current sync --audit semantics without claiming read-only behavior', priority: 'P0' },
-    { text: 'README.md includes host matrix for Claude Code, Codex/Codex CLI, CI, and manual workflows', priority: 'P1' },
-    { text: 'Document distinction between supported Claude hooks and manual workflows on other hosts', priority: 'P1' },
-    { text: 'Document Codex/Codex CLI manual fallback workflow', priority: 'P1' },
-    { text: 'Document Windows shell caveats: roadmapsmith.cmd, npm.cmd, and PowerShell policy differences', priority: 'P1' },
-    { text: 'Skill instructions require extending existing phases before adding new ones', priority: 'P1' },
-    { text: 'Document that Claude write-time autoupdate currently depends on Node resolution in the hook environment', priority: 'P1' },
-    { text: 'Document the difference between the Claude PostToolUse hook and the git pre-commit hook', priority: 'P1' },
-    { text: 'Document current autoupdate reliability boundaries: write-time hook is best-effort, pre-commit is stricter', priority: 'P1' },
-    { text: 'Document troubleshooting for hook failure when node is missing from PATH', priority: 'P1' },
-    { text: 'Document that Codex/Codex CLI remains manual and does not share the Claude repo-local hook path', priority: 'P1' }
-  ];
-  for (const item of coreItems) {
-    const id = `prof-doc-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-
-  lines.push('### Showcase');
-  lines.push('');
-  const showcaseItems = [
-    { text: 'docs/ use-cases cover compact and professional profiles', priority: 'P1' },
-    { text: 'Generated ROADMAP.md showcases professional Phase→Step→Task output', priority: 'P1' }
-  ];
-  for (const item of showcaseItems) {
-    const id = `prof-doc-${slugify(item.text)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(item.priority)} ${item.text} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-}
-
-function renderSection11Risks(model, lines) {
-  lines.push(sectionHeader(11, 'Risks, Constraints, and Anti-Goals'));
+function renderSection7Risks(model, lines) {
+  lines.push(sectionHeader(7, 'Risks, Constraints, and Anti-Goals'));
   lines.push('');
 
   lines.push('### Risks');
@@ -417,13 +289,24 @@ function renderSection11Risks(model, lines) {
   lines.push('');
 }
 
-function renderSection13CustomPhases(model, lines) {
-  const phases = model.customPhases || [];
-  if (phases.length === 0) {
-    return;
-  }
+function renderSection8SuccessCriteria(model, lines) {
+  const criteria = model.successCriteria && model.successCriteria.length > 0 ? model.successCriteria : null;
+  if (!criteria) return;
 
-  lines.push(sectionHeader(13, 'Extended Phases'));
+  lines.push(sectionHeader(8, 'Measurable Success Criteria'));
+  lines.push('');
+  for (const criterion of criteria) {
+    const id = `prof-sc-${slugify(criterion)}`;
+    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P0]\` ${criterion} <!-- rs:task=${id} -->`);
+  }
+  lines.push('');
+}
+
+function renderSection9CustomPhases(model, lines) {
+  const phases = model.customPhases || [];
+  if (phases.length === 0) return;
+
+  lines.push(sectionHeader(9, 'Extended Phases'));
   lines.push('');
 
   const sorted = [...phases].sort((a, b) => a.phaseNumber - b.phaseNumber);
@@ -474,26 +357,6 @@ function renderSection13CustomPhases(model, lines) {
   }
 }
 
-function renderSection12SuccessCriteria(model, lines) {
-  lines.push(sectionHeader(12, '1.0 Measurable Success Criteria'));
-  lines.push('');
-
-  const criteria = model.successCriteria && model.successCriteria.length > 0
-    ? model.successCriteria
-    : [
-        'All roadmap sections render without errors for compact and professional profiles',
-        'Checked task state is preserved across regeneration',
-        'npm test passes with no failures',
-        'ROADMAP.md is generated by RoadmapSmith itself'
-      ];
-
-  for (const criterion of criteria) {
-    const id = `prof-sc-${slugify(criterion)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P0]\` ${criterion} <!-- rs:task=${id} -->`);
-  }
-  lines.push('');
-}
-
 function renderProfessional(model) {
   const projectName = (model.product && model.product.name) || 'Project';
   const lines = [];
@@ -504,16 +367,12 @@ function renderProfessional(model) {
   renderSection1NorthStar(model, lines);
   renderSection2Positioning(model, lines);
   renderSection3CurrentState(model, lines);
-  renderSection4PhasedExecution(model, lines);
+  renderSection4PhasedRoadmap(model, lines);
   renderSection5Milestones(model, lines);
   renderSection6MaturityPath(model, lines);
-  renderSection7OutputContract(model, lines);
-  renderSection8Testing(model, lines);
-  renderSection9Distribution(model, lines);
-  renderSection10Documentation(model, lines);
-  renderSection11Risks(model, lines);
-  renderSection12SuccessCriteria(model, lines);
-  renderSection13CustomPhases(model, lines);
+  renderSection7Risks(model, lines);
+  renderSection8SuccessCriteria(model, lines);
+  renderSection9CustomPhases(model, lines);
 
   for (const section of (model.customSections || [])) {
     lines.push(`## ${section.title}`);

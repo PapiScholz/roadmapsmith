@@ -2,68 +2,18 @@
 
 const SLASH_ACTIONS = [
   {
-    id: 'zero',
+    id: 'init',
     tier: 'canonical',
-    description: 'Interview the developer in terminal and generate the first roadmap for an empty or low-context repo.',
-    classicCliExample: 'roadmapsmith zero',
-    taskLabel: 'RoadmapSmith: Zero Mode'
-  },
-  {
-    id: 'maintain',
-    tier: 'canonical',
-    description: 'Preserve-first existing-repo flow: update, sync, and audit the roadmap without rebuilding substantive domain content.',
-    classicCliExample: 'roadmapsmith maintain',
-    taskLabel: 'RoadmapSmith: Maintain'
-  },
-  {
-    id: 'status',
-    tier: 'canonical',
-    description: 'Inspect CLI, roadmap, VS Code task, Codex, and Claude readiness.',
-    classicCliExample: 'roadmapsmith status --json',
-    taskLabel: 'RoadmapSmith: Status'
-  },
-  {
-    id: 'validate',
-    tier: 'canonical',
-    description: 'Inspect per-task evidence status as JSON.',
-    classicCliExample: 'roadmapsmith validate --json --project-root .',
-    taskLabel: 'RoadmapSmith: Validate'
+    description: 'Create ROADMAP.md, AGENTS.md, and host integration files for a project.',
+    classicCliExample: 'roadmapsmith init --project-root .',
+    taskLabel: 'RoadmapSmith: Init'
   },
   {
     id: 'update',
     tier: 'canonical',
-    aliases: ['sync'],
-    description: 'Apply evidence-backed checklist refresh to ROADMAP.md or complete one task with verified evidence.',
+    description: 'Refresh ROADMAP.md with evidence-backed validation, add tasks, or record evidence.',
     classicCliExample: 'roadmapsmith update --project-root .',
     taskLabel: 'RoadmapSmith: Update'
-  },
-  {
-    id: 'setup',
-    tier: 'canonical',
-    description: 'Generate visible VS Code tasks and optional Claude hook wiring.',
-    classicCliExample: 'roadmapsmith setup',
-    taskLabel: 'RoadmapSmith: Refresh Setup'
-  },
-  {
-    id: 'init',
-    tier: 'advanced',
-    description: 'Create ROADMAP.md and AGENTS.md when they are missing.',
-    classicCliExample: 'roadmapsmith init',
-    taskLabel: 'RoadmapSmith: Init'
-  },
-  {
-    id: 'generate',
-    tier: 'advanced',
-    description: 'Generate or update ROADMAP.md, refusing destructive replacement unless rerun with --full-regen.',
-    classicCliExample: 'roadmapsmith generate --project-root .',
-    taskLabel: 'RoadmapSmith: Generate'
-  },
-  {
-    id: 'audit',
-    tier: 'advanced',
-    description: 'Run sync and print the post-sync mismatch summary.',
-    classicCliExample: 'roadmapsmith sync --audit --project-root .',
-    taskLabel: 'RoadmapSmith: Sync Audit'
   }
 ];
 
@@ -100,10 +50,7 @@ const ACTION_ALIAS_TO_ID = Object.freeze(
 );
 
 function mapActionIdsToSkillNames(actionIds) {
-  return [
-    'roadmap',
-    ...actionIds.map((actionId) => getNamespacedDirectSlash(actionId).slice(1))
-  ];
+  return actionIds.map((actionId) => getNamespacedDirectSlash(actionId).slice(1));
 }
 
 function getCanonicalHostNativeSkillNames() {
@@ -115,9 +62,7 @@ function getAdvancedHostNativeSkillNames() {
 }
 
 function getCompatibilityHostNativeSkillNames() {
-  return [
-    'roadmap-sync'
-  ];
+  return [];
 }
 
 function getHostNativeSkillNames() {

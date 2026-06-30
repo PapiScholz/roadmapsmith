@@ -7,8 +7,6 @@ module.exports = {
   validator: require('./validator'),
   config: require('./config'),
   host: require('./host'),
-  slash: require('./slash'),
-  zero: require('./zero'),
   model: require('./model'),
   renderer: require('./renderer')
 };

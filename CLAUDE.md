@@ -67,7 +67,7 @@ validator.validateTasks → sync.applySync → ROADMAP.md (updated)
 
 ## Key Invariants
 
-- **`checkedById` is the only authority** for task checked state. Never derive checked state from other metadata in renderers.
+- **`checkedById` is the only authority** for task checked state. Never derive checked state from other metadata in renderers. Every `<!-- rs:task=id -->` emission must use `checkedState(model, id)` — hardcoding `[ ]` silently breaks roundtrip preservation.
 - **Task IDs are stable** via `<!-- rs:task=slug -->` markers. The slugification algorithm is locked; changing it breaks roundtrips.
 - **`ROADMAP.md` is excluded from the evidence pool** (`SELF_REFERENTIAL_FILES`) — its task descriptions contain the exact vocabulary being validated and would cause every task to self-validate.
 - **TODO detection requires comment prefix** (`//`, `#`, `*`) to avoid false positives in non-comment code like `TODO|FIXME` in regex patterns.

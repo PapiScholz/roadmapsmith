@@ -116,8 +116,8 @@ test('generator outputs deterministic managed roadmap', () => {
   });
 
   assert.equal(first, second);
-  assert.match(first, /## Product North Star/);
-  assert.match(first, /## Phased Roadmap/);
+  assert.match(first, /Product North Star/);
+  assert.match(first, /Phased Roadmap/);
   assert.match(first, /<!-- rs:task=/);
 });
 
@@ -216,13 +216,13 @@ test('regenerate intentionally rebuilds a substantive custom managed block', () 
     forceFullRegenerate: true
   });
 
-  assert.match(output, /## Product North Star/);
-  assert.match(output, /### Phase P0 \(Critical\)/);
+  assert.match(output, /Product North Star/);
+  assert.match(output, /Phased Roadmap/);
   assert.doesNotMatch(output, /Convertir el POS actual en una app Electron offline-first con SQLite embebido/);
   assert.doesNotMatch(output, /### P0 - Migracion Firebase -> Electron \+ SQLite/);
 });
 
-test('compact profile preserves current expected output structure', () => {
+test('unified renderer always renders north star, phased roadmap, and task IDs', () => {
   const projectRoot = setupFixture('node');
   const config = loadConfig({ projectRoot });
 
@@ -233,17 +233,16 @@ test('compact profile preserves current expected output structure', () => {
     plugins: []
   });
 
-  assert.match(output, /## Phased Roadmap/);
-  assert.match(output, /### Phase P0/);
-  assert.match(output, /### Phase P1/);
-  assert.match(output, /### Phase P2/);
+  assert.match(output, /## 1\. Product North Star/);
+  assert.match(output, /Phased Roadmap/);
   assert.match(output, /<!-- rs:task=/);
-  assert.doesNotMatch(output, /## 1\. Product North Star/);
+  assert.doesNotMatch(output, /Output Contract Roadmap/);
+  assert.doesNotMatch(output, /Documentation Roadmap/);
 });
 
-test('professional profile renders all 12 required sections', () => {
+test('unified renderer always renders core sections 1,3,4,5,6,7 and omits old hardcoded sections', () => {
   const projectRoot = setupFixture('node');
-  const config = { ...loadConfig({ projectRoot }), roadmapProfile: 'professional', product: { name: 'TestPro' } };
+  const config = { ...loadConfig({ projectRoot }), product: { name: 'TestPro' } };
 
   const output = generateRoadmapDocument({
     projectRoot,
@@ -252,9 +251,13 @@ test('professional profile renders all 12 required sections', () => {
     plugins: []
   });
 
-  for (let i = 1; i <= 12; i += 1) {
+  for (const i of [1, 3, 4, 5, 6, 7]) {
     assert.match(output, new RegExp(`## ${i}\\.`), `Section ${i} missing`);
   }
+  assert.doesNotMatch(output, /Output Contract Roadmap/, 'Removed hardcoded section must not appear');
+  assert.doesNotMatch(output, /Testing and Quality-Gate Roadmap/, 'Removed hardcoded section must not appear');
+  assert.doesNotMatch(output, /Distribution Roadmap/, 'Removed hardcoded section must not appear');
+  assert.doesNotMatch(output, /Documentation Roadmap/, 'Removed hardcoded section must not appear');
 });
 
 test('professional profile renders Section 4 as Phase → Step → Task hierarchy', () => {
@@ -362,16 +365,12 @@ test('professional output includes stable rs:task IDs with prof- prefix', () => 
   assert.match(output, /rs:task=prof-/, 'Expected prof- prefixed rs:task IDs from professional renderer');
 });
 
-test('enterprise profile throws a clear error', () => {
+test('any profile value produces unified renderer output without throwing', () => {
   const model = makeMinimalModel();
-  assert.throws(
-    () => renderBody(model, 'enterprise'),
-    (err) => {
-      assert.ok(err.message.includes('enterprise'), 'Error should mention "enterprise"');
-      assert.ok(err.message.includes('not yet implemented'), 'Error should mention "not yet implemented"');
-      return true;
-    }
-  );
+  assert.doesNotThrow(() => renderBody(model, 'enterprise'));
+  assert.doesNotThrow(() => renderBody(model, 'compact'));
+  assert.doesNotThrow(() => renderBody(model));
+  assert.match(renderBody(model, 'enterprise'), /## 1\. Product North Star/);
 });
 
 test('task-level priorities are displayed in professional output', () => {
