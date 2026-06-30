@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.10.2 - 2026-06-30
+
+### Changed
+- Potential fix for code scanning alert no. 22: Regular expression injection (#75)
+
 ## v0.10.1 - 2026-06-30
 
 ### Added
