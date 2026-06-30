@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- None yet.
+
+## v0.10.1 - 2026-06-30
+
+### Added
+- v0.10.0 — two-command CLI, unified renderer, technical debt cleanup
+- add maintain and doctor commands to CLI for roadmap management
+
+### Changed
+- add unreleased section to CHANGELOG.md
+
 ## v0.10.0 - 2026-06-29
 
 ### Breaking
