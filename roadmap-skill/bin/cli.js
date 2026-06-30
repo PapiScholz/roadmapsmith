@@ -14,7 +14,7 @@ const { parseRoadmap } = require('../src/parser');
 const { generateRoadmapDocument, scanProject } = require('../src/generator');
 const { validateTasks, buildValidationContext, auditValidation } = require('../src/validator');
 const { applySync } = require('../src/sync');
-const { buildSetupFiles, applySetupFiles, parseHosts, assertSupportedEditor } = require('../src/host');
+const { buildSetupFiles, applySetupFiles, parseHosts, assertSupportedEditor, inspectHostSetup } = require('../src/host');
 const { parseArgv } = require('../src/utils');
 
 function isEnabled(v) {
@@ -224,10 +224,110 @@ function runUpdate(projectRoot, config, flags) {
   }
 }
 
+// ─── runMaintain ──────────────────────────────────────────────────────────────
+
+function runMaintain(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const strict = isEnabled(flags.strict);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const plugins = loadPlugins(projectRoot, config.plugins || []);
+  const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
+  const { tasks } = parseRoadmap(existingContent);
+  const resultMap = validateTasks(tasks, context, config, plugins);
+  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true });
+
+  if (synced === existingContent) {
+    console.log(`No changes for ${roadmapFile}`);
+  } else if (dryRun) {
+    console.log(`Dry run: would update ${roadmapFile}`);
+  } else {
+    writeText(roadmapFile, synced, {});
+    console.log(`Updated ${roadmapFile}`);
+  }
+
+  const audit = auditValidation(tasks, resultMap, changes);
+  printAudit(audit);
+}
+
+// ─── runDoctor ────────────────────────────────────────────────────────────────
+
+function runDoctor(projectRoot, config, flags) {
+  const useJson = isEnabled(flags.json);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const agentsFile = path.resolve(projectRoot, flags['agents-file'] || 'AGENTS.md');
+  const status = inspectHostSetup(projectRoot, { roadmapFile, agentsFile });
+  if (useJson) {
+    console.log(JSON.stringify(status, null, 2));
+  } else {
+    console.log(`Project root: ${status.projectRoot}`);
+    console.log(`CLI ready: ${status.cli.ready}`);
+    console.log(`Bundle ready: ${status.bundle.ready}`);
+    Object.entries(status.surfaces).forEach(([key, surface]) => {
+      console.log(`  ${key}: ${surface.ready ? 'ready' : 'needs attention'} — ${surface.message}`);
+    });
+  }
+}
+
+// ─── runGenerate ──────────────────────────────────────────────────────────────
+
+function runGenerate(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const fullRegen = isEnabled(flags['full-regen']);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const plugins = loadPlugins(projectRoot, config.plugins || []);
+
+  try {
+    const newContent = generateRoadmapDocument({
+      projectRoot,
+      config,
+      plugins,
+      existingContent,
+      preserveManagedBlock: false,
+      forceFullRegenerate: fullRegen
+    });
+    if (dryRun) {
+      console.log(`Dry run: would write ${roadmapFile}`);
+      console.log(newContent);
+    } else {
+      writeText(roadmapFile, newContent, {});
+      console.log(`Generated ${roadmapFile}`);
+    }
+  } catch (err) {
+    process.stderr.write(err.message + '\n');
+    process.exitCode = 1;
+  }
+}
+
+// ─── runLegacySlashSync ───────────────────────────────────────────────────────
+
+function runLegacySlashSync(projectRoot, config, flags, args) {
+  process.stderr.write('WARNING: /roadmap-sync is deprecated. Use the roadmapsmith update command instead.\n');
+  const action = args[0] || 'validate';
+  const useJson = isEnabled(flags.json);
+  const strict = isEnabled(flags.strict);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const plugins = loadPlugins(projectRoot, config.plugins || []);
+
+  if (action === 'validate') {
+    const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
+    const { tasks } = parseRoadmap(existingContent);
+    const resultMap = validateTasks(tasks, context, config, plugins);
+    const results = tasks.map((task) => ({ id: task.id, text: task.text, checked: task.checked, ...(resultMap[task.id] || {}) }));
+    if (useJson) {
+      console.log(JSON.stringify(results, null, 2));
+    }
+  } else {
+    runUpdate(projectRoot, config, flags);
+  }
+}
+
 // ─── main ─────────────────────────────────────────────────────────────────────
 
 function main() {
-  const { flags, command: cmd } = parseArgv(process.argv.slice(2));
+  const { flags, command: cmd, args } = parseArgv(process.argv.slice(2));
 
   if (isEnabled(flags.help) || isEnabled(flags.h)) {
     console.log(HELP);
@@ -244,6 +344,14 @@ function main() {
     runInit(projectRoot, config, flags);
   } else if (cmd === 'update') {
     runUpdate(projectRoot, config, flags);
+  } else if (cmd === 'maintain' || cmd === '/roadmap-update') {
+    runMaintain(projectRoot, config, flags);
+  } else if (cmd === 'doctor') {
+    runDoctor(projectRoot, config, flags);
+  } else if (cmd === 'generate') {
+    runGenerate(projectRoot, config, flags);
+  } else if (cmd === '/roadmap-sync') {
+    runLegacySlashSync(projectRoot, config, flags, args);
   } else {
     console.error(`Unknown command: ${cmd || '(none)'}\n\n${HELP}`);
     process.exitCode = 1;
