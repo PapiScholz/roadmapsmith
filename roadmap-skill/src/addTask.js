@@ -1,7 +1,7 @@
 'use strict';
 
 const { parseRoadmap, upsertManagedBlock } = require('./parser');
-const { slugify } = require('./utils');
+const { slugify, escapeRegExp } = require('./utils');
 
 const PHASE_LABEL_RE = /\[(P[0-2])\]/i;
 
@@ -37,7 +37,8 @@ function addTask(text, content, options = {}) {
     blockLines = [];
   }
 
-  const phaseHeadingRe = new RegExp(`^###\\s+(?:Phase\\s+)?${phase}\\s*$`, 'i');
+  const safePhase = escapeRegExp(phase);
+  const phaseHeadingRe = new RegExp(`^###\\s+(?:Phase\\s+)?${safePhase}\\s*$`, 'i');
   const headingIdx = blockLines.findIndex((l) => phaseHeadingRe.test(l.trim()));
 
   if (headingIdx >= 0) {
