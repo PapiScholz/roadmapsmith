@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.10.3 - 2026-07-06
+
+### Added
+- add support for human-attested task bypass and declined task handling in validation
+
 ## v0.10.2 - 2026-06-30
 
 ### Changed
