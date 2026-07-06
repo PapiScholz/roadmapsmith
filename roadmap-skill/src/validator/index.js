@@ -1848,6 +1848,18 @@ function validateTask(task, context, config, plugins) {
     };
   }
 
+  // Human-attested bypass: `rs:evidence=manual` (delete/cleanup done = absence, or any manually-verified completion)
+  // or strikethrough `~~text~~` in body (N/A / declined scope). Trust the checked state; don't hunt for evidence.
+  if (task.declined || task.evidenceMode === 'manual') {
+    return {
+      taskId, passed: true, confidence: 'manual', reasons: [], diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+      attempted: false, preservedCheckedState: true, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null,
+      humanVerified: true
+    };
+  }
+
   const { paths: pathHints, externalPaths, lineReferenceHints } = extractExplicitPaths(task.text || '');
   const purePathHints = pathHints.filter((p) => !lineReferenceHints.has(p));
   const symbolHints = extractSymbolHints(task.text || '');

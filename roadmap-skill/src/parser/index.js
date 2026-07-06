@@ -152,6 +152,10 @@ function parseRoadmap(content) {
     const taskKind = kindMatch ? kindMatch[1].toLowerCase() : null;
     const verifiedByMatch = markerFlags.match(/\brs:verified-by=(\S+)/i);
     const taskVerifiedBy = verifiedByMatch ? verifiedByMatch[1].toLowerCase() : null;
+    const evidenceModeMatch = markerFlags.match(/\brs:evidence=(\S+)/i);
+    const evidenceMode = evidenceModeMatch ? evidenceModeMatch[1].toLowerCase() : null;
+    // ponytail: `~~text~~` in the task body signals a declined/N-A completion; no evidence to hunt for.
+    const declined = /~~[^~]+~~/.test(text);
     const taskIndentWidth = getIndentWidth(indent);
 
     let warningLineIndex = null;
@@ -251,6 +255,8 @@ function parseRoadmap(content) {
       planned: isPlanned,
       kind: taskKind,
       verifiedBy: taskVerifiedBy,
+      evidenceMode,
+      declined,
       indent,
       section
     });

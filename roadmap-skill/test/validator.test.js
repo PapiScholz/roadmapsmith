@@ -928,4 +928,57 @@ test('/api/* HTTP route paths do not produce missing-file failures', () => {
     );
   }
 });
+
+test('human-attested tasks bypass the evidence hunt (rs:evidence=manual, strikethrough N/A)', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  // Delete/cleanup task: path is referenced but must NOT exist. User attests with rs:evidence=manual.
+  const deleteTask = validateTask(
+    { id: 'delete-hogar', text: 'Eliminar directorios `src/app/hogar/blog` y `src/app/hogar/videos`', checked: true, evidenceMode: 'manual' },
+    context, config, []
+  );
+  assert.equal(deleteTask.passed, true, 'evidenceMode=manual must pass without hunting for files');
+  assert.equal(deleteTask.humanVerified, true);
+  assert.equal(deleteTask.confidence, 'manual');
+  assert.deepEqual(deleteTask.reasons, []);
+
+  // Declined / N/A task: strikethrough in body sets declined:true on the parsed task.
+  const declinedTask = validateTask(
+    { id: 'sql-migration', text: '~~Migracion SQL aditiva~~ **N/A** — flujo email-only', checked: true, declined: true },
+    context, config, []
+  );
+  assert.equal(declinedTask.passed, true, 'declined tasks must pass');
+  assert.equal(declinedTask.humanVerified, true);
+
+  // Control: same delete text without attestation still fails (baseline regression guard).
+  const unattested = validateTask(
+    { id: 'delete-baseline', text: 'Eliminar directorios `src/app/hogar/blog` y `src/app/hogar/videos`', checked: true },
+    context, config, []
+  );
+  assert.equal(unattested.passed, false, 'without attestation, missing-file check still fires');
+});
+
+test('parseRoadmap surfaces declined and evidenceMode flags end-to-end', () => {
+  const { parseRoadmap: parse } = require('../src/parser');
+  const content = [
+    '<!-- rs:managed:start -->',
+    '- [x] Eliminar `src/app/hogar/blog` <!-- rs:task=delete-hogar rs:evidence=manual -->',
+    '- [x] ~~Feature X~~ **N/A** — descartado <!-- rs:task=declined-x -->',
+    '- [x] Normal task <!-- rs:task=normal-1 -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+
+  const tasks = parse(content).tasks;
+  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
+
+  assert.equal(byId['delete-hogar'].evidenceMode, 'manual');
+  assert.equal(byId['delete-hogar'].declined, false);
+  assert.equal(byId['declined-x'].declined, true);
+  assert.equal(byId['declined-x'].evidenceMode, null);
+  assert.equal(byId['normal-1'].declined, false);
+  assert.equal(byId['normal-1'].evidenceMode, null);
+});
 
