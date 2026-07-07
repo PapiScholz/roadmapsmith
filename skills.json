@@ -26,13 +26,13 @@
       "name": "roadmap-init",
       "path": "skills/roadmap-init",
       "description": "Initialize ROADMAP.md, AGENTS.md, and host integration files for a project.",
-      "version": "0.11.0"
+      "version": "0.11.1"
     },
     {
       "name": "roadmap-update",
       "path": "skills/roadmap-update",
       "description": "Refresh ROADMAP.md with evidence-backed validation, add tasks, or record evidence.",
-      "version": "0.11.0"
+      "version": "0.11.1"
     }
   ]
 }
