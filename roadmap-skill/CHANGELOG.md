@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- None yet.
+
+## v0.11.1 - 2026-07-07
+
+### Changed
+- (release) sync bundle metadata to v0.11.0
+
 ## v0.11.0 - 2026-07-07
 
 ### Added
