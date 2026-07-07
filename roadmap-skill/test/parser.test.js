@@ -127,3 +127,34 @@ test('upsertManagedBlock preserves unmanaged content', () => {
   assert.match(next, /new-content/);
   assert.match(next, /tail/);
 });
+
+test('parseRoadmap emits parseWarnings entry when the same explicit task ID appears twice', () => {
+  const content = [
+    '## Plan',
+    '- [ ] First occurrence <!-- rs:task=shared-id -->',
+    '## Archive',
+    '- [x] Second occurrence <!-- rs:task=shared-id -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.ok(Array.isArray(parsed.parseWarnings));
+  assert.equal(parsed.parseWarnings.length, 1);
+  assert.deepEqual(parsed.parseWarnings[0], {
+    type: 'duplicate-explicit-id',
+    id: 'shared-id',
+    lineIndex: 3,
+    firstLineIndex: 1
+  });
+});
+
+test('parseRoadmap does not emit parseWarnings when explicit IDs are unique', () => {
+  const content = [
+    '- [ ] First <!-- rs:task=one -->',
+    '- [ ] Second <!-- rs:task=two -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  assert.deepEqual(parsed.parseWarnings, []);
+});

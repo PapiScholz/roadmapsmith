@@ -131,6 +131,8 @@ function parseRoadmap(content) {
   const managedRange = findManagedRange(lines);
   const tasks = [];
   const implicitIdCounts = new Map();
+  const explicitIdFirstLine = new Map();
+  const parseWarnings = [];
   let section = '';
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -235,6 +237,19 @@ function parseRoadmap(content) {
     if (!markerId) {
       implicitIdCounts.set(baseId, nextImplicitCount);
     }
+    if (markerId) {
+      const firstLineIndex = explicitIdFirstLine.get(markerId);
+      if (firstLineIndex != null) {
+        parseWarnings.push({
+          type: 'duplicate-explicit-id',
+          id: markerId,
+          lineIndex: index,
+          firstLineIndex
+        });
+      } else {
+        explicitIdFirstLine.set(markerId, index);
+      }
+    }
     const id = markerId || (nextImplicitCount === 1 ? baseId : `${baseId}-${nextImplicitCount}`);
     tasks.push({
       id,
@@ -266,7 +281,8 @@ function parseRoadmap(content) {
     lines,
     managedRange,
     hasManagedBlock: Boolean(managedRange),
-    tasks
+    tasks,
+    parseWarnings
   };
 }
 

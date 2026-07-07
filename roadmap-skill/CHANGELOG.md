@@ -2,7 +2,20 @@
 
 ## Unreleased
 
-- None yet.
+## v0.11.0 - 2026-07-07
+
+### Added
+- `sync` now appends a `- ✅ evidence: <text>` sub-bullet whenever it auto-checks a previously unchecked task (`[ ] → [x]`). Text is `discoveredEvidence` when present, otherwise `symbols: ...` or `test imports: ...`. Fixes the silent auto-check that let unbacked tasks flip to done without any visible trail. Suppressed when the task already carries an `Evidence:` line or when the existing `Test evidence:` / `Evidence:` insertion path already fires.
+- `applySync` return value now exposes `changes.evidenceMarkersAdded: string[]` — the task IDs that received the new sub-bullet in this run.
+- `parseRoadmap` now returns `parseWarnings: Array<{ type, id, lineIndex, firstLineIndex }>`. Emits `duplicate-explicit-id` entries when the same `<!-- rs:task=id -->` marker appears twice. `roadmapsmith update` prints them as warnings (non-JSON output).
+- Deletion-task semantics in the validator: a task whose text contains `eliminado|eliminada|borrado|borrada|deleted|removed|dropped` AND names an explicit path passes when that file is absent, fails with `expected file removed, still present at <path>` when it still exists. Result carries `deletionTask: true`.
+- `pathAliases` field in `roadmap-skill.config.json` (default `{}`). Object mapping prefix → replacement (e.g. `{ "/dashboard/": "apps/web/src/app/dashboard/" }`) applied by `buildPathHintResolver` after direct/endsWith resolution misses. Unblocks monorepos whose task text keeps the source-tree-relative prefix.
+- `roadmapsmith update --evidence-only`: adds ⚠️ / ✅ sub-bullets and audit output as usual but does NOT flip any `[ ]`/`[x]` checkbox. `changes.newlyChecked` and `changes.newlyUnchecked` stay empty. Intended as a safe review pass before running the mutating default.
+- Cause taxonomy on failing validation results: `result.cause` is one of `'deletion-task' | 'namespace-gate' | 'path-mismatch' | 'strict-mode' | 'no-evidence'`. Assigned by a post-pass in `validateTasks`. `printAudit` groups `Checked without evidence` by cause (`by cause: path-mismatch=3, no-evidence=1, …`) and prefixes each item line with `[<cause>]`.
+- Actionable hint suffixes appended to five reason strings in the validator: `missing referenced file(s): … → if this is a monorepo, add pathAliases in roadmap-skill.config.json` (three call sites), `file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only`, and `no implementation evidence found in pass 1 … → add explicit evidence: 'roadmapsmith update --task <id> --evidence <path>'`. Existing consumers that used `.includes('missing referenced file')` or `.startsWith('file reference shows implementation location')` still match.
+
+### Changed
+- `skills/roadmap-update/SKILL.md` (and its plugin mirror) reordered to lead with `--audit --dry-run` preview as Step 1, and adds a `## Safety` block naming both mutation directions plus a `## Known limitations` block and a pre-flight checklist for monorepo, duplicate-ID, and deletion-task footguns. Limitations block updated to reflect that deletion tasks, duplicate IDs, and `pathAliases` are now handled.
 
 ## v0.10.3 - 2026-07-06
 

@@ -483,6 +483,88 @@ test('applySync replaces a stale low-specificity warning with a more specific ne
   assert.match(next, /missing referenced file\(s\): src\/backup\.ts/);
 });
 
+test('sync appends success evidence sub-bullet when auto-checking a previously unchecked task', () => {
+  const content = '## Phase 1\n- [ ] implement widget module <!-- rs:task=widget -->\n';
+  const parsed = parseRoadmap(content);
+  const results = {
+    widget: {
+      passed: true,
+      confidence: 'medium',
+      reasons: [],
+      discoveredEvidence: 'src/widget.js',
+      evidence: { symbols: [], testFiles: [], codeFiles: ['src/widget.js'], files: ['src/widget.js'] }
+    }
+  };
+
+  const { content: next, changes } = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[x\] implement widget module/);
+  assert.match(next, /- ✅ evidence: src\/widget\.js/);
+  assert.deepEqual(changes.evidenceMarkersAdded, ['widget']);
+});
+
+test('sync does not append success evidence sub-bullet for a re-validated already-checked task', () => {
+  const content = '## Phase 1\n- [x] implement widget module <!-- rs:task=widget -->\n';
+  const parsed = parseRoadmap(content);
+  const results = {
+    widget: {
+      passed: true,
+      confidence: 'medium',
+      reasons: [],
+      discoveredEvidence: 'src/widget.js',
+      evidence: { symbols: [] }
+    }
+  };
+
+  const { content: next, changes } = applySync(content, parsed.tasks, results);
+
+  assert.doesNotMatch(next, /- ✅ evidence:/);
+  assert.equal(changes.evidenceMarkersAdded, undefined);
+});
+
+test('sync skips success evidence sub-bullet when the auto-checked task already carries an Evidence line', () => {
+  const content = [
+    '## Phase 1',
+    '- [ ] implement widget module <!-- rs:task=widget -->',
+    '  - Evidence: src/widget.js manually verified',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const results = {
+    widget: {
+      passed: true,
+      confidence: 'medium',
+      reasons: [],
+      discoveredEvidence: 'src/widget.js',
+      evidence: { symbols: [] }
+    }
+  };
+
+  const { content: next } = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[x\] implement widget module/);
+  assert.doesNotMatch(next, /- ✅ evidence:/);
+});
+
+test('sync uses symbol fallback for the success evidence sub-bullet when discoveredEvidence is absent', () => {
+  const content = '## Phase 1\n- [ ] Add PaymentGateway helper <!-- rs:task=pay-gateway -->\n';
+  const parsed = parseRoadmap(content);
+  const results = {
+    'pay-gateway': {
+      passed: true,
+      confidence: 'medium',
+      reasons: [],
+      discoveredEvidence: null,
+      evidence: { symbols: ['PaymentGateway'], testFiles: [], codeFiles: [], files: [] }
+    }
+  };
+
+  const { content: next } = applySync(content, parsed.tasks, results);
+
+  assert.match(next, /- \[x\] Add PaymentGateway helper/);
+  assert.match(next, /- ✅ evidence: symbols: PaymentGateway/);
+});
+
 test('sync removes stale shared verification recipes after duplicate suppression', () => {
   const projectRoot = setupFixture('generic');
   fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
@@ -508,4 +590,26 @@ test('sync removes stale shared verification recipes after duplicate suppression
   const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.doesNotMatch(next, /Verification recipe:/);
+});
+
+test('applySync with evidenceOnly leaves checkboxes unchanged and still adds ✅ evidence sub-bullet', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P0',
+    '- [ ] App module <!-- rs:task=implement-app-module -->',
+    '  - Verify: kind=contains; file=src/app.js; expected=appModule',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const { content: next, changes } = applySync(content, parsed.tasks, results, { evidenceOnly: true });
+
+  assert.match(next, /- \[ \] App module/, 'checkbox must remain unchecked in evidence-only mode');
+  assert.doesNotMatch(next, /- \[x\] App module/, 'checkbox must NOT be flipped to [x]');
+  assert.match(next, /- ✅ evidence:/, 'evidence sub-bullet must still be inserted');
+  assert.deepEqual(changes.newlyChecked, [], 'no newlyChecked recorded in evidence-only mode');
+  assert.deepEqual(changes.newlyUnchecked, [], 'no newlyUnchecked recorded in evidence-only mode');
 });

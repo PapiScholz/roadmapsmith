@@ -11,6 +11,7 @@ const DEFAULT_CONFIG = {
   validators: [],
   customSections: [],
   plugins: [],
+  pathAliases: {},
   product: {
     name: '',
     northStar: '',
@@ -75,6 +76,9 @@ function mergeConfig(userConfig) {
     validators: Array.isArray(userConfig.validators) ? userConfig.validators : DEFAULT_CONFIG.validators,
     customSections: Array.isArray(userConfig.customSections) ? userConfig.customSections : DEFAULT_CONFIG.customSections,
     plugins: Array.isArray(userConfig.plugins) ? userConfig.plugins : DEFAULT_CONFIG.plugins,
+    pathAliases: (userConfig && typeof userConfig.pathAliases === 'object' && !Array.isArray(userConfig.pathAliases) && userConfig.pathAliases !== null)
+      ? userConfig.pathAliases
+      : DEFAULT_CONFIG.pathAliases,
     milestones: Array.isArray(userConfig.milestones) ? userConfig.milestones : DEFAULT_CONFIG.milestones,
     phaseTemplates: {
       ...DEFAULT_CONFIG.phaseTemplates,

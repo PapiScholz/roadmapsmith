@@ -21,6 +21,27 @@ function formatWarning(indent, reason, attempted) {
   return `${indent}  - ⚠️ ${prefix} ${reason}`;
 }
 
+function formatSuccessEvidence(indent, text) {
+  return `${indent}  - ✅ evidence: ${text}`;
+}
+
+function pickAutoCheckEvidenceText(result) {
+  if (!result) return null;
+  if (typeof result.discoveredEvidence === 'string' && result.discoveredEvidence.trim()) {
+    return result.discoveredEvidence.trim();
+  }
+  const evidence = result.evidence || {};
+  const symbols = Array.isArray(evidence.symbols) ? evidence.symbols.filter(Boolean) : [];
+  if (symbols.length > 0) {
+    return `symbols: ${symbols.slice(0, 3).join(', ')}`;
+  }
+  const testFiles = Array.isArray(evidence.testFiles) ? evidence.testFiles.filter(Boolean) : [];
+  if (testFiles.length > 0) {
+    return `test imports: ${testFiles.slice(0, 3).join(', ')}`;
+  }
+  return null;
+}
+
 function isWhitespaceCharacter(char) {
   return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f' || char === '\v';
 }
@@ -159,11 +180,14 @@ function applySync(content, parsedTasks, results, options) {
     }
 
     const wasChecked = task.checked;
-    lines[lineIndex] = setChecklistState(lines[lineIndex], result.passed);
-    if (wasChecked && !result.passed) {
-      changes.newlyUnchecked.push(task.id);
-    } else if (!wasChecked && result.passed) {
-      changes.newlyChecked.push(task.id);
+    const evidenceOnly = !!(options && options.evidenceOnly);
+    if (!evidenceOnly) {
+      lines[lineIndex] = setChecklistState(lines[lineIndex], result.passed);
+      if (wasChecked && !result.passed) {
+        changes.newlyUnchecked.push(task.id);
+      } else if (!wasChecked && result.passed) {
+        changes.newlyChecked.push(task.id);
+      }
     }
 
     const reason = normalizeWarningReasons(result.reasons).join('; ');
@@ -201,6 +225,24 @@ function applySync(content, parsedTasks, results, options) {
         );
         lines.splice(insertionIndex, 0, `${task.indent || ''}  - Evidence: ${result.discoveredEvidence}`);
         offset += 1;
+      }
+      if (!wasChecked) {
+        const hasExistingEvidence = Array.isArray(task.evidenceLines) && task.evidenceLines.length > 0;
+        const alreadyInsertedTestEvidence = result.generatedTestEvidence
+          && (!Array.isArray(task.testEvidenceLines) || task.testEvidenceLines.length === 0);
+        const alreadyInsertedStaleEvidence = result.staleEvidenceResolved
+          && (!Array.isArray(task.evidenceLines) || task.evidenceLines.length === 0)
+          && result.discoveredEvidence;
+        if (!hasExistingEvidence && !alreadyInsertedTestEvidence && !alreadyInsertedStaleEvidence) {
+          const evidenceText = pickAutoCheckEvidenceText(result);
+          if (evidenceText) {
+            const insertionIndex = Math.max(lineIndex + 1, (task.lastChildLineIndex + offset) + 1);
+            lines.splice(insertionIndex, 0, formatSuccessEvidence(task.indent || '', evidenceText));
+            offset += 1;
+            changes.evidenceMarkersAdded = changes.evidenceMarkersAdded || [];
+            changes.evidenceMarkersAdded.push(task.id);
+          }
+        }
       }
     } else if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
       const existingReason = normalizeWarningReason(lines[warningIndex]);

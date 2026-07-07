@@ -62,6 +62,10 @@ const GENERIC_TASK_TOKENS = new Set([
 // it — either an Evidence line or high-confidence evidence (code + test) is required.
 const SELF_REFERENTIAL_FILES = new Set(['ROADMAP.md']);
 
+// Deletion-task keywords: when task text matches AND names an explicit path,
+// semantics invert — passing means the file is absent, failing means it still exists.
+const DELETION_KEYWORD_RE = /\b(eliminado|eliminada|borrado|borrada|deleted|removed|dropped)\b/i;
+
 // Maps task-ID namespace prefix to a predicate on (normalized) file paths.
 // When a task ID has a known namespace, at least one evidence file must satisfy
 // the predicate — otherwise generic token overlap alone cannot pass the task.
@@ -642,7 +646,7 @@ function deriveNextAppRouteAlias(relativePath) {
   return visibleSegments.length > 0 ? `/${visibleSegments.join('/')}` : '/';
 }
 
-function buildPathHintResolver(fileIndex) {
+function buildPathHintResolver(fileIndex, pathAliases) {
   const routeAliasIndex = new Map();
   for (const file of fileIndex) {
     const alias = deriveNextAppRouteAlias(file.relativePath);
@@ -658,9 +662,14 @@ function buildPathHintResolver(fileIndex) {
     routeAliasIndex.set(alias, Array.from(new Set(matches)).sort((left, right) => left.localeCompare(right)));
   }
 
+  const aliasEntries = (pathAliases && typeof pathAliases === 'object' && !Array.isArray(pathAliases))
+    ? Object.entries(pathAliases).filter(([from, to]) => typeof from === 'string' && typeof to === 'string' && from.length > 0)
+    : [];
+
   return {
     fileIndex,
-    routeAliasIndex
+    routeAliasIndex,
+    pathAliases: aliasEntries
   };
 }
 
@@ -669,6 +678,7 @@ function findFilesByPathHints(pathHints, pathHintResolver) {
     ? buildPathHintResolver(pathHintResolver)
     : pathHintResolver;
   const fileIndex = resolver.fileIndex;
+  const aliasEntries = Array.isArray(resolver.pathAliases) ? resolver.pathAliases : [];
   const matches = [];
   for (const hint of pathHints) {
     const normalizedHint = normalizePathCandidateToken(hint);
@@ -678,15 +688,43 @@ function findFilesByPathHints(pathHints, pathHintResolver) {
       continue;
     }
 
+    let matchedInHint = false;
     for (const file of fileIndex) {
       if (file.relativePath.endsWith(normalizedHint)) {
         matches.push(file.relativePath);
+        matchedInHint = true;
       }
     }
 
     const routeMatches = resolver.routeAliasIndex.get(normalizedHint);
     if (routeMatches && routeMatches.length > 0) {
       matches.push(...routeMatches);
+      matchedInHint = true;
+    }
+
+    if (!matchedInHint && aliasEntries.length > 0) {
+      for (const [from, to] of aliasEntries) {
+        const candidates = new Set();
+        if (hint.startsWith(from)) {
+          candidates.add(to + hint.slice(from.length));
+        }
+        if (normalizedHint.startsWith(from)) {
+          candidates.add(to + normalizedHint.slice(from.length));
+        }
+        for (const candidate of candidates) {
+          const aliased = normalizePathCandidateToken(candidate);
+          const aliasDirect = fileIndex.find((file) => file.relativePath === aliased);
+          if (aliasDirect) {
+            matches.push(aliasDirect.relativePath);
+            continue;
+          }
+          for (const file of fileIndex) {
+            if (file.relativePath.endsWith(aliased) || file.relativePath.startsWith(aliased)) {
+              matches.push(file.relativePath);
+            }
+          }
+        }
+      }
     }
   }
   return Array.from(new Set(matches)).sort((left, right) => left.localeCompare(right));
@@ -1682,7 +1720,7 @@ function evaluateDeterministicVerification(task, context) {
     if (kind === 'contains' || kind === 'property') {
       const file = findIndexedFile(fields.file, context);
       if (!file) {
-        reasons.push(`missing referenced file(s): ${fields.file || '<unspecified>'}`);
+        reasons.push(`missing referenced file(s): ${fields.file || '<unspecified>'} → if this is a monorepo, add pathAliases in roadmap-skill.config.json`);
         continue;
       }
       const content = stripCodeComments(file.content);
@@ -1756,7 +1794,7 @@ function buildValidationContext(projectRoot, config, plugins, options = {}) {
   const files = walkFiles(projectRoot, { extraIgnoredDirs: userExcludeDirs });
   const fileIndex = readFileIndex(projectRoot, files, config);
   const testFrameworks = detectTestFrameworks(projectRoot, files);
-  const pathHintResolver = buildPathHintResolver(fileIndex);
+  const pathHintResolver = buildPathHintResolver(fileIndex, config && config.pathAliases);
 
   return {
     projectRoot,
@@ -1865,6 +1903,33 @@ function validateTask(task, context, config, plugins) {
   const symbolHints = extractSymbolHints(task.text || '');
   const reasons = [];
 
+  // Deletion task pass: text says "removed"/"deleted"/"eliminado"/"borrado" AND names an explicit path.
+  // Semantics inverted: pass if the file is ABSENT, fail if still present.
+  if (DELETION_KEYWORD_RE.test(task.text || '') && purePathHints.length > 0) {
+    const stillPresent = findFilesByPathHints(purePathHints, pathHintResolver);
+    if (stillPresent.length === 0) {
+      return {
+        taskId, passed: true, confidence: 'medium', reasons: [], diagnostics: [],
+        evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+        attempted: true, preservedCheckedState: false, requiresTest: false,
+        staleEvidenceDetected: false, staleEvidenceResolved: false,
+        discoveredEvidence: `verified absent: ${purePathHints.join(', ')}`,
+        verificationRecipe: null, generatedTestEvidence: null,
+        deletionTask: true
+      };
+    }
+    return {
+      taskId, passed: false, confidence: 'low',
+      reasons: [`expected file removed, still present at ${stillPresent.join(', ')}`],
+      diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: stillPresent, codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+      attempted: true, preservedCheckedState: false, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null,
+      verificationRecipe: null, generatedTestEvidence: null,
+      deletionTask: true
+    };
+  }
+
   // Evidence lines: explicit user declarations (- Evidence: file.ts under the task)
   const evidenceLines = task.evidenceLines || [];
   let evidenceLinePass = false;
@@ -1875,7 +1940,7 @@ function validateTask(task, context, config, plugins) {
       if (eFound.length > 0) {
         evidenceLinePass = true;
       } else if (eText.includes('/') || /\.\w+$/.test(eText)) {
-        reasons.push('missing referenced file(s): ' + eText);
+        reasons.push('missing referenced file(s): ' + eText + ' → if this is a monorepo, add pathAliases in roadmap-skill.config.json');
       }
     }
   }
@@ -1889,7 +1954,7 @@ function validateTask(task, context, config, plugins) {
   if (pathHints.length > 0 && allResolvedPaths.length === 0) {
     const internalHints = pathHints.filter((h) => !(externalPaths || []).includes(h));
     if (internalHints.length > 0) {
-      reasons.push('missing referenced file(s): ' + internalHints.join(', '));
+      reasons.push('missing referenced file(s): ' + internalHints.join(', ') + ' → if this is a monorepo, add pathAliases in roadmap-skill.config.json');
     }
   }
 
@@ -1899,7 +1964,7 @@ function validateTask(task, context, config, plugins) {
     if (task.checked) {
       preservedCheckedState = true;
     } else {
-      reasons.push('file reference shows implementation location, not confirmed completion');
+      reasons.push('file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only');
     }
   }
 
@@ -1958,7 +2023,7 @@ function validateTask(task, context, config, plugins) {
   }
 
   if (!passed && reasons.length === 0) {
-    reasons.push('no implementation evidence found in pass 1 (explicit paths), pass 2 (symbols), or pass 3 (test imports)');
+    reasons.push("no implementation evidence found in pass 1 (explicit paths), pass 2 (symbols), or pass 3 (test imports) → add explicit evidence: 'roadmapsmith update --task <id> --evidence <path>'");
   }
 
   const passCount = [evidenceLinePass || preservedCheckedState, pass2, pass3].filter(Boolean).length;
@@ -1985,13 +2050,13 @@ function validateTasks(tasks, context, config, plugins) {
   config = config || {};
   if (Array.isArray(context)) {
     const fileIndex = context;
-    const pathHintResolver = buildPathHintResolver(fileIndex);
+    const pathHintResolver = buildPathHintResolver(fileIndex, config && config.pathAliases);
     context = { fileIndex, pathHintResolver, config };
   } else if (!context || !context.fileIndex) {
     const projectRoot = typeof context === 'string' ? context : '.';
     const files = walkFiles(projectRoot);
     const fileIndex = readFileIndex(projectRoot, files, config);
-    const pathHintResolver = buildPathHintResolver(fileIndex);
+    const pathHintResolver = buildPathHintResolver(fileIndex, config && config.pathAliases);
     context = { fileIndex, pathHintResolver, config };
   }
 
@@ -2019,7 +2084,35 @@ function validateTasks(tasks, context, config, plugins) {
     }
   }
 
+  const strictValidation = !!(context && context.strictValidation);
+  for (const task of tasks) {
+    if (!task || !task.id) continue;
+    assignCauseForResult(task, results[task.id], { strictValidation });
+  }
+
   return results;
+}
+
+function assignCauseForResult(task, result, options) {
+  if (!result || result.passed) return;
+  const reasons = Array.isArray(result.reasons) ? result.reasons : [];
+  if (result.deletionTask) {
+    result.cause = 'deletion-task';
+    return;
+  }
+  if (result.evidence && result.evidence.structuralEvidence === false) {
+    result.cause = 'namespace-gate';
+    return;
+  }
+  if (reasons.some((r) => /missing referenced file/.test(String(r)))) {
+    result.cause = 'path-mismatch';
+    return;
+  }
+  if (options && options.strictValidation === true && task && task.checked) {
+    result.cause = 'strict-mode';
+    return;
+  }
+  result.cause = 'no-evidence';
 }
 
 function auditValidation(tasks, results, changes) {

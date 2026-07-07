@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { DEFAULT_CONFIG, resolveRoadmapFile } = require('../src/config');
+const os = require('os');
+const { DEFAULT_CONFIG, loadConfig, resolveRoadmapFile } = require('../src/config');
 
 function withMockedReaddir(entries, callback) {
   const original = fs.readdirSync;
@@ -47,4 +48,19 @@ test('resolveRoadmapFile defaults to canonical ROADMAP.md when neither entry exi
   });
 
   assert.equal(resolved, path.resolve(projectRoot, './ROADMAP.md'));
+});
+
+test('DEFAULT_CONFIG.pathAliases is an empty object', () => {
+  assert.deepEqual(DEFAULT_CONFIG.pathAliases, {});
+});
+
+test('loadConfig preserves user-defined pathAliases object', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-config-'));
+  const aliases = {
+    '/dashboard/': 'apps/web/src/app/dashboard/',
+    'dashboard/': 'apps/web/src/app/dashboard/'
+  };
+  fs.writeFileSync(path.join(dir, 'roadmap-skill.config.json'), JSON.stringify({ pathAliases: aliases }));
+  const loaded = loadConfig({ projectRoot: dir });
+  assert.deepEqual(loaded.pathAliases, aliases);
 });

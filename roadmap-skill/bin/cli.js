@@ -49,6 +49,7 @@ update flags:
   --task <id>                   Task ID to target (use with --evidence)
   --evidence <text>             Evidence to add to --task
   --audit                       Show validation audit after refresh
+  --evidence-only               Add ⚠️/✅ sub-bullets, do NOT flip [ ]/[x] checkboxes
   --check-drift                 Check alignment of northStar vs repo state
   --strict                      Use strict validation mode
   --dry-run                     Preview without writing
@@ -120,9 +121,17 @@ function runInit(projectRoot, config, flags) {
 function printAudit(audit) {
   console.log(`Audit summary: ${audit.checkedWithoutEvidence.length} checked-without-evidence, ${audit.readyButUnchecked.length} ready-but-unchecked.`);
   if (audit.checkedWithoutEvidence.length > 0) {
+    const byCause = {};
+    for (const item of audit.checkedWithoutEvidence) {
+      const c = (item.result && item.result.cause) || 'no-evidence';
+      byCause[c] = (byCause[c] || 0) + 1;
+    }
+    const grouped = Object.entries(byCause).map(([k, v]) => `${k}=${v}`).join(', ');
+    if (grouped) console.log(`  by cause: ${grouped}`);
     console.log('Checked without evidence:');
     audit.checkedWithoutEvidence.forEach((item) => {
-      console.log(`- [${item.task.id}] ${item.task.text}`);
+      const cause = item.result && item.result.cause ? `[${item.result.cause}] ` : '';
+      console.log(`- ${cause}[${item.task.id}] ${item.task.text}`);
     });
   }
   if (audit.readyButUnchecked.length > 0) {
@@ -204,12 +213,21 @@ function runUpdate(projectRoot, config, flags) {
   const plugins = loadPlugins(projectRoot, config.plugins || []);
   const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
 
-  const { tasks } = parseRoadmap(existingContent);
+  const parsed = parseRoadmap(existingContent);
+  const { tasks } = parsed;
+  if (Array.isArray(parsed.parseWarnings) && parsed.parseWarnings.length > 0 && !useJson) {
+    for (const w of parsed.parseWarnings) {
+      if (w.type === 'duplicate-explicit-id') {
+        console.warn(`⚠️  Duplicate explicit task id "${w.id}" at line ${w.lineIndex + 1} (first seen at line ${w.firstLineIndex + 1}). Sync treats them as independent — merge or rename one.`);
+      }
+    }
+  }
   const resultMap = validateTasks(tasks, context, config, plugins);
-  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true });
+  const evidenceOnly = isEnabled(flags['evidence-only']);
+  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true, evidenceOnly });
 
   writeText(roadmapFile, synced, { dryRun });
-  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}`);
+  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (evidence-only: no checkboxes flipped)' : ''}`);
 
   if (isEnabled(flags.audit)) {
     const audit = auditValidation(tasks, resultMap, changes);

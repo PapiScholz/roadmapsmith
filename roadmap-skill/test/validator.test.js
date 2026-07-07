@@ -100,7 +100,7 @@ test('Next.js app-dir route-group aliases resolve /login and /setup without miss
 
   assert.ok(!result.reasons.some((reason) => reason.includes('missing referenced file')), `unexpected missing path reason: ${result.reasons.join('; ')}`);
   assert.ok(!result.reasons.includes('missing test evidence'), `unexpected missing test evidence: ${result.reasons.join('; ')}`);
-  assert.ok(result.reasons.includes('file reference shows implementation location, not confirmed completion'));
+  assert.ok(result.reasons.some((r) => r.startsWith('file reference shows implementation location, not confirmed completion')));
 });
 
 test('Next.js nested static routes resolve to app-dir route files', () => {
@@ -960,6 +960,48 @@ test('human-attested tasks bypass the evidence hunt (rs:evidence=manual, striket
   assert.equal(unattested.passed, false, 'without attestation, missing-file check still fires');
 });
 
+test('deletion keyword: task passes when the named file is absent from the file index', () => {
+  const fileIndex = [{ relativePath: 'src/keeper.js', content: '', ext: '.js', isTestFile: false }];
+  const result = validateTask(
+    { id: 'delete-old', text: 'Legacy shim removed at `src/legacy/shim.js`', checked: true },
+    fileIndex,
+    {},
+    []
+  );
+  assert.equal(result.passed, true);
+  assert.equal(result.deletionTask, true);
+  assert.match(result.discoveredEvidence || '', /verified absent/);
+});
+
+test('deletion keyword: task fails when the named file is still present', () => {
+  const fileIndex = [{ relativePath: 'src/legacy/shim.js', content: '', ext: '.js', isTestFile: false }];
+  const result = validateTask(
+    { id: 'delete-old', text: 'Legacy shim eliminado en `src/legacy/shim.js`', checked: true },
+    fileIndex,
+    {},
+    []
+  );
+  assert.equal(result.passed, false);
+  assert.equal(result.deletionTask, true);
+  assert.ok(result.reasons.some((r) => /still present/.test(r)), 'reason names the surviving file');
+});
+
+test('pathAliases: monorepo prefix in task text resolves to real file under aliased subdirectory', () => {
+  const fileIndex = [
+    { relativePath: 'apps/web/src/app/dashboard/familias/page.tsx', content: '', ext: '.tsx', isTestFile: false }
+  ];
+  const config = { pathAliases: { '/dashboard/': 'apps/web/src/app/dashboard/' } };
+  const results = validateTasks(
+    [{ id: 'dash', text: 'Ship familias route in `/dashboard/familias/page.tsx`', checked: true }],
+    fileIndex,
+    config,
+    []
+  );
+  const result = results.dash;
+  assert.equal(result.passed, true);
+  assert.equal(result.preservedCheckedState, true);
+});
+
 test('parseRoadmap surfaces declined and evidenceMode flags end-to-end', () => {
   const { parseRoadmap: parse } = require('../src/parser');
   const content = [
@@ -980,5 +1022,48 @@ test('parseRoadmap surfaces declined and evidenceMode flags end-to-end', () => {
   assert.equal(byId['declined-x'].evidenceMode, null);
   assert.equal(byId['normal-1'].declined, false);
   assert.equal(byId['normal-1'].evidenceMode, null);
+});
+
+test('validateTasks assigns cause taxonomy on failing results', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P0',
+    '- [ ] task pointing at missing file `src/does/not/exist.ts` <!-- rs:task=path-miss -->',
+    '- [ ] `src/nowhere/gone.ts` deleted from repo <!-- rs:task=deletion-fail -->',
+    '- [ ] some very vague task with no signals whatsoever <!-- rs:task=no-evidence -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+
+  assert.equal(results['path-miss'].cause, 'path-mismatch', 'missing file → path-mismatch');
+  assert.equal(results['no-evidence'].cause, 'no-evidence', 'no signals → no-evidence');
+});
+
+test('validation reasons include actionable hints (pathAliases + evidence + evidence-only)', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P0',
+    '- [ ] Missing file `src/does/not/exist.ts` <!-- rs:task=hint-a -->',
+    '- [ ] Vague future work <!-- rs:task=hint-b -->',
+    ''
+  ].join('\n');
+
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+
+  assert.match(
+    results['hint-a'].reasons.join(' | '),
+    /if this is a monorepo, add pathAliases in roadmap-skill\.config\.json/
+  );
+  assert.match(
+    results['hint-b'].reasons.join(' | '),
+    /roadmapsmith update --task <id> --evidence <path>/
+  );
 });
 
