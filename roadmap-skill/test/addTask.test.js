@@ -33,6 +33,33 @@ test('inserts task under correct phase in existing managed block', () => {
   assert.ok(newTaskIdx > phaseIdx, 'new task must appear after phase heading');
 });
 
+test('inserts under titled phase header instead of creating a duplicate', () => {
+  const content = [
+    MANAGED_START,
+    '# RoadmapSmith Additions',
+    '',
+    '### Phase P0 — Migration to X',
+    '- [x] existing task <!-- rs:task=existing-p0 -->',
+    '',
+    '### Phase P1 — Later work',
+    '- [ ] p1 task <!-- rs:task=existing-p1 -->',
+    MANAGED_END
+  ].join('\n');
+
+  const result = addTask('[P0] some new task', content);
+  const p0HeaderCount = (result.match(/^### Phase P0\b/gm) || []).length;
+  assert.equal(p0HeaderCount, 1, 'must not create a duplicate P0 header');
+
+  const lines = result.split('\n');
+  const titledIdx = lines.findIndex((l) => l.startsWith('### Phase P0 — Migration to X'));
+  const newTaskIdx = lines.findIndex((l) => l.includes('some new task'));
+  const nextPhaseIdx = lines.findIndex((l, i) => i > titledIdx && /^### Phase /.test(l));
+
+  assert.ok(titledIdx >= 0, 'titled P0 header must be preserved');
+  assert.ok(newTaskIdx > titledIdx, 'new task must appear after the titled header');
+  assert.ok(newTaskIdx < nextPhaseIdx, 'new task must appear before the next phase header');
+});
+
 test('explicit [P0] in text overrides default phase', () => {
   const result = addTask('[P0] Set up linting', '');
   assert.ok(result.includes('Phase P0'));

@@ -38,7 +38,7 @@ function addTask(text, content, options = {}) {
   }
 
   const safePhase = escapeRegExp(phase);
-  const phaseHeadingRe = new RegExp(`^###\\s+(?:Phase\\s+)?${safePhase}\\s*$`, 'i');
+  const phaseHeadingRe = new RegExp(`^###\\s+(?:Phase\\s+)?${safePhase}(?:\\s|$)`, 'i');
   const headingIdx = blockLines.findIndex((l) => phaseHeadingRe.test(l.trim()));
 
   if (headingIdx >= 0) {
