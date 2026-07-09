@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.11.3 - 2026-07-09
+
+### Changed
+- add case to prevent duplicate phase headers when inserting tasks
+
 ## v0.11.2 - 2026-07-07
 
 ### Changed
