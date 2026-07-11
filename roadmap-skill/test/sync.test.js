@@ -17,6 +17,66 @@ function setupFixture(name) {
   return target;
 }
 
+test('sync emits no warning line for rs:planned tasks', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P2',
+    '- [ ] Ship feature X <!-- rs:task=ship-x rs:planned -->',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const { content: first } = applySync(content, parsed.tasks, results, { forceRefresh: true });
+
+  assert.doesNotMatch(first, /⚠️/);
+  assert.doesNotMatch(first, /no implementation evidence found/);
+  assert.match(first, /- \[ \] Ship feature X/);
+
+  const secondParsed = parseRoadmap(first);
+  const secondResults = validateTasks(secondParsed.tasks, context, config, []);
+  const { content: second } = applySync(first, secondParsed.tasks, secondResults, { forceRefresh: true });
+  assert.equal(second, first);
+});
+
+test('sync produces byte-identical output on consecutive runs (Bug 3 determinism)', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P1',
+    '- [ ] Ship the widget <!-- rs:task=ship-widget -->',
+    '  - Evidence: src/nonexistent-a.ts, src/nonexistent-b.ts',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const { content: first } = applySync(content, parsed.tasks, results, { forceRefresh: true });
+
+  const secondParsed = parseRoadmap(first);
+  const secondResults = validateTasks(secondParsed.tasks, context, config, []);
+  const { content: second } = applySync(first, secondParsed.tasks, secondResults, { forceRefresh: true });
+
+  assert.equal(second, first);
+});
+
+test('sync --concise suppresses ⚠️ warning lines', () => {
+  const projectRoot = setupFixture('node');
+  const config = loadConfig({ projectRoot });
+  const content = [
+    '## Phase P1',
+    '- [ ] Do the thing <!-- rs:task=do-thing -->',
+    '  - Evidence: src/nonexistent.ts',
+    ''
+  ].join('\n');
+  const parsed = parseRoadmap(content);
+  const context = buildValidationContext(projectRoot, config, []);
+  const results = validateTasks(parsed.tasks, context, config, []);
+  const { content: out } = applySync(content, parsed.tasks, results, { forceRefresh: true, concise: true });
+  assert.doesNotMatch(out, /⚠️/);
+});
+
 test('sync marks task complete when validation passes', () => {
   const projectRoot = setupFixture('node');
   const config = loadConfig({ projectRoot });
@@ -304,7 +364,7 @@ test('sync preserves checked task when minimumConfidence is medium and state was
   assert.match(next, /- \[x\] Foundation baseline complete milestone/);
 });
 
-test('applySync preserves more specific existing warning over generic new message', () => {
+test('applySync always overwrites existing warning with fresh validator reason (no preservation)', () => {
   const content = [
     '- [ ] Fix timeout in fetch handler <!-- rs:task=fix-timeout -->',
     '  - ⚠️ attempted but validation failed: missing referenced file(s): src/pos/page.tsx, missing test evidence'
@@ -321,11 +381,8 @@ test('applySync preserves more specific existing warning over generic new messag
 
   const { content: next } = applySync(content, parsed.tasks, results);
 
-  assert.match(
-    next,
-    /missing referenced file\(s\): src\/pos\/page\.tsx/,
-    'specific existing warning must be preserved when new message is more generic'
-  );
+  assert.doesNotMatch(next, /missing referenced file\(s\): src\/pos\/page\.tsx/, 'old specific warning must be overwritten');
+  assert.match(next, /validation failed/, 'fresh reason must replace the old warning');
 });
 
 test('applySync deduplicates warning reasons from a prior /api route sync run', () => {
@@ -395,9 +452,7 @@ test('sync generates and replaces a single verification recipe for pending behav
   assert.equal((second.match(/Verification recipe:/g) || []).length, 1);
 });
 
-test('applySync preserves specific existing warning when new reason is generic policy message (Gap 1a)', () => {
-  // 'implementation task requires deterministic Verify metadata...' is a low-specificity
-  // policy message; it must not clobber a more informative existing annotation.
+test('applySync overwrites existing specific warning with generic policy reason (no preservation)', () => {
   const specific = 'no content match in src/lib/stock.ts: expected getLowStockProducts';
   const content = [
     '- [ ] Add getLowStockProducts helper <!-- rs:task=low-stock -->',
@@ -414,11 +469,11 @@ test('applySync preserves specific existing warning when new reason is generic p
 
   const { content: next } = applySync(content, parsed.tasks, results);
 
-  assert.match(next, /no content match in src\/lib\/stock\.ts/, 'specific existing message must survive generic policy overwrite');
-  assert.doesNotMatch(next, /deterministic Verify metadata/);
+  assert.doesNotMatch(next, /no content match in src\/lib\/stock\.ts/, 'old specific message must be overwritten');
+  assert.match(next, /deterministic Verify metadata/, 'fresh reason must appear');
 });
 
-test('applySync preserves external prose when new reason is generic policy message (Gap 1b)', () => {
+test('applySync overwrites external prose annotation with fresh validator reason (no preservation)', () => {
   const prose = 'getLowStockProducts() in src/lib/stock.ts exists but no in-app notification delivery';
   const content = [
     '- [ ] Wire notification delivery <!-- rs:task=notify-delivery -->',
@@ -435,8 +490,8 @@ test('applySync preserves external prose when new reason is generic policy messa
 
   const { content: next } = applySync(content, parsed.tasks, results);
 
-  assert.match(next, /no in-app notification delivery/, 'external prose must survive generic policy overwrite');
-  assert.doesNotMatch(next, /high-confidence evidence/);
+  assert.doesNotMatch(next, /no in-app notification delivery/, 'external prose must be overwritten');
+  assert.match(next, /high-confidence evidence/, 'fresh reason must appear');
 });
 
 test('applySync with forceRefresh replaces external prose annotation (Gap 2 escape hatch)', () => {

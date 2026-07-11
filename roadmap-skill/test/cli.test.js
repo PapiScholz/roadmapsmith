@@ -150,3 +150,97 @@ test('update --task with unknown id exits 1', () => {
   const result = runResult(['update', '--task', 'nonexistent', '--evidence', 'x', '--project-root', dir], dir);
   assert.equal(result.status, 1);
 });
+
+// ─── --concise / --no-warnings ────────────────────────────────────────────────
+
+test('update --concise strips ⚠️ lines from output', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '# Roadmap',
+    '',
+    '- [ ] Do the thing <!-- rs:task=do-thing -->',
+    '  - Evidence: src/nonexistent.ts',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test' }));
+  run(['update', '--concise', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.doesNotMatch(content, /⚠️/);
+});
+
+// ─── verify ───────────────────────────────────────────────────────────────────
+
+test('verify without --task exits 1', () => {
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '');
+  const result = runResult(['verify', '--project-root', dir], dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /--task/);
+});
+
+test('verify --task without --run prints "Would run"', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '# Roadmap',
+    '',
+    '- [ ] TSC clean <!-- rs:task=tsc-clean rs:kind=command rs:verified-by=echo-hi -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const out = run(['verify', '--task', 'tsc-clean', '--project-root', dir], dir);
+  assert.match(out, /Would run: echo-hi/);
+});
+
+test('verify --task on non-command task exits 1', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '# Roadmap',
+    '',
+    '- [ ] Regular task <!-- rs:task=regular -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const result = runResult(['verify', '--task', 'regular', '--project-root', dir], dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /not rs:kind=command/);
+});
+
+test('verify --task --run flips checkbox on exit-0 command', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '# Roadmap',
+    '',
+    '- [ ] Trivial pass <!-- rs:task=trivial-pass rs:kind=command rs:verified-by=hostname -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  run(['verify', '--task', 'trivial-pass', '--run', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /- \[x\] Trivial pass/);
+});
+
+test('verify --task --run on failing command exits 2 and leaves checkbox', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '# Roadmap',
+    '',
+    '- [ ] Fails <!-- rs:task=fails rs:kind=command rs:verified-by=zzz-not-a-real-cmd-x9k -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const result = runResult(['verify', '--task', 'fails', '--run', '--project-root', dir], dir);
+  assert.equal(result.status, 2);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /- \[ \] Fails/);
+});

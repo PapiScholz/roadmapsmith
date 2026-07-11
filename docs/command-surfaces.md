@@ -40,6 +40,8 @@ Available, but not the default path:
 - `generate --full-regen`
 - `sync` as the advanced alias for `update`
 - `sync --audit`
+- `update --concise` / `update --no-warnings`
+- `verify --task <id> [--run]`
 
 `generate` is the explicit managed-section creation path. Prefer `generate --dry-run` before applying it to an authored roadmap.
 

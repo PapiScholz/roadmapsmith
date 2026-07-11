@@ -4,6 +4,31 @@
 
 - None yet.
 
+## v0.12.0 - 2026-07-11
+
+### Added
+- `rs:kind=rollup` marker attribute: milestone/aggregator tasks pass validation without file-evidence lookup. Their children carry the truth.
+- `rs:kind=command` marker attribute + `rs:verified-by=<command>`: command-verified tasks (e.g. `tsc --noEmit`, `pytest`) pass on the marker alone during `update`; the checkbox stays under human/agent control.
+- `roadmapsmith verify --task <id> [--run]` subcommand: executes the `rs:verified-by` command for a `rs:kind=command` task and flips `[x]` on exit 0. Without `--run` it prints the command it *would* execute.
+- `roadmapsmith update --concise` (alias `--no-warnings`): suppresses ⚠️ warning lines in the emitted markdown. Useful for embedding the roadmap in READMEs or PR descriptions.
+- `printAudit` now surfaces a "Command-verified tasks pending run" section listing the exact `verify --task <id> --run` invocation for each unchecked `rs:kind=command` task. Designed so an AI agent (not the human) picks them up and runs them.
+- `printAudit` now includes a `checkedWithWeakEvidence` count in the default text summary (previously visible only via `--json`).
+
+### Fixed
+- **Bug 1 — File-reference validator now strips `:line[-range][:col]` suffix.** Evidence like `.github/workflows/release.yml:99-144 (Playwright install)` resolves to the file on disk instead of falsely reporting `missing referenced file(s)`. The leading path token is extracted before any trailing prose.
+- **Bug 2 — `rs:planned` tasks no longer emit `no implementation evidence found yet` warnings on every refresh.** Sync short-circuits on the parser's `planned` flag and drops any pre-existing warning line.
+- **Bug 3 — Two consecutive `update` runs on an unchanged repo now produce a byte-identical diff.** Warning reasons are sorted deterministically inside `normalizeWarningReasons`, and `shouldPreserveExistingWarning` was deleted outright so the warning line is always regenerated from the fresh validator reasons.
+- **Bug 4 — Rollups and command-verified tasks no longer pollute the `checkedWithWeakEvidence` audit bucket.** `auditValidation` skips results whose `kind` is `rollup` or `command`.
+
+### Changed
+- `shouldPreserveExistingWarning` and its call site in `src/sync/index.js` are removed. Existing warning text is now always overwritten by the fresh validator reason. The three unit tests that guarded the old preservation behavior were flipped into regression guards for the new "always overwrite" contract.
+- Unused `isLowSpecificityReason` import dropped from `src/sync/index.js`.
+
+### Verification
+- 249 / 249 tests pass.
+- Determinism: two consecutive `roadmapsmith update --dry-run` runs on this monorepo produce byte-identical output.
+- `roadmapsmith update --concise --dry-run` on this monorepo produces zero `⚠️` lines.
+
 ## v0.11.3 - 2026-07-09
 
 ### Changed
