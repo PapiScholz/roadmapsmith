@@ -1886,6 +1886,27 @@ function validateTask(task, context, config, plugins) {
     };
   }
 
+  // rs:kind=rollup — milestone/aggregator tasks; children carry the evidence.
+  if (task.kind === 'rollup') {
+    return {
+      taskId, passed: true, kind: 'rollup', confidence: 'medium', reasons: [], diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+      attempted: false, preservedCheckedState: true, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
+    };
+  }
+
+  // rs:kind=command — command-verified; roadmapsmith verify --task <id> --run executes it.
+  if (task.kind === 'command') {
+    return {
+      taskId, passed: true, kind: 'command', verifiedBy: task.verifiedBy || null,
+      confidence: 'medium', reasons: [], diagnostics: [],
+      evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },
+      attempted: false, preservedCheckedState: true, requiresTest: false,
+      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
+    };
+  }
+
   // Human-attested bypass: `rs:evidence=manual` (delete/cleanup done = absence, or any manually-verified completion)
   // or strikethrough `~~text~~` in body (N/A / declined scope). Trust the checked state; don't hunt for evidence.
   if (task.declined || task.evidenceMode === 'manual') {
@@ -1936,11 +1957,15 @@ function validateTask(task, context, config, plugins) {
   for (const eLine of evidenceLines) {
     if (!eLine || !eLine.text) continue;
     for (const eText of eLine.text.split(',').map((s) => s.trim()).filter(Boolean)) {
-      const eFound = findFilesByPathHints([eText], pathHintResolver);
+      // Take the leading path token (up to first space/paren), then strip trailing :line[-range][:col].
+      // Handles IDE-style refs like `.github/workflows/x.yml:99-144 (Playwright install)`.
+      const eTextHead = eText.split(/[\s(]/)[0];
+      const eTextClean = eTextHead.replace(/:\d+(?:-\d+)?(?::\d+)?$/, '');
+      const eFound = findFilesByPathHints([eTextClean], pathHintResolver);
       if (eFound.length > 0) {
         evidenceLinePass = true;
-      } else if (eText.includes('/') || /\.\w+$/.test(eText)) {
-        reasons.push('missing referenced file(s): ' + eText + ' → if this is a monorepo, add pathAliases in roadmap-skill.config.json');
+      } else if (eTextClean.includes('/') || /\.\w+$/.test(eTextClean)) {
+        reasons.push('missing referenced file(s): ' + eTextClean + ' → if this is a monorepo, add pathAliases in roadmap-skill.config.json');
       }
     }
   }
@@ -1949,10 +1974,12 @@ function validateTask(task, context, config, plugins) {
   const pass1Files = findFilesByPathHints(purePathHints, pathHintResolver);
   const pass1Found = pass1Files.length > 0;
 
-  // Missing referenced file check (for text-based path hints)
-  const allResolvedPaths = findFilesByPathHints(pathHints, pathHintResolver);
-  if (pathHints.length > 0 && allResolvedPaths.length === 0) {
-    const internalHints = pathHints.filter((h) => !(externalPaths || []).includes(h));
+  // Missing referenced file check (for text-based path hints).
+  // Strip trailing :line[-range][:col] before resolution — file existence checks must not fail on IDE-style refs.
+  const cleanedPathHints = pathHints.map((h) => String(h || '').replace(/:\d+(?:-\d+)?(?::\d+)?$/, ''));
+  const allResolvedPaths = findFilesByPathHints(cleanedPathHints, pathHintResolver);
+  if (cleanedPathHints.length > 0 && allResolvedPaths.length === 0) {
+    const internalHints = cleanedPathHints.filter((h) => !(externalPaths || []).includes(h));
     if (internalHints.length > 0) {
       reasons.push('missing referenced file(s): ' + internalHints.join(', ') + ' → if this is a monorepo, add pathAliases in roadmap-skill.config.json');
     }
@@ -2140,7 +2167,7 @@ function auditValidation(tasks, results, changes) {
       readyButUnchecked.push({ task, result });
     }
 
-    if (task.checked && result.passed && result.confidence === 'low') {
+    if (task.checked && result.passed && result.confidence === 'low' && result.kind !== 'rollup' && result.kind !== 'command') {
       checkedWithWeakEvidence.push({ task, result });
     }
 

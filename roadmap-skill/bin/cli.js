@@ -50,10 +50,17 @@ update flags:
   --evidence <text>             Evidence to add to --task
   --audit                       Show validation audit after refresh
   --evidence-only               Add ⚠️/✅ sub-bullets, do NOT flip [ ]/[x] checkboxes
+  --concise, --no-warnings      Suppress ⚠️ warning lines in the output
   --check-drift                 Check alignment of northStar vs repo state
   --strict                      Use strict validation mode
   --dry-run                     Preview without writing
   --json                        Output in JSON format
+  --project-root <path>         Project root (default: cwd)
+
+verify flags (roadmapsmith verify --task <id>):
+  --task <id>                   Task ID to verify (must have rs:kind=command marker)
+  --run                         Actually execute rs:verified-by command; flip [x] on exit 0
+  --dry-run                     Preview only
   --project-root <path>         Project root (default: cwd)`.trim();
 
 // ─── runInit ──────────────────────────────────────────────────────────────────
@@ -118,8 +125,27 @@ function runInit(projectRoot, config, flags) {
 
 // ─── printAudit ───────────────────────────────────────────────────────────────
 
-function printAudit(audit) {
+function printAudit(audit, context) {
   console.log(`Audit summary: ${audit.checkedWithoutEvidence.length} checked-without-evidence, ${audit.readyButUnchecked.length} ready-but-unchecked.`);
+  if (Array.isArray(audit.checkedWithWeakEvidence) && audit.checkedWithWeakEvidence.length > 0) {
+    console.log(`  checkedWithWeakEvidence: ${audit.checkedWithWeakEvidence.length}`);
+  }
+  if (context && Array.isArray(context.tasks) && context.resultMap) {
+    const pending = [];
+    for (const task of context.tasks) {
+      const r = context.resultMap[task.id];
+      if (r && r.kind === 'command' && !task.checked) {
+        pending.push({ id: task.id, verifiedBy: r.verifiedBy || task.verifiedBy || null });
+      }
+    }
+    if (pending.length > 0) {
+      console.log(`Command-verified tasks pending run (${pending.length}):`);
+      for (const p of pending) {
+        const suffix = p.verifiedBy ? `   # (would run: ${p.verifiedBy})` : '';
+        console.log(`- [${p.id}] roadmapsmith verify --task ${p.id} --run${suffix}`);
+      }
+    }
+  }
   if (audit.checkedWithoutEvidence.length > 0) {
     const byCause = {};
     for (const item of audit.checkedWithoutEvidence) {
@@ -224,7 +250,8 @@ function runUpdate(projectRoot, config, flags) {
   }
   const resultMap = validateTasks(tasks, context, config, plugins);
   const evidenceOnly = isEnabled(flags['evidence-only']);
-  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true, evidenceOnly });
+  const concise = isEnabled(flags.concise) || isEnabled(flags['no-warnings']);
+  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true, evidenceOnly, concise });
 
   writeText(roadmapFile, synced, { dryRun });
   console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (evidence-only: no checkboxes flipped)' : ''}`);
@@ -234,7 +261,7 @@ function runUpdate(projectRoot, config, flags) {
     if (useJson) {
       console.log(JSON.stringify(audit, null, 2));
     } else {
-      printAudit(audit);
+      printAudit(audit, { tasks, resultMap });
     }
     if (audit.checkedWithoutEvidence.length > 0 || audit.readyButUnchecked.length > 0) {
       process.exitCode = 2;
@@ -265,7 +292,88 @@ function runMaintain(projectRoot, config, flags) {
   }
 
   const audit = auditValidation(tasks, resultMap, changes);
-  printAudit(audit);
+  printAudit(audit, { tasks, resultMap });
+}
+
+// ─── runVerify ────────────────────────────────────────────────────────────────
+
+function runVerify(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const shouldRun = isEnabled(flags.run);
+  const useJson = isEnabled(flags.json);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const targetId = flags.task ? String(flags.task) : null;
+
+  if (!targetId) {
+    console.error('verify requires --task <id>');
+    process.exitCode = 1;
+    return;
+  }
+
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const parsed = parseRoadmap(existingContent);
+  const target = parsed.tasks.find((t) => t.markerId === targetId || t.id === targetId);
+  if (!target) {
+    console.error(`Task not found: ${targetId}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (target.kind !== 'command') {
+    console.error(`Task ${targetId} is not rs:kind=command (kind=${target.kind || 'none'})`);
+    process.exitCode = 1;
+    return;
+  }
+  const cmd = target.verifiedBy || null;
+  if (!cmd) {
+    console.error(`Task ${targetId} has no rs:verified-by command`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!shouldRun) {
+    console.log(`Would run: ${cmd}`);
+    console.log(`(pass --run to execute and flip the checkbox on exit 0)`);
+    return;
+  }
+
+  const { spawnSync } = require('child_process');
+  const isWin = process.platform === 'win32';
+  const spawned = spawnSync(cmd, {
+    cwd: projectRoot,
+    shell: isWin ? true : '/bin/sh',
+    encoding: 'utf8',
+    timeout: 5 * 60 * 1000
+  });
+
+  const passed = spawned.status === 0 && !spawned.error;
+  const summary = {
+    task: targetId,
+    command: cmd,
+    exit: spawned.status,
+    signal: spawned.signal || null,
+    passed
+  };
+
+  if (useJson) {
+    console.log(JSON.stringify(summary, null, 2));
+  } else {
+    if (spawned.stdout) process.stdout.write(spawned.stdout);
+    if (spawned.stderr) process.stderr.write(spawned.stderr);
+    console.log(`verify ${targetId}: exit=${spawned.status}${spawned.signal ? ` signal=${spawned.signal}` : ''} → ${passed ? 'PASS' : 'FAIL'}`);
+  }
+
+  if (!passed) {
+    process.exitCode = 2;
+    return;
+  }
+
+  // Flip [x] on the target task line in place.
+  const lines = existingContent.split('\n');
+  if (target.lineIndex != null && target.lineIndex >= 0 && target.lineIndex < lines.length) {
+    lines[target.lineIndex] = lines[target.lineIndex].replace(/- \[( |x|X)\]/, '- [x]');
+  }
+  writeText(roadmapFile, lines.join('\n'), { dryRun });
+  console.log(`${dryRun ? 'Would mark' : 'Marked'} [${targetId}] as complete in ${roadmapFile}`);
 }
 
 // ─── runDoctor ────────────────────────────────────────────────────────────────
@@ -368,6 +476,8 @@ function main() {
     runDoctor(projectRoot, config, flags);
   } else if (cmd === 'generate') {
     runGenerate(projectRoot, config, flags);
+  } else if (cmd === 'verify') {
+    runVerify(projectRoot, config, flags);
   } else if (cmd === '/roadmap-sync') {
     runLegacySlashSync(projectRoot, config, flags, args);
   } else {

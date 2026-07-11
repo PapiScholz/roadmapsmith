@@ -21,6 +21,8 @@ This package owns the RoadmapSmith CLI, validator, sync engine, host setup files
 - `roadmapsmith sync`
 - `roadmapsmith sync --audit`
 - `roadmapsmith sync` as the advanced alias for `roadmapsmith update`
+- `roadmapsmith update --concise` — suppress ⚠️ warning lines in the emitted markdown
+- `roadmapsmith verify --task <id> [--run]` — execute the `rs:verified-by` command of an `rs:kind=command` task; with `--run`, flip the checkbox on exit 0
 
 ### Compatibility only
 

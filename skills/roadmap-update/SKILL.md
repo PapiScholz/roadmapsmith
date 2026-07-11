@@ -50,11 +50,36 @@ Available update flags:
 - `--evidence <text>` — evidence to attach to `--task`
 - `--audit` — show validation audit after refresh (grouped by cause: `path-mismatch`, `no-evidence`, `deletion-task`, `namespace-gate`, `strict-mode`)
 - `--evidence-only` — write ⚠️/✅ sub-bullets but never flip `[ ]`/`[x]` (safe review pass)
+- `--concise` / `--no-warnings` — suppress ⚠️ warning lines in the emitted markdown (safe for READMEs / PR embeds)
 - `--check-drift` — compare northStar to repo state
 - `--strict` — strict validation mode (preservedCheckedState does not count as pass)
 - `--dry-run` — preview without writing
 - `--json` — output in JSON format
 - `--project-root <path>` — project root (default: cwd)
+
+## Task marker attributes
+
+Tasks use a stable-id comment: `<!-- rs:task=slug -->`. The same comment can carry extra attributes that change how the validator treats the task:
+
+- `rs:planned` — "intentionally not implemented yet". Validator skips evidence hunt. Sync emits **no** ⚠️ warning and does not flip the checkbox. Use for future scope you want on the roadmap without polluting every refresh with warnings. Example: `- [ ] Ship v0.2 feature X <!-- rs:task=ship-x rs:planned -->`.
+- `rs:kind=rollup` — "milestone/aggregator; children carry the evidence". Passes validation without a file-existence hunt. Use for phase exits, milestone rollups, "Finalize module implementation" style parent tasks. Example: `- [x] Milestone v0.2 shipped <!-- rs:task=milestone-v0-2 rs:kind=rollup -->`.
+- `rs:kind=command` + `rs:verified-by=<command>` — "evidence = a command exits 0". Passes validation on the marker alone during `update` (no shell execution). To actually run the command and flip the checkbox, use `roadmapsmith verify --task <id> --run`. Example: `- [ ] TypeScript compila sin errores <!-- rs:task=tsc-clean rs:kind=command rs:verified-by=tsc-noemit -->`. Note: `rs:verified-by` captures a single non-whitespace token — use a script path or an npm-script name if the command needs arguments.
+- `rs:evidence=manual` — human-attested completion. Trust the checked state, no evidence hunt.
+- `rs:no-test` — the task legitimately has no test.
+
+## Command-verified tasks (`verify`)
+
+For tasks marked `rs:kind=command`, `roadmapsmith update --audit` prints a **"Command-verified tasks pending run"** block listing the exact ready-to-run invocation for each unchecked command task:
+
+```
+Command-verified tasks pending run (2):
+- [tsc-clean] roadmapsmith verify --task tsc-clean --run   # (would run: tsc-noemit)
+- [test-suite] roadmapsmith verify --task test-suite --run # (would run: npm-test)
+```
+
+When you (agent) see that block, invoke each `verify --task <id> --run` yourself — the human user should not have to type them. `verify --run` executes the `rs:verified-by` command in the repo root, prints stdout/stderr, and flips `[x]` on exit 0. Non-zero exit leaves the checkbox unchecked and CLI exits with code 2.
+
+`verify --task <id>` without `--run` is a dry-preview that just prints `Would run: <command>`.
 
 ## Known limitations
 

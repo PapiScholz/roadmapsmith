@@ -2,7 +2,6 @@
 
 const { parseRoadmap } = require('../parser');
 const { ensureTrailingNewline } = require('../utils');
-const { isLowSpecificityReason } = require('../reasons');
 
 const ATTEMPTED_WARNING_REASON_PREFIX = 'attempted but validation failed:';
 const NO_EVIDENCE_WARNING_REASON_PREFIX = 'no implementation evidence found yet:';
@@ -125,17 +124,9 @@ function normalizeWarningReasons(reasons) {
       normalized.push(clean);
     }
   }
+  // Sort so back-to-back runs on unchanged repo state produce byte-identical warnings.
+  normalized.sort((left, right) => left.localeCompare(right));
   return normalized;
-}
-
-function shouldPreserveExistingWarning(existingReason, newReason, options) {
-  if (options && options.forceRefresh) return false;
-  const cleanExisting = normalizeWarningReason(existingReason);
-  const cleanNew = normalizeWarningReason(newReason) || 'validation failed';
-  // Preserve when the freshly computed reason is a low-specificity policy message (no
-  // file- or symbol-specific information) and the existing annotation carries more
-  // diagnostic value (is not itself a low-specificity message).
-  return isLowSpecificityReason(cleanNew) && Boolean(cleanExisting) && !isLowSpecificityReason(cleanExisting);
 }
 
 function formatVerificationRecipe(indent, recipe) {
@@ -195,6 +186,17 @@ function applySync(content, parsedTasks, results, options) {
     const hasWarning = task.warningLineIndex != null;
     const warningIndex = hasWarning ? task.warningLineIndex + offset : null;
     const lastChildLineIndex = (task.lastChildLineIndex != null ? task.lastChildLineIndex : task.lineIndex) + offset;
+    const concise = !!(options && options.concise);
+
+    // rs:planned or --concise: no warning line ever, and drop any pre-existing warning.
+    if (result.planned || concise) {
+      if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
+        lines.splice(warningIndex, 1);
+        offset -= 1;
+        changes.warningsRemoved.push(task.id);
+      }
+      continue;
+    }
 
     if (result.passed) {
       if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
@@ -245,11 +247,8 @@ function applySync(content, parsedTasks, results, options) {
         }
       }
     } else if (warningIndex != null && warningIndex >= 0 && warningIndex < lines.length) {
-      const existingReason = normalizeWarningReason(lines[warningIndex]);
-      const newReason = reason || 'validation failed';
-      if (!shouldPreserveExistingWarning(existingReason, newReason, options)) {
-        lines[warningIndex] = warningText;
-      }
+      // Always regenerate from the fresh validator reasons — no preservation of prior text.
+      lines[warningIndex] = warningText;
     } else {
       lines.splice(lastChildLineIndex + 1, 0, warningText);
       offset += 1;

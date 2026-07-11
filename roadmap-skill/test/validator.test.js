@@ -59,6 +59,65 @@ test('backticked HTTP routes, MIME types, and formulas do not become referenced 
   }
 });
 
+test('evidence with :line-range suffix resolves to the file on disk', () => {
+  const projectRoot = setupFixture('generic');
+  fs.mkdirSync(path.join(projectRoot, '.github', 'workflows'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, '.github', 'workflows', 'release.yml'), 'name: release\n', 'utf8');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({
+    id: 'ci-release',
+    text: 'Wire Playwright smoke into release workflow',
+    checked: true,
+    evidenceLines: [{ text: '.github/workflows/release.yml:99-144 (Playwright install + smoke run)' }]
+  }, context, config, []);
+
+  assert.ok(
+    !result.reasons.some((r) => /missing referenced file/.test(String(r))),
+    `line-range suffix must be stripped before existence check, got: ${result.reasons.join('; ')}`
+  );
+});
+
+test('rs:kind=rollup tasks pass with no evidence hunt', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask({
+    id: 'milestone-x',
+    text: 'Ship v0.2 milestone',
+    checked: true,
+    kind: 'rollup'
+  }, context, config, []);
+
+  assert.equal(result.passed, true);
+  assert.equal(result.kind, 'rollup');
+  assert.deepEqual(result.reasons, []);
+});
+
+test('rs:kind=command tasks pass on marker; audit surfaces verifiedBy', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const tasks = [{
+    id: 'tsc-clean',
+    text: 'TypeScript compila sin errores',
+    checked: false,
+    kind: 'command',
+    verifiedBy: 'tsc -p tsconfig.json --noEmit'
+  }];
+  const results = validateTasks(tasks, context, config, []);
+  const r = results['tsc-clean'];
+  assert.equal(r.passed, true);
+  assert.equal(r.kind, 'command');
+  assert.equal(r.verifiedBy, 'tsc -p tsconfig.json --noEmit');
+
+  const audit = auditValidation(tasks, results, { newlyUnchecked: [] });
+  assert.equal(audit.checkedWithWeakEvidence.length, 0);
+});
+
 test('backticked HTTP request spans are not rescanned as standalone route hints', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
