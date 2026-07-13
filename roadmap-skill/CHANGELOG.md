@@ -1,8 +1,47 @@
 # Changelog
 
-## Unreleased
+## v0.13.0 - 2026-07-13
 
-- None yet.
+Coordinated 5-minute-install refactor. Three of the four changes below are breaking. Run `roadmapsmith migrate-markers` in every consumer repo before upgrading.
+
+### Breaking Changes
+
+- **Task markers consolidated.** `rs:evidence=manual` and `rs:no-test` are removed. `parseRoadmap` now throws with a `Deprecated marker …` error when it encounters either. The single axis is now `rs:kind=<rollup|command|manual>` alongside `rs:planned`. `rs:no-test` was a silent no-op and simply drops; `rs:evidence=manual` becomes `rs:kind=manual` (same human-attested bypass semantics). An unknown `rs:kind=<value>` also throws with a message listing the three valid values.
+- **`update` no longer flips checkboxes by default.** Without `--apply`, `update` runs in annotate-only mode (⚠️/✅ sub-bullets, no `[ ]/[x]` mutation). Add `--apply` to opt back into the previous behavior. The legacy `--evidence-only` flag is now a silent alias for the new default.
+- **`maintain` is deprecated.** It still works but prints `WARNING: 'maintain' is deprecated. Use 'update --apply'.` and forwards to `runUpdate` with `apply: true, audit: true`. Migrate scripts to `update --apply`.
+
+### Added
+
+- `roadmapsmith migrate-markers [--dry-run]` — one-shot migration for legacy marker syntax. Rewrites `rs:evidence=manual` → `rs:kind=manual` and drops `rs:no-test`. Exits 0 on success or when nothing to migrate.
+- `product.problemStatement` and `product.targetUser` are now first-class config fields. When set, the professional renderer emits them as `**Problem:**` and `**Target user:**` inside Section 1 (Product North Star). Backwards compat: `zeroMode.problemStatement` is copied into `product.problemStatement` when the latter is empty.
+- `roadmapsmith update --check-drift` now exits `2` on drift (previously always exited `0`). CI pipelines can gate on it.
+- `docs/legacy-commands.md` centralizes the compatibility surface. The main READMEs now link to it instead of listing legacy commands inline.
+
+### Changed
+
+- `runMaintain` shrank from ~20 lines to a 3-line shim.
+- CLI `--help` now lists `migrate-markers` and `--apply`.
+
+### Migration
+
+```bash
+# Convert legacy markers before upgrading.
+roadmapsmith migrate-markers --project-root . --dry-run   # preview
+roadmapsmith migrate-markers --project-root .             # apply
+
+# Replace `maintain` calls in scripts.
+- roadmapsmith maintain
++ roadmapsmith update --apply
+
+# Restore v0.12 behavior for CI (annotate + mutate in one shot).
+- roadmapsmith update
++ roadmapsmith update --apply
+```
+
+### Verification
+
+- 270 / 270 tests pass locally.
+- Dogfood: `roadmapsmith migrate-markers --dry-run --project-root ..` on this monorepo reports `Nothing to migrate — already on v0.13 markers.`
 
 ## v0.12.2 - 2026-07-13
 

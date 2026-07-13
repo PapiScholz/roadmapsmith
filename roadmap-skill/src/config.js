@@ -17,6 +17,8 @@ const DEFAULT_CONFIG = {
     northStar: '',
     positioning: '',
     primaryUser: '',
+    problemStatement: '',
+    targetUser: '',
     targetOutcome: '',
     antiGoals: [],
     risks: [],
@@ -84,13 +86,20 @@ function mergeConfig(userConfig) {
       ...DEFAULT_CONFIG.phaseTemplates,
       ...((userConfig && userConfig.phaseTemplates) || {})
     },
-    product: {
-      ...DEFAULT_CONFIG.product,
-      ...((userConfig && userConfig.product) || {}),
-      phases: (userConfig && userConfig.product && Array.isArray(userConfig.product.phases))
-        ? userConfig.product.phases
-        : DEFAULT_CONFIG.product.phases
-    },
+    product: (() => {
+      const merged = {
+        ...DEFAULT_CONFIG.product,
+        ...((userConfig && userConfig.product) || {}),
+        phases: (userConfig && userConfig.product && Array.isArray(userConfig.product.phases))
+          ? userConfig.product.phases
+          : DEFAULT_CONFIG.product.phases
+      };
+      // Backwards compat (pre-v0.13): fall back to zeroMode.problemStatement if product.problemStatement is empty.
+      if (!merged.problemStatement && userConfig && userConfig.zeroMode && userConfig.zeroMode.problemStatement) {
+        merged.problemStatement = userConfig.zeroMode.problemStatement;
+      }
+      return merged;
+    })(),
     zeroMode: {
       ...DEFAULT_CONFIG.zeroMode,
       ...((userConfig && userConfig.zeroMode) || {}),

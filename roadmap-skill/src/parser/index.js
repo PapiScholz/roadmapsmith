@@ -148,14 +148,21 @@ function parseRoadmap(content) {
     }
 
     const { indent, checked, text, markerId, markerFlags } = taskLine;
-    const noTest = /\brs:no-test\b/i.test(markerFlags);
+    // v0.13.0: reject deprecated markers so users migrate deliberately via `roadmapsmith migrate-markers`.
+    if (/\brs:evidence=(\S+)/i.test(markerFlags)) {
+      throw new Error(`Deprecated marker \`rs:evidence=...\` at line ${index + 1}. Run \`roadmapsmith migrate-markers\` to convert to \`rs:kind=manual\`.`);
+    }
+    if (/\brs:no-test\b/i.test(markerFlags)) {
+      throw new Error(`Deprecated marker \`rs:no-test\` at line ${index + 1}. Run \`roadmapsmith migrate-markers\` to drop it (was a no-op).`);
+    }
     const isPlanned = /\bplanned\b/i.test(markerFlags);
     const kindMatch = markerFlags.match(/\brs:kind=(\S+)/i);
     const taskKind = kindMatch ? kindMatch[1].toLowerCase() : null;
+    if (taskKind && !['rollup', 'command', 'manual'].includes(taskKind)) {
+      throw new Error(`Unknown \`rs:kind=${taskKind}\` at line ${index + 1}. Valid values: rollup, command, manual.`);
+    }
     const verifiedByMatch = markerFlags.match(/\brs:verified-by=(\S+)/i);
     const taskVerifiedBy = verifiedByMatch ? verifiedByMatch[1].toLowerCase() : null;
-    const evidenceModeMatch = markerFlags.match(/\brs:evidence=(\S+)/i);
-    const evidenceMode = evidenceModeMatch ? evidenceModeMatch[1].toLowerCase() : null;
     // ponytail: `~~text~~` in the task body signals a declined/N-A completion; no evidence to hunt for.
     const declined = /~~[^~]+~~/.test(text);
     const taskIndentWidth = getIndentWidth(indent);
@@ -266,11 +273,9 @@ function parseRoadmap(content) {
       explicitPendingItems,
       blockedByIds,
       markerId,
-      noTest,
       planned: isPlanned,
       kind: taskKind,
       verifiedBy: taskVerifiedBy,
-      evidenceMode,
       declined,
       indent,
       section

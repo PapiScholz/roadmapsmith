@@ -26,8 +26,9 @@ function isEnabled(v) {
 const HELP = `roadmapsmith — living evidence-backed roadmap tool
 
 Commands:
-  init     Create ROADMAP.md and AGENTS.md in a project
-  update   Refresh or modify an existing ROADMAP.md
+  init             Create ROADMAP.md and AGENTS.md in a project
+  update           Refresh or modify an existing ROADMAP.md
+  migrate-markers  Convert deprecated markers (rs:evidence=manual, rs:no-test) to v0.13 syntax
 
 init flags:
   --product-name <name>         Product/project name
@@ -48,8 +49,9 @@ update flags:
   --add-task <text>             Add a new task to the managed block
   --task <id>                   Task ID to target (use with --evidence)
   --evidence <text>             Evidence to add to --task
+  --apply                       Flip [ ]/[x] checkboxes (default: annotate-only)
   --audit                       Show validation audit after refresh
-  --evidence-only               Add ⚠️/✅ sub-bullets, do NOT flip [ ]/[x] checkboxes
+  --evidence-only               (legacy alias for annotate-only default; no-op)
   --concise, --no-warnings      Suppress ⚠️ warning lines in the output
   --check-drift                 Check alignment of northStar vs repo state
   --strict                      Use strict validation mode
@@ -231,6 +233,9 @@ function runUpdate(projectRoot, config, flags) {
       console.log(drift.summary);
       drift.details.forEach((d) => console.log(`  - ${d}`));
     }
+    if (drift.drifted) {
+      process.exitCode = 2;
+    }
     return;
   }
 
@@ -249,12 +254,15 @@ function runUpdate(projectRoot, config, flags) {
     }
   }
   const resultMap = validateTasks(tasks, context, config, plugins);
-  const evidenceOnly = isEnabled(flags['evidence-only']);
+  // v0.13.0: annotate-only is the default. `--apply` is required to flip checkboxes.
+  // `--evidence-only` kept as a silent alias for scripts that already pass it.
+  const applyMutations = isEnabled(flags.apply);
+  const evidenceOnly = !applyMutations;
   const concise = isEnabled(flags.concise) || isEnabled(flags['no-warnings']);
   const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true, evidenceOnly, concise });
 
   writeText(roadmapFile, synced, { dryRun });
-  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (evidence-only: no checkboxes flipped)' : ''}`);
+  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (annotate-only: no checkboxes flipped; pass --apply to mutate)' : ''}`);
 
   if (isEnabled(flags.audit)) {
     const audit = auditValidation(tasks, resultMap, changes);
@@ -272,27 +280,8 @@ function runUpdate(projectRoot, config, flags) {
 // ─── runMaintain ──────────────────────────────────────────────────────────────
 
 function runMaintain(projectRoot, config, flags) {
-  const dryRun = isEnabled(flags['dry-run']);
-  const strict = isEnabled(flags.strict);
-  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
-  const existingContent = readTextIfExists(roadmapFile) || '';
-  const plugins = loadPlugins(projectRoot, config.plugins || []);
-  const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
-  const { tasks } = parseRoadmap(existingContent);
-  const resultMap = validateTasks(tasks, context, config, plugins);
-  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true });
-
-  if (synced === existingContent) {
-    console.log(`No changes for ${roadmapFile}`);
-  } else if (dryRun) {
-    console.log(`Dry run: would update ${roadmapFile}`);
-  } else {
-    writeText(roadmapFile, synced, {});
-    console.log(`Updated ${roadmapFile}`);
-  }
-
-  const audit = auditValidation(tasks, resultMap, changes);
-  printAudit(audit, { tasks, resultMap });
+  process.stderr.write('WARNING: `maintain` is deprecated. Use `update --apply`.\n');
+  return runUpdate(projectRoot, config, { ...flags, apply: true, audit: true });
 }
 
 // ─── runVerify ────────────────────────────────────────────────────────────────
@@ -450,6 +439,32 @@ function runLegacySlashSync(projectRoot, config, flags, args) {
   }
 }
 
+// ─── runMigrateMarkers ────────────────────────────────────────────────────────
+
+function runMigrateMarkers(projectRoot, config, flags) {
+  const dryRun = isEnabled(flags['dry-run']);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const original = readTextIfExists(roadmapFile);
+  if (original == null) {
+    console.log(`No ROADMAP.md at ${roadmapFile}`);
+    return;
+  }
+  let migrated = original;
+  let count = 0;
+  migrated = migrated.replace(/\brs:evidence=manual\b/gi, () => { count += 1; return 'rs:kind=manual'; });
+  migrated = migrated.replace(/\s+rs:no-test\b/gi, () => { count += 1; return ''; });
+  if (count === 0) {
+    console.log('Nothing to migrate — already on v0.13 markers.');
+    return;
+  }
+  if (dryRun) {
+    console.log(`Would migrate ${count} marker(s) in ${roadmapFile}`);
+    return;
+  }
+  writeText(roadmapFile, migrated);
+  console.log(`Migrated ${count} marker(s) in ${roadmapFile}`);
+}
+
 // ─── main ─────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -478,6 +493,8 @@ function main() {
     runGenerate(projectRoot, config, flags);
   } else if (cmd === 'verify') {
     runVerify(projectRoot, config, flags);
+  } else if (cmd === 'migrate-markers') {
+    runMigrateMarkers(projectRoot, config, flags);
   } else if (cmd === '/roadmap-sync') {
     runLegacySlashSync(projectRoot, config, flags, args);
   } else {

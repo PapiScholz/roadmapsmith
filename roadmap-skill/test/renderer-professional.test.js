@@ -83,6 +83,31 @@ test('success criteria in Section 8 emit rs:kind=rollup marker', () => {
   );
 });
 
+test('Section 1 renders problemStatement, targetUser, primaryUser, and targetOutcome when all provided', () => {
+  const model = makeModel({
+    product: {
+      name: 'Test',
+      northStar: 'Test north star',
+      problemStatement: 'Devs waste 5 min evaluating unfamiliar CLI tools',
+      primaryUser: 'AI coding agents',
+      targetUser: 'senior devs who evaluate in 5 minutes',
+      targetOutcome: 'time-to-first-value under 5 minutes'
+    }
+  });
+  const output = renderBody(model);
+  assert.match(output, /\*\*Problem:\*\* Devs waste 5 min evaluating unfamiliar CLI tools/);
+  assert.match(output, /\*\*Primary user:\*\* AI coding agents/);
+  assert.match(output, /\*\*Target user:\*\* senior devs who evaluate in 5 minutes/);
+  assert.match(output, /\*\*Target outcome:\*\* time-to-first-value under 5 minutes/);
+});
+
+test('Section 1 omits problemStatement and targetUser blocks when unset', () => {
+  const model = makeModel();
+  const output = renderBody(model);
+  assert.doesNotMatch(output, /\*\*Problem:\*\*/);
+  assert.doesNotMatch(output, /\*\*Target user:\*\*/);
+});
+
 test('Section 6 omits boilerplate tasks when moduleMetadata is empty', () => {
   const model = makeModel({ commandBreakdown: ['Module: auth'] });
   const output = renderBody(model);

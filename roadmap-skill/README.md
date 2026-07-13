@@ -26,17 +26,13 @@ This package owns the RoadmapSmith CLI, validator, sync engine, host setup files
 
 ### Compatibility only
 
-- `roadmapsmith doctor`
-- `roadmapsmith regenerate`
-- `roadmapsmith /road <action>`
-- `roadmapsmith /roadmap-sync <action>`
-- deprecated direct aliases such as `/maintain` or `/status`
+Legacy surfaces (`doctor`, `regenerate`, `/road`, `/roadmap-sync`, direct aliases) are documented separately in [../docs/legacy-commands.md](../docs/legacy-commands.md). They stay executable but print deprecation warnings and may be removed in a future major.
 
 `status` is the public readiness command. `doctor` remains a compatibility alias to the same payload.
 
 `update` is the public checklist-refresh and verified single-task completion family. `sync` remains executable as the advanced alias for the refresh path.
 
-`generate --full-regen` is the only public destructive rebuild path. `regenerate` remains executable but prints a deprecation warning.
+`generate --full-regen` is the only public destructive rebuild path. `regenerate` was documented as compatibility but was never routed through the CLI; use `generate --full-regen` instead.
 
 ## Modes
 
@@ -140,13 +136,7 @@ Advanced native slash surfaces:
 - `/roadmap-generate`
 - `/roadmap-audit`
 
-Compatibility-only slash surfaces:
-
-- `/roadmap-sync <action>`
-- `/road <action>`
-- deprecated direct aliases
-
-Native-bundle readiness is computed from canonical surfaces only. Missing advanced labels or duplicate legacy `/roadmap-sync` installs are warnings, not canonical-health failures.
+Compatibility-only slash surfaces are documented in [../docs/legacy-commands.md](../docs/legacy-commands.md). Native-bundle readiness is computed from canonical surfaces only.
 
 ## Host Setup
 

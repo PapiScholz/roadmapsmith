@@ -100,9 +100,47 @@ test('update refresh writes updated ROADMAP.md', () => {
   const initial = `<!-- rs:managed:start -->\n# Roadmap\n\n- [ ] Build the thing <!-- rs:task=build-thing -->\n<!-- rs:managed:end -->\n`;
   fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test-project', version: '1.0.0' }));
-  run(['update', '--project-root', dir], dir);
+  run(['update', '--apply', '--project-root', dir], dir);
   const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
   assert.ok(content.includes('rs:managed:start'));
+});
+
+// rs:kind=manual is a human-attested bypass → validator returns passed:true → sync would flip if allowed.
+function writeApplyFixture(dir) {
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test' }));
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [ ] Manual bypass task <!-- rs:task=manual-task rs:kind=manual -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+}
+
+test('update defaults to annotate-only: does not flip [ ] to [x] even when validation passes', () => {
+  const dir = tmpdir();
+  writeApplyFixture(dir);
+  const out = run(['update', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /- \[ \] Manual bypass task/, 'checkbox must stay unchecked without --apply');
+  assert.match(out, /annotate-only/);
+});
+
+test('update --apply flips [ ] to [x] when validation passes', () => {
+  const dir = tmpdir();
+  writeApplyFixture(dir);
+  run(['update', '--apply', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /- \[x\] Manual bypass task/);
+});
+
+test('maintain prints deprecation warning and behaves like update --apply', () => {
+  const dir = tmpdir();
+  writeApplyFixture(dir);
+  const result = runResult(['maintain', '--project-root', dir], dir);
+  assert.match(result.stderr, /deprecated.*update --apply/);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /- \[x\] Manual bypass task/, 'maintain must still flip like update --apply');
 });
 
 test('update --dry-run does not modify ROADMAP.md', () => {
@@ -243,4 +281,101 @@ test('verify --task --run on failing command exits 2 and leaves checkbox', () =>
   assert.equal(result.status, 2);
   const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
   assert.match(content, /- \[ \] Fails/);
+});
+
+// ─── check-drift ─────────────────────────────────────────────────────────────
+
+function writeDriftFixture(dir, northStar) {
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test' }));
+  fs.mkdirSync(path.join(dir, 'src'));
+  fs.writeFileSync(path.join(dir, 'src', 'app.js'), 'export default 1;\n');
+  const config = { product: { name: 'test', northStar } };
+  fs.writeFileSync(path.join(dir, 'roadmap-skill.config.json'), JSON.stringify(config));
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
+}
+
+test('update --check-drift exits 0 when northStar aligns with detected repo signals', () => {
+  const dir = tmpdir();
+  // scanProject on this fixture detects languages=[JavaScript], modules=[app] → these tokens will match.
+  writeDriftFixture(dir, 'javascript app');
+  const result = runResult(['update', '--check-drift', '--project-root', dir], dir);
+  assert.equal(result.status, 0, `expected exit 0, got ${result.status}. stdout=${result.stdout} stderr=${result.stderr}`);
+  assert.match(result.stdout, /aligned/i);
+});
+
+test('update --check-drift exits 2 when northStar drifts from repo signals', () => {
+  const dir = tmpdir();
+  writeDriftFixture(dir, 'Ship kotlin gradle android compiler pipeline');
+  const result = runResult(['update', '--check-drift', '--project-root', dir], dir);
+  assert.equal(result.status, 2, `expected exit 2 on drift, got ${result.status}. stdout=${result.stdout}`);
+  assert.match(result.stdout, /DRIFTED|Drifted/);
+});
+
+test('update --check-drift exits 1 when no northStar is configured', () => {
+  const dir = tmpdir();
+  writeDriftFixture(dir, '');
+  const result = runResult(['update', '--check-drift', '--project-root', dir], dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /northStar/);
+});
+
+// ─── migrate-markers ─────────────────────────────────────────────────────────
+
+test('migrate-markers rewrites rs:evidence=manual to rs:kind=manual', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [x] Legacy delete <!-- rs:task=drop-legacy rs:evidence=manual -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const out = run(['migrate-markers', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /rs:kind=manual/);
+  assert.doesNotMatch(content, /rs:evidence=/);
+  assert.match(out, /Migrated 1 marker/);
+});
+
+test('migrate-markers drops rs:no-test marker', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [ ] Autostart <!-- rs:task=autostart rs:no-test -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  run(['migrate-markers', '--project-root', dir], dir);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.doesNotMatch(content, /rs:no-test/);
+  assert.match(content, /rs:task=autostart/);
+});
+
+test('migrate-markers is a no-op on already-migrated roadmap', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [x] Manual done <!-- rs:task=done rs:kind=manual -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const out = run(['migrate-markers', '--project-root', dir], dir);
+  assert.match(out, /Nothing to migrate/);
+  assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
+});
+
+test('migrate-markers --dry-run reports without writing', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [x] Legacy <!-- rs:task=legacy rs:evidence=manual -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const out = run(['migrate-markers', '--dry-run', '--project-root', dir], dir);
+  assert.match(out, /Would migrate 1 marker/);
+  assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });

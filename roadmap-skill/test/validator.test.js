@@ -1012,17 +1012,17 @@ test('/api/* HTTP route paths do not produce missing-file failures', () => {
   }
 });
 
-test('human-attested tasks bypass the evidence hunt (rs:evidence=manual, strikethrough N/A)', () => {
+test('human-attested tasks bypass the evidence hunt (rs:kind=manual, strikethrough N/A)', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
   const context = buildValidationContext(projectRoot, config, []);
 
-  // Delete/cleanup task: path is referenced but must NOT exist. User attests with rs:evidence=manual.
+  // Delete/cleanup task: path is referenced but must NOT exist. User attests with rs:kind=manual.
   const deleteTask = validateTask(
-    { id: 'delete-hogar', text: 'Eliminar directorios `src/app/hogar/blog` y `src/app/hogar/videos`', checked: true, evidenceMode: 'manual' },
+    { id: 'delete-hogar', text: 'Eliminar directorios `src/app/hogar/blog` y `src/app/hogar/videos`', checked: true, kind: 'manual' },
     context, config, []
   );
-  assert.equal(deleteTask.passed, true, 'evidenceMode=manual must pass without hunting for files');
+  assert.equal(deleteTask.passed, true, 'kind=manual must pass without hunting for files');
   assert.equal(deleteTask.humanVerified, true);
   assert.equal(deleteTask.confidence, 'manual');
   assert.deepEqual(deleteTask.reasons, []);
@@ -1085,11 +1085,11 @@ test('pathAliases: monorepo prefix in task text resolves to real file under alia
   assert.equal(result.preservedCheckedState, true);
 });
 
-test('parseRoadmap surfaces declined and evidenceMode flags end-to-end', () => {
+test('parseRoadmap surfaces declined and kind flags end-to-end', () => {
   const { parseRoadmap: parse } = require('../src/parser');
   const content = [
     '<!-- rs:managed:start -->',
-    '- [x] Eliminar `src/app/hogar/blog` <!-- rs:task=delete-hogar rs:evidence=manual -->',
+    '- [x] Eliminar `src/app/hogar/blog` <!-- rs:task=delete-hogar rs:kind=manual -->',
     '- [x] ~~Feature X~~ **N/A** — descartado <!-- rs:task=declined-x -->',
     '- [x] Normal task <!-- rs:task=normal-1 -->',
     '<!-- rs:managed:end -->',
@@ -1099,12 +1099,12 @@ test('parseRoadmap surfaces declined and evidenceMode flags end-to-end', () => {
   const tasks = parse(content).tasks;
   const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
 
-  assert.equal(byId['delete-hogar'].evidenceMode, 'manual');
+  assert.equal(byId['delete-hogar'].kind, 'manual');
   assert.equal(byId['delete-hogar'].declined, false);
   assert.equal(byId['declined-x'].declined, true);
-  assert.equal(byId['declined-x'].evidenceMode, null);
+  assert.equal(byId['declined-x'].kind, null);
   assert.equal(byId['normal-1'].declined, false);
-  assert.equal(byId['normal-1'].evidenceMode, null);
+  assert.equal(byId['normal-1'].kind, null);
 });
 
 test('validateTasks assigns cause taxonomy on failing results', () => {
