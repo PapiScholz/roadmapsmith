@@ -1907,9 +1907,9 @@ function validateTask(task, context, config, plugins) {
     };
   }
 
-  // Human-attested bypass: `rs:evidence=manual` (delete/cleanup done = absence, or any manually-verified completion)
+  // Human-attested bypass: `rs:kind=manual` (delete/cleanup done = absence, or any manually-verified completion)
   // or strikethrough `~~text~~` in body (N/A / declined scope). Trust the checked state; don't hunt for evidence.
-  if (task.declined || task.evidenceMode === 'manual') {
+  if (task.declined || task.kind === 'manual') {
     return {
       taskId, passed: true, confidence: 'manual', reasons: [], diagnostics: [],
       evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: [], structuralEvidence: null },

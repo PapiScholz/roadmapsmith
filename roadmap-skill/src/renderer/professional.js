@@ -25,8 +25,16 @@ function renderSection1NorthStar(model, lines) {
   lines.push('');
   lines.push(model.product.northStar || model.northStar);
   lines.push('');
+  if (model.product.problemStatement) {
+    lines.push(`**Problem:** ${model.product.problemStatement}`);
+    lines.push('');
+  }
   if (model.product.primaryUser) {
     lines.push(`**Primary user:** ${model.product.primaryUser}`);
+    lines.push('');
+  }
+  if (model.product.targetUser) {
+    lines.push(`**Target user:** ${model.product.targetUser}`);
     lines.push('');
   }
   if (model.product.targetOutcome) {

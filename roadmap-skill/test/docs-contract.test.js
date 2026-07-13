@@ -9,6 +9,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const ROOT_README_PATH = path.join(REPO_ROOT, 'README.md');
 const PACKAGE_README_PATH = path.join(REPO_ROOT, 'roadmap-skill', 'README.md');
 const COMMAND_SURFACES_DOC_PATH = path.join(REPO_ROOT, 'docs', 'command-surfaces.md');
+const LEGACY_COMMANDS_DOC_PATH = path.join(REPO_ROOT, 'docs', 'legacy-commands.md');
 const SYNC_AUDIT_DOC_PATH = path.join(REPO_ROOT, 'docs', 'use-cases', 'sync-audit-mode.md');
 const ZERO_MODE_DOC_PATH = path.join(REPO_ROOT, 'docs', 'use-cases', 'zero-mode-discovery.md');
 const RELEASE_READINESS_DOC_PATH = path.join(REPO_ROOT, 'docs', 'release-readiness.md');
@@ -27,7 +28,7 @@ test('docs present init and update as the two canonical commands', () => {
 });
 
 test('docs present generate --full-regen as the public destructive path and regenerate as compatibility-only', () => {
-  const combined = [read(PACKAGE_README_PATH), read(COMMAND_SURFACES_DOC_PATH)].join('\n');
+  const combined = [read(PACKAGE_README_PATH), read(COMMAND_SURFACES_DOC_PATH), read(LEGACY_COMMANDS_DOC_PATH)].join('\n');
 
   assert.match(combined, /generate --full-regen/);
   assert.match(combined, /regenerate/);
@@ -35,7 +36,7 @@ test('docs present generate --full-regen as the public destructive path and rege
 });
 
 test('docs keep roadmap-sync as deprecated-only and recommend strict validation for independent audit', () => {
-  const combined = [read(ROOT_README_PATH), read(PACKAGE_README_PATH), read(SYNC_AUDIT_DOC_PATH)].join('\n');
+  const combined = [read(ROOT_README_PATH), read(PACKAGE_README_PATH), read(SYNC_AUDIT_DOC_PATH), read(LEGACY_COMMANDS_DOC_PATH)].join('\n');
 
   assert.match(combined, /roadmap-sync/i);
   assert.match(combined, /deprecated/i);

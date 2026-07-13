@@ -69,12 +69,28 @@ test('parseRoadmap normalizes legacy and current warning prefixes to the same wa
   assert.equal(parsed.tasks[1].warningText, 'missing test evidence');
 });
 
-test('parseRoadmap extracts rs:no-test marker flag', () => {
+test('parseRoadmap throws on deprecated rs:evidence= marker with migrate hint', () => {
+  const content = '- [x] Eliminar `src/legacy.js` <!-- rs:task=drop-legacy rs:evidence=manual -->';
+  assert.throws(
+    () => parseRoadmap(content),
+    /rs:evidence=.*migrate-markers.*rs:kind=manual/s
+  );
+});
+
+test('parseRoadmap throws on deprecated rs:no-test marker with migrate hint', () => {
   const content = '- [ ] Implement windows autostart <!-- rs:task=p0-windows-autostart rs:no-test -->';
-  const parsed = parseRoadmap(content);
-  assert.equal(parsed.tasks.length, 1);
-  assert.equal(parsed.tasks[0].id, 'p0-windows-autostart');
-  assert.equal(parsed.tasks[0].noTest, true);
+  assert.throws(
+    () => parseRoadmap(content),
+    /rs:no-test.*migrate-markers/s
+  );
+});
+
+test('parseRoadmap throws on unknown rs:kind= value listing valid options', () => {
+  const content = '- [ ] Weird task <!-- rs:task=weird rs:kind=bogus -->';
+  assert.throws(
+    () => parseRoadmap(content),
+    /rs:kind=bogus.*rollup, command, manual/s
+  );
 });
 
 test('parseRoadmap disambiguates repeated implicit task text while preserving explicit IDs', () => {

@@ -9,25 +9,21 @@ Use this skill when the user wants to sync the roadmap after code changes, add a
 
 ## Safety
 
-`roadmapsmith update` mutates ROADMAP.md in both directions:
-
-- unchecks `[x]` tasks whose evidence cannot be found in the repo
-- auto-checks `[ ]` tasks whose evidence IS found
-
-Neither direction requires confirmation. Always preview with `--audit --dry-run` first, review both the "Unchecked by this run" and the "Ready but unchecked" lists, and only apply after confirming both are correct. If you want the ⚠️ / ✅ sub-bullets written to the file WITHOUT flipping any checkbox, add `--evidence-only`.
+As of v0.13.0, `roadmapsmith update` is annotate-only by default: it writes ⚠️ / ✅ sub-bullets but never flips `[ ]`/`[x]` checkboxes. Checkbox mutation is gated behind `--apply`.
 
 ## Required behavior
 
-**Step 1 — Preview (do this first):**
+**Step 1 — Annotate + audit (safe default):**
 ```
-roadmapsmith update --audit --dry-run --project-root .
+roadmapsmith update --audit --project-root .
 ```
-Review the diff. Confirm no legitimate `[x]` will be silently unchecked and no `[ ]` will be auto-checked without visible evidence.
+Writes ⚠️ / ✅ sub-bullets. Zero checkbox mutation. Review the audit output — the "Unchecked by this run" list will be empty because nothing was flipped; focus on "Ready but unchecked" and "Checked with weak evidence".
 
-**Step 2 — Apply (only after reviewing the preview):**
+**Step 2 — Apply mutations (after reviewing Step 1):**
 ```
-roadmapsmith update --project-root .
+roadmapsmith update --apply --project-root .
 ```
+Flips `[ ] → [x]` for tasks whose evidence was found and `[x] → [ ]` for tasks whose evidence is missing. Use `--dry-run` if you want the mutation preview without writing.
 
 **Add a new task:**
 ```
@@ -45,13 +41,14 @@ roadmapsmith update --check-drift --project-root .
 ```
 
 Available update flags:
+- `--apply` — flip `[ ]`/`[x]` checkboxes (default is annotate-only)
 - `--add-task <text>` — insert a new task into the managed block
 - `--task <id>` — task ID to target (use with `--evidence`)
 - `--evidence <text>` — evidence to attach to `--task`
 - `--audit` — show validation audit after refresh (grouped by cause: `path-mismatch`, `no-evidence`, `deletion-task`, `namespace-gate`, `strict-mode`)
-- `--evidence-only` — write ⚠️/✅ sub-bullets but never flip `[ ]`/`[x]` (safe review pass)
+- `--evidence-only` — legacy alias; now a silent no-op since annotate-only is the default
 - `--concise` / `--no-warnings` — suppress ⚠️ warning lines in the emitted markdown (safe for READMEs / PR embeds)
-- `--check-drift` — compare northStar to repo state
+- `--check-drift` — compare northStar to repo state; exits `2` when drift is detected
 - `--strict` — strict validation mode (preservedCheckedState does not count as pass)
 - `--dry-run` — preview without writing
 - `--json` — output in JSON format
@@ -59,13 +56,28 @@ Available update flags:
 
 ## Task marker attributes
 
-Tasks use a stable-id comment: `<!-- rs:task=slug -->`. The same comment can carry extra attributes that change how the validator treats the task:
+Tasks use a stable-id comment: `<!-- rs:task=slug -->`. As of v0.13.0, the same comment can carry two orthogonal axes:
 
+**State axis — `rs:planned`:**
 - `rs:planned` — "intentionally not implemented yet". Validator skips evidence hunt. Sync emits **no** ⚠️ warning and does not flip the checkbox. Use for future scope you want on the roadmap without polluting every refresh with warnings. Example: `- [ ] Ship v0.2 feature X <!-- rs:task=ship-x rs:planned -->`.
+
+**Kind axis — `rs:kind=<rollup|command|manual>`:**
 - `rs:kind=rollup` — "milestone/aggregator; children carry the evidence". Passes validation without a file-existence hunt. Use for phase exits, milestone rollups, "Finalize module implementation" style parent tasks. Example: `- [x] Milestone v0.2 shipped <!-- rs:task=milestone-v0-2 rs:kind=rollup -->`.
 - `rs:kind=command` + `rs:verified-by=<command>` — "evidence = a command exits 0". Passes validation on the marker alone during `update` (no shell execution). To actually run the command and flip the checkbox, use `roadmapsmith verify --task <id> --run`. Example: `- [ ] TypeScript compila sin errores <!-- rs:task=tsc-clean rs:kind=command rs:verified-by=tsc-noemit -->`. Note: `rs:verified-by` captures a single non-whitespace token — use a script path or an npm-script name if the command needs arguments.
-- `rs:evidence=manual` — human-attested completion. Trust the checked state, no evidence hunt.
-- `rs:no-test` — the task legitimately has no test.
+- `rs:kind=manual` — human-attested completion. Trust the checked state, no evidence hunt. Use for delete/cleanup tasks whose completion is an absence, or anything a human verified out-of-band. Example: `- [x] Eliminar directorios legacy <!-- rs:task=drop-legacy rs:kind=manual -->`.
+
+An unknown `rs:kind=<value>` throws a parse error listing the three valid values.
+
+### Migration from pre-v0.13 markers
+
+`rs:evidence=manual` and `rs:no-test` are removed. `parseRoadmap` throws with a `Deprecated marker …` error when it encounters either. Run this once per repo before upgrading to 0.13.0:
+
+```
+roadmapsmith migrate-markers --project-root . --dry-run   # preview
+roadmapsmith migrate-markers --project-root .             # apply
+```
+
+The migrator rewrites `rs:evidence=manual` → `rs:kind=manual` (same bypass semantics) and drops `rs:no-test` (it was a silent no-op). Exits `0` when there is nothing to migrate.
 
 ## Command-verified tasks (`verify`)
 

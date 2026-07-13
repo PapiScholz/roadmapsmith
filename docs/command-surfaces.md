@@ -57,12 +57,4 @@ Missing advanced VS Code tasks or advanced native surfaces are warnings, not can
 
 ## Compatibility
 
-Kept working for existing automation:
-
-- `doctor`
-- `regenerate`
-- `/road <action>`
-- `/roadmap-sync <action>`
-- deprecated direct aliases
-
-Compatibility surfaces should be shown only when explicitly invoked or when the user searches for them.
+Legacy surfaces (`doctor`, `regenerate`, `/road`, `/roadmap-sync`, deprecated direct aliases) are documented in [legacy-commands.md](legacy-commands.md). Kept working for existing automation, they print deprecation warnings and should be shown only when explicitly invoked.
