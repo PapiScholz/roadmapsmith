@@ -64,7 +64,7 @@ function renderSection3CurrentState(model, lines) {
   if (model.currentState.scaffold && model.currentState.scaffold.length > 0) {
     for (const item of model.currentState.scaffold) {
       const id = `prof-state-scaffold-${slugify(item)}`;
-      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} -->`);
+      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} rs:kind=rollup -->`);
     }
   } else {
     lines.push('_No scaffold modules detected. Improve detection by adding `product.steps` to config._');
@@ -83,7 +83,7 @@ function renderSection3CurrentState(model, lines) {
   if (model.currentState.knownLimitations && model.currentState.knownLimitations.length > 0) {
     for (const item of model.currentState.knownLimitations) {
       const id = `prof-state-limit-${slugify(item)}`;
-      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} -->`);
+      lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${item} <!-- rs:task=${id} rs:kind=rollup -->`);
     }
   } else {
     lines.push(`- Code-level TODO/FIXME surface: ${model.currentState.todoSummary}`);
@@ -256,12 +256,7 @@ function renderSection6MaturityPath(model, lines) {
     } else {
       const isCommand = /^Command:/i.test(area);
       const kind = isCommand ? 'command' : 'module';
-      const docId = `prof-mat-${slugify(rawName)}-document-api`;
-      const testId = `prof-mat-${slugify(rawName)}-add-test-coverage`;
-      lines.push(`**Current state:** ${kind} detected in scan.`);
-      lines.push('');
-      lines.push(`- [${checkedState(model, docId) ? 'x' : ' '}] \`[P1]\` Document ${displayName} public API <!-- rs:task=${docId} -->`);
-      lines.push(`- [${checkedState(model, testId) ? 'x' : ' '}] \`[P1]\` Add test coverage for ${displayName} <!-- rs:task=${testId} -->`);
+      lines.push(`**Current state:** ${kind} detected in scan. Add \`moduleMetadata.${rawName.toLowerCase()}\` to config to define tasks for this ${kind}.`);
     }
     lines.push('');
   }
@@ -277,7 +272,7 @@ function renderSection7Risks(model, lines) {
     const risk = model.risks[i];
     const pri = i === 0 ? 'P0' : 'P1';
     const id = `prof-risk-${slugify(risk)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(pri)} ${risk} <!-- rs:task=${id} -->`);
+    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] ${priorityLabel(pri)} ${risk} <!-- rs:task=${id} rs:kind=rollup -->`);
   }
   lines.push('');
 
@@ -297,7 +292,7 @@ function renderSection8SuccessCriteria(model, lines) {
   lines.push('');
   for (const criterion of criteria) {
     const id = `prof-sc-${slugify(criterion)}`;
-    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P0]\` ${criterion} <!-- rs:task=${id} -->`);
+    lines.push(`- [${checkedState(model, id) ? 'x' : ' '}] \`[P0]\` ${criterion} <!-- rs:task=${id} rs:kind=rollup -->`);
   }
   lines.push('');
 }

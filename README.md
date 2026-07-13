@@ -6,6 +6,22 @@
 
 Evidence-backed roadmap workflows for AI coding agents — two commands: `init` and `update`.
 
+## See it in action
+
+RoadmapSmith does not make an AI agent smarter. It makes the agent's output **auditable** — a validated trail of what got done, why, and with what evidence.
+
+<p align="center">
+  <img src="assets/demo.gif" alt="A/B demo: claude-code session with ROADMAP.md vs without" width="800">
+</p>
+
+A scripted A/B demo runs two identical `claude-code` sessions against this repo — one that can read `ROADMAP.md`, one that can't — and diffs the results:
+
+```bash
+bash scripts/demo/run.sh
+```
+
+Full walkthrough and honest caveats: [`scripts/demo/README.md`](scripts/demo/README.md).
+
 ## Install
 
 ### CLI

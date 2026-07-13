@@ -12,7 +12,7 @@ const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
 ]);
 const TRANSLATION_DIR_SEGMENTS = ['locale', 'locales', 'i18n', 'translations'];
-const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/', 'roadmap-skill/'];
+const DEFAULT_EXCLUDED_PATH_PREFIXES = ['.claude/', '.agent/'];
 const GENERATED_OUTPUT_PREFIXES = [
   'dist-electron/', 'dist/', 'build/', 'out/', '.next/', 'coverage/',
   '.open-next/', '.vercel/', '.svelte-kit/', '.parcel-cache/', '.angular/',
@@ -2168,6 +2168,9 @@ function auditValidation(tasks, results, changes) {
     }
 
     if (task.checked && result.passed && result.confidence === 'low' && result.kind !== 'rollup' && result.kind !== 'command') {
+      if (Array.isArray(result.reasons) && result.reasons.length === 0 && !result.attempted) {
+        result.reasons.push('no evidence hunt performed — if this task describes state rather than work to implement, add rs:kind=rollup to its <!-- rs:task=... --> marker');
+      }
       checkedWithWeakEvidence.push({ task, result });
     }
 

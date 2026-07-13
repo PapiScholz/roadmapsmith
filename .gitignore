@@ -20,3 +20,4 @@ assets/palette.png
 
 # backups raros
 *.mp4~
+scripts/demo/*.log

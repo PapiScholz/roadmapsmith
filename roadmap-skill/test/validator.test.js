@@ -497,6 +497,27 @@ test('auditValidation reports checkedWithWeakEvidence for low-confidence passed 
   assert.equal(audit.readyButUnchecked.length, 0);
 });
 
+test('auditValidation injects rs:kind=rollup hint when weak-evidence task had no evidence hunt', () => {
+  const rollupLikeResult = { passed: true, confidence: 'low', reasons: [], attempted: false, evidence: { code: false, test: false, artifact: false } };
+  const realImplResult  = { passed: true, confidence: 'low', reasons: ['token match below threshold'], attempted: true, evidence: { code: true, test: false, artifact: false } };
+  const results = { 'looks-like-rollup': rollupLikeResult, 'real-impl-weak': realImplResult };
+  const tasks = [
+    { id: 'looks-like-rollup', text: 'Current state: CLI has 11 commands', checked: true },
+    { id: 'real-impl-weak',    text: 'Implement classifier module',          checked: true }
+  ];
+
+  const audit = auditValidation(tasks, results);
+  assert.equal(audit.checkedWithWeakEvidence.length, 2, 'both weak-evidence tasks flagged');
+  assert.ok(
+    rollupLikeResult.reasons.some((r) => r.includes('rs:kind=rollup')),
+    'rollup-like task (no evidence hunt) must get the actionable hint'
+  );
+  assert.ok(
+    !realImplResult.reasons.some((r) => r.includes('rs:kind=rollup')),
+    'implementation task that failed detection must NOT get the rollup hint'
+  );
+});
+
 // ── Structural evidence: namespace-vocab fixture ──────────────────────────────
 
 test('extractTaskNamespace extracts known namespace prefixes', () => {
@@ -813,8 +834,11 @@ test('default excluded template directories and configured skillsDir are skipped
 
   assert.ok(!indexedPaths.some((p) => p.startsWith('.claude/')));
   assert.ok(!indexedPaths.some((p) => p.startsWith('.agent/')));
-  assert.ok(!indexedPaths.some((p) => p.startsWith('roadmap-skill/')));
   assert.ok(!indexedPaths.some((p) => p.startsWith('custom-skills/')));
+  // roadmap-skill/ is NOT hardcoded-excluded anymore (v0.12.1 fix): monorepo layouts
+  // where the package lives in a subdir need those files indexed so Evidence: lines
+  // pointing at them can be validated.
+  assert.ok(indexedPaths.some((p) => p.startsWith('roadmap-skill/')), 'roadmap-skill/ files must be indexed for monorepo evidence to work');
 });
 
 // --- Regression: v0.9.10 false-positive and false-negative fixes ---
