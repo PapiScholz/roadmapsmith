@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.12.1 - 2026-07-13
+
+### Added
+- rs:kind=rollup default + validator monorepo fix + dogfood A/B demo
+
 ## v0.12.0 - 2026-07-11
 
 ### Added
