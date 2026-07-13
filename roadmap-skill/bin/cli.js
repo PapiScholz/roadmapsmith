@@ -281,7 +281,30 @@ function runUpdate(projectRoot, config, flags) {
 
 function runMaintain(projectRoot, config, flags) {
   process.stderr.write('WARNING: `maintain` is deprecated. Use `update --apply`.\n');
-  return runUpdate(projectRoot, config, { ...flags, apply: true, audit: true });
+  // ponytail: preserve the pre-v0.13 stdout contract (Dry run:/No changes for/Updated + Audit summary)
+  // and the exit-0 behavior. The functional-smoke gate asserts these exact strings; a shim via runUpdate
+  // (which prints "Would update ..." and sets exit 2 through its --audit gate) breaks that contract.
+  const dryRun = isEnabled(flags['dry-run']);
+  const strict = isEnabled(flags.strict);
+  const roadmapFile = resolveRoadmapFile(projectRoot, config, flags['roadmap-file']);
+  const existingContent = readTextIfExists(roadmapFile) || '';
+  const plugins = loadPlugins(projectRoot, config.plugins || []);
+  const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
+  const { tasks } = parseRoadmap(existingContent);
+  const resultMap = validateTasks(tasks, context, config, plugins);
+  const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true });
+
+  if (synced === existingContent) {
+    console.log(`No changes for ${roadmapFile}`);
+  } else if (dryRun) {
+    console.log(`Dry run: would update ${roadmapFile}`);
+  } else {
+    writeText(roadmapFile, synced, {});
+    console.log(`Updated ${roadmapFile}`);
+  }
+
+  const audit = auditValidation(tasks, resultMap, changes);
+  printAudit(audit, { tasks, resultMap });
 }
 
 // ─── runVerify ────────────────────────────────────────────────────────────────
