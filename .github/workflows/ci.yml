@@ -136,4 +136,4 @@ jobs:
       - name: Merge automated release PR
         env:
           GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN || secrets.GITHUB_TOKEN }}
-        run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
+        run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash --delete-branch
