@@ -125,9 +125,13 @@ function updateChangelogContent(existingContent, options = {}) {
   } = options;
 
   const normalized = normalizeNewlines(existingContent);
-  const unreleasedRange = findSectionRange(normalized, 'Unreleased');
+  let unreleasedRange = findSectionRange(normalized, 'Unreleased');
   if (!unreleasedRange) {
-    throw new Error('CHANGELOG.md must contain a "## Unreleased" section.');
+    // ponytail: auto-restore the missing Unreleased stub instead of throwing.
+    // Hand-crafted release commits sometimes drop it; synthesize a zero-width range at the topmost `## ` heading.
+    const firstRelease = /^## /m.exec(normalized);
+    const insertAt = firstRelease ? firstRelease.index : normalized.length;
+    unreleasedRange = { start: insertAt, end: insertAt };
   }
 
   const releaseSection = buildReleaseSection({ version, date, subjects });

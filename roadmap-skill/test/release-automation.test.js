@@ -191,6 +191,33 @@ test('buildReleaseSection groups commits and falls back to Changed while excludi
   assert.doesNotMatch(section, /chore\(release\)/);
 });
 
+test('updateChangelog auto-restores a missing Unreleased stub instead of throwing', () => {
+  // Simulates the state left behind by a hand-crafted release commit that dropped the
+  // Unreleased section (as happened during v0.13.1 -> v0.13.2).
+  const content = [
+    '# Changelog',
+    '',
+    '## v1.2.3 - 2026-06-17',
+    '',
+    '### Changed',
+    '- Previous release.',
+    ''
+  ].join('\n');
+
+  const updated = updateChangelog({
+    version: '1.2.4',
+    date: '2026-06-18',
+    subjects: ['fix: recover from missing Unreleased'],
+    existingContent: content
+  });
+
+  assert.match(updated.content, new RegExp(`## Unreleased\\n\\n${UNRELEASED_PLACEHOLDER.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}`));
+  assert.match(updated.content, /## v1\.2\.4 - 2026-06-18/);
+  assert.match(updated.content, /- \(recover from missing Unreleased\)|- recover from missing Unreleased/);
+  assert.match(updated.content, /## v1\.2\.3 - 2026-06-17/);
+  assert.match(updated.content, /- Previous release\./);
+});
+
 test('updateChangelog resets Unreleased and inserts the generated version section', () => {
   const content = [
     '# Changelog',
