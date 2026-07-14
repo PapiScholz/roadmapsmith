@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- None yet.
+
+## v0.13.2 - 2026-07-14
+
+Parser tolerance patch. Two silent-rejection bugs surfaced while hand-editing `ROADMAP.md` to strengthen weak-evidence tasks.
+
+### Fixed
+
+- **`- ✅ evidence: <path>` sub-bullets are now parsed as evidence.** `sync/index.js` emits this exact shape when auto-adding evidence, so users reasonably copy it when hand-authoring. Previously `parseEvidenceLine` required the content to start literally with `evidence:` (offset 0), so the leading `✅ ` prefix caused a silent no-op — audit kept flagging the task as weak-evidence, zero diagnostics fired. `parseEvidenceLine` now strips the leading `✅` before the prefix test, making the emitted format roundtrip-safe when hand-authored.
+- **Standalone `<!-- rs:kind=rollup -->` markers (and any `rs:` flag without `rs:task=`) are now honored.** `parseTaskLine` only extracted marker flags when the comment body began with `rs:task=`, so `<!-- rs:kind=rollup -->` alone was left inside the task text and never reached the validator's kind check. The docs and audit hint reference `rs:kind=rollup` in isolation, so the shape looked legal. Standalone `rs:` markers now populate `markerFlags` with `markerId=null`, letting downstream kind extraction and deprecated-marker checks run as intended. As a side effect, standalone `<!-- rs:no-test -->` now correctly throws the `migrate-markers` error instead of being silently dropped into the task text.
+
+### Migration
+
+None required. Both changes are additive parser tolerance; no existing marker shape changes behavior.
+
 ## v0.13.1 - 2026-07-14
 
 Security + honesty patch. Two critical audit findings from the v0.13.0 review are addressed.
