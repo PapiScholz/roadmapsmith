@@ -161,8 +161,10 @@ function parseRoadmap(content) {
     if (taskKind && !['rollup', 'command', 'manual'].includes(taskKind)) {
       throw new Error(`Unknown \`rs:kind=${taskKind}\` at line ${index + 1}. Valid values: rollup, command, manual.`);
     }
-    const verifiedByMatch = markerFlags.match(/\brs:verified-by=(\S+)/i);
-    const taskVerifiedBy = verifiedByMatch ? verifiedByMatch[1].toLowerCase() : null;
+    // v0.13.1: capture the full command (multi-token) up to the next `rs:` marker or end of flags.
+    // Previously `\S+` truncated at the first space, forcing users to wrap commands in npm scripts.
+    const verifiedByMatch = markerFlags.match(/\brs:verified-by=(.+?)(?=\s+rs:|$)/i);
+    const taskVerifiedBy = verifiedByMatch ? verifiedByMatch[1].trim() : null;
     // ponytail: `~~text~~` in the task body signals a declined/N-A completion; no evidence to hunt for.
     const declined = /~~[^~]+~~/.test(text);
     const taskIndentWidth = getIndentWidth(indent);

