@@ -256,7 +256,7 @@ test('verify --task --run flips checkbox on exit-0 command', () => {
     '<!-- rs:managed:start -->',
     '# Roadmap',
     '',
-    '- [ ] Trivial pass <!-- rs:task=trivial-pass rs:kind=command rs:verified-by=hostname -->',
+    '- [ ] Trivial pass <!-- rs:task=trivial-pass rs:kind=command rs:verified-by=node --version -->',
     '<!-- rs:managed:end -->',
     ''
   ].join('\n');
@@ -268,11 +268,12 @@ test('verify --task --run flips checkbox on exit-0 command', () => {
 
 test('verify --task --run on failing command exits 2 and leaves checkbox', () => {
   const dir = tmpdir();
+  // v0.13.1: use `node -e process.exit(1)` (allowlisted, non-zero exit) instead of `zzz-not-a-real-cmd`.
   const initial = [
     '<!-- rs:managed:start -->',
     '# Roadmap',
     '',
-    '- [ ] Fails <!-- rs:task=fails rs:kind=command rs:verified-by=zzz-not-a-real-cmd-x9k -->',
+    '- [ ] Fails <!-- rs:task=fails rs:kind=command rs:verified-by=node -e process.exit(1) -->',
     '<!-- rs:managed:end -->',
     ''
   ].join('\n');
@@ -281,6 +282,66 @@ test('verify --task --run on failing command exits 2 and leaves checkbox', () =>
   assert.equal(result.status, 2);
   const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
   assert.match(content, /- \[ \] Fails/);
+});
+
+// ── v0.13.1 C1: rs:verified-by allowlist + shell:false ──────────────────────
+
+test('v0.13.1: verify --run rejects program not in allowlist (echo)', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [ ] Say hi <!-- rs:task=hi rs:kind=command rs:verified-by=echo hi -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const result = runResult(['verify', '--task', 'hi', '--run', '--project-root', dir], dir);
+  assert.equal(result.status, 1, 'echo is not in the v0.13.1 allowlist; must exit 1');
+  assert.match(result.stderr, /not in the v0.13.1 allowlist/);
+});
+
+test('v0.13.1: verify --run refuses shell metacharacters (no injection)', () => {
+  const dir = tmpdir();
+  const pwnedMarker = path.join(dir, 'pwned');
+  // Malicious verified-by tries to smuggle `;touch pwned` via shell. With shell:false
+  // and allowlist enforcement, the payload never reaches a shell.
+  const initial = [
+    '<!-- rs:managed:start -->',
+    `- [ ] Deploy <!-- rs:task=deploy rs:kind=command rs:verified-by=;touch ${pwnedMarker} -->`,
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const result = runResult(['verify', '--task', 'deploy', '--run', '--project-root', dir], dir);
+  assert.equal(result.status, 1, 'must reject injection attempt');
+  assert.equal(fs.existsSync(pwnedMarker), false, 'the injected touch payload must not execute');
+});
+
+test('v0.13.1: verify --run prints audit trail (+ program args) to stderr before executing', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [ ] Audit test <!-- rs:task=audit-test rs:kind=command rs:verified-by=node --version -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const result = runResult(['verify', '--task', 'audit-test', '--run', '--project-root', dir], dir);
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /^\+ node --version/m, 'stderr must contain audit trail "+ node --version"');
+});
+
+test('v0.13.1: verify --task WITHOUT --run does not check allowlist (just prints "Would run")', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '- [ ] Would-be echo <!-- rs:task=w rs:kind=command rs:verified-by=echo hi -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const out = run(['verify', '--task', 'w', '--project-root', dir], dir);
+  assert.match(out, /Would run: echo hi/, 'preview mode must show the command without allowlist gate');
 });
 
 // ─── check-drift ─────────────────────────────────────────────────────────────

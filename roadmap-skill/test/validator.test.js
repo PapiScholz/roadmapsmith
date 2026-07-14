@@ -219,7 +219,7 @@ test('checked task without Evidence or path hints is preserved with low confiden
   );
 
   assert.equal(result.passed, true);
-  assert.equal(result.confidence, 'low');
+  assert.equal(result.confidence, 'preserved', 'v0.13.1: preservation surfaces as confidence=preserved (was low)');
   assert.equal(result.preservedCheckedState, true);
 });
 
@@ -243,11 +243,15 @@ test('checked task with failed structural evidence is not preserved', () => {
   assert.equal(result.preservedCheckedState, false);
 });
 
-test('minimumConfidence does not demote preserved checked tasks', () => {
+test('v0.13.1: minimumConfidence DOES demote preserved checked tasks (regression guard for M4 fix)', () => {
+  // Pre-v0.13.1 bug: `applyMinimumConfidence` skipped `preservedCheckedState` tasks entirely,
+  // so `--minimum-confidence medium` could not reject a checked task with no evidence. That
+  // made the "add --strict to reject preservation" promise a lie. v0.13.1 removes the skip;
+  // preserved tasks have confidence 'preserved' (rank -1) and correctly fail any threshold.
   const results = {
     'milestone-v0-1': {
       passed: true,
-      confidence: 'low',
+      confidence: 'preserved',
       reasons: [],
       preservedCheckedState: true
     }
@@ -255,8 +259,11 @@ test('minimumConfidence does not demote preserved checked tasks', () => {
 
   applyMinimumConfidence(results, 'medium');
 
-  assert.equal(results['milestone-v0-1'].passed, true);
-  assert.deepEqual(results['milestone-v0-1'].reasons, []);
+  assert.equal(results['milestone-v0-1'].passed, false, 'preserved must fail --minimum-confidence medium');
+  assert.ok(
+    results['milestone-v0-1'].reasons.some((r) => /below required "medium"/.test(r)),
+    'reason must explain the downgrade'
+  );
 });
 
 test('natural-language slash pairs do not produce missing-file failures', () => {
@@ -516,6 +523,53 @@ test('auditValidation injects rs:kind=rollup hint when weak-evidence task had no
     !realImplResult.reasons.some((r) => r.includes('rs:kind=rollup')),
     'implementation task that failed detection must NOT get the rollup hint'
   );
+});
+
+// ── v0.13.1 C2: preservedCheckedState surfaces as confidence: 'preserved' ─────
+
+test('v0.13.1: [x] task with no evidence surfaces as confidence: preserved (not low)', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const result = validateTask(
+    { id: 'fake', text: 'Implemented rate limiting on GraphQL resolvers', checked: true },
+    context, config, []
+  );
+  assert.equal(result.passed, true, 'preservation still passes');
+  assert.equal(result.confidence, 'preserved', 'confidence must be preserved, not low');
+  assert.equal(result.preservedCheckedState, true);
+  assert.ok(
+    result.reasons.some((r) => /preserved.*strict.*rs:kind=manual/i.test(r)),
+    'reasons must explain the preservation and how to opt out; got: ' + JSON.stringify(result.reasons)
+  );
+});
+
+test('v0.13.1: auditValidation exposes preservedOnly bucket', () => {
+  const projectRoot = setupFixture('generic');
+  const config = loadConfig({ projectRoot });
+  const context = buildValidationContext(projectRoot, config, []);
+  const tasks = [
+    { id: 'preserved-1', text: 'Implemented some hazy thing', checked: true },
+    { id: 'preserved-2', text: 'Fixed another abstract concern', checked: true },
+    { id: 'unchecked',   text: 'Do the thing later', checked: false }
+  ];
+  const results = validateTasks(tasks, context, config, []);
+  const audit = auditValidation(tasks, results, { newlyUnchecked: [] });
+  assert.equal(audit.preservedOnly.length, 2, 'both [x] tasks without evidence go in preservedOnly');
+  const ids = audit.preservedOnly.map((item) => item.task.id).sort();
+  assert.deepEqual(ids, ['preserved-1', 'preserved-2']);
+});
+
+test('v0.13.1: applyMinimumConfidence with "low" downgrades preserved tasks (rank -1 < low rank 0)', () => {
+  const results = {
+    'preserved-task': { passed: true, confidence: 'preserved', reasons: [], preservedCheckedState: true },
+    'low-task':       { passed: true, confidence: 'low',       reasons: [], preservedCheckedState: false },
+    'medium-task':    { passed: true, confidence: 'medium',    reasons: [], preservedCheckedState: false }
+  };
+  applyMinimumConfidence(results, 'low');
+  assert.equal(results['preserved-task'].passed, false, 'preserved (rank -1) must be rejected by --minimum-confidence low');
+  assert.equal(results['low-task'].passed, true, 'low (rank 0) meets --minimum-confidence low');
+  assert.equal(results['medium-task'].passed, true, 'medium exceeds low');
 });
 
 // ── Structural evidence: namespace-vocab fixture ──────────────────────────────

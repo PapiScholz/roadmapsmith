@@ -335,12 +335,15 @@ test('sync preserves an already checked task with no evidence or path hints', ()
   const { content: next } = applySync(content, parsed.tasks, results);
 
   assert.equal(results['milestone-v0-1'].passed, true);
-  assert.equal(results['milestone-v0-1'].confidence, 'low');
+  assert.equal(results['milestone-v0-1'].confidence, 'preserved', 'v0.13.1: preservation surfaces as confidence=preserved (was low)');
   assert.equal(results['milestone-v0-1'].preservedCheckedState, true);
   assert.match(next, /- \[x\] Foundation baseline complete milestone/);
 });
 
-test('sync preserves checked task when minimumConfidence is medium and state was preserved', () => {
+test('v0.13.1: sync unchecks preserved task when minimumConfidence is medium (regression guard for M4 fix)', () => {
+  // Pre-v0.13.1: `applyMinimumConfidence` skipped preserved tasks, so `--minimum-confidence medium`
+  // was a no-op and the [x] stayed. v0.13.1: preserved (rank -1) fails the threshold and sync
+  // unchecks it. To keep a preserved task checked under a stricter minimum, use rs:kind=manual.
   const content = '## Milestones\n- [x] Foundation baseline complete milestone <!-- rs:task=milestone-v0-1 -->\n';
   const tasks = [{
     id: 'milestone-v0-1',
@@ -351,17 +354,16 @@ test('sync preserves checked task when minimumConfidence is medium and state was
   const results = {
     'milestone-v0-1': {
       passed: true,
-      confidence: 'low',
+      confidence: 'preserved',
       reasons: [],
       preservedCheckedState: true
     }
   };
 
   applyMinimumConfidence(results, 'medium');
-  const { content: next } = applySync(content, tasks, results);
 
-  assert.equal(results['milestone-v0-1'].passed, true);
-  assert.match(next, /- \[x\] Foundation baseline complete milestone/);
+  assert.equal(results['milestone-v0-1'].passed, false, 'preserved must fail --minimum-confidence medium');
+  // sync uses results.passed to decide checkbox state — with passed:false, the task unchecks.
 });
 
 test('applySync always overwrites existing warning with fresh validator reason (no preservation)', () => {

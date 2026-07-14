@@ -6,7 +6,9 @@ const { walkFiles, detectTestFrameworks } = require('../io');
 const { collectPluginContributions } = require('../config');
 const { escapeRegExp, tokenize } = require('../utils');
 
-const CONFIDENCE_RANK = { none: -1, low: 0, medium: 1, high: 2 };
+// v0.13.1: `preserved` is a distinct confidence for `[x]` tasks kept without evidence
+// (default-mode preservation). Rank -1 so `--minimum-confidence low` filters them out.
+const CONFIDENCE_RANK = { none: -1, preserved: -1, low: 0, medium: 1, high: 2 };
 
 const CODE_EXTENSIONS = new Set([
   '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt', '.swift', '.rb', '.php', '.cs'
@@ -2039,13 +2041,25 @@ function validateTask(task, context, config, plugins) {
   const codeOrTestPass = pass2 || pass3;
   const passed = !hasMissingRef && (evidenceLinePass || (!strictValidation && preservedCheckedState) || codeOrTestPass);
 
-  // Checked task with no hard evidence: preserve with low confidence (not in strict mode)
+  // Checked task with no hard evidence: preserve, but be honest about it (v0.13.1).
+  // `confidence: 'preserved'` distinguishes this from a real 'low' pass so consumers
+  // (printAudit, --minimum-confidence, JSON output) can flag it for spot-check.
   if (task.checked && !passed && !hasMissingRef && !strictValidation) {
     return {
-      taskId, passed: true, confidence: 'low', reasons: [], diagnostics: [],
+      taskId,
+      passed: true,
+      confidence: 'preserved',
+      reasons: ['no evidence found; checked state preserved. Run with --strict to reject preservation-only passes, or add rs:kind=manual for explicit human attestation.'],
+      diagnostics: [],
       evidence: { code: false, test: false, artifact: false, files: [], codeFiles: [], testFiles: [], symbols: symbolHints.filter((s) => !GENERIC_TASK_TOKENS.has(s.toLowerCase())), structuralEvidence: null },
-      attempted: false, preservedCheckedState: true, requiresTest: false,
-      staleEvidenceDetected: false, staleEvidenceResolved: false, discoveredEvidence: null, verificationRecipe: null, generatedTestEvidence: null
+      attempted: false,
+      preservedCheckedState: true,
+      requiresTest: false,
+      staleEvidenceDetected: false,
+      staleEvidenceResolved: false,
+      discoveredEvidence: null,
+      verificationRecipe: null,
+      generatedTestEvidence: null
     };
   }
 
@@ -2149,6 +2163,7 @@ function auditValidation(tasks, results, changes) {
   const documentationOnlyEvidenceForImplementation = [];
   const checkedWithNoStructuralEvidence = [];
   const humanVerifiedTasks = [];
+  const preservedOnly = [];  // v0.13.1: [x] tasks that passed only because their checked state was preserved
   const newlyUnchecked = Array.isArray(changes && changes.newlyUnchecked) ? changes.newlyUnchecked : [];
 
   for (const task of tasks) {
@@ -2157,6 +2172,10 @@ function auditValidation(tasks, results, changes) {
 
     if (result.humanVerified) {
       humanVerifiedTasks.push({ task, result });
+    }
+
+    if (result.confidence === 'preserved' && result.passed) {
+      preservedOnly.push({ task, result });
     }
 
     if (task.checked && !result.passed) {
@@ -2191,17 +2210,17 @@ function auditValidation(tasks, results, changes) {
     documentationOnlyEvidenceForImplementation,
     checkedWithNoStructuralEvidence,
     humanVerifiedTasks,
+    preservedOnly,
     newlyUnchecked
   };
 }
 
 function applyMinimumConfidence(results, minimumConfidence) {
   const minRank = CONFIDENCE_RANK[minimumConfidence] ?? 0;
-  if (minRank === 0) return;
+  // v0.13.1: no longer skip preservedCheckedState. `preserved` has rank -1 so it correctly
+  // fails `--minimum-confidence low` (rank 0) and above. Previously the skip made "add --strict
+  // to reject" a lie because preservation escaped the filter entirely.
   for (const result of Object.values(results)) {
-    if (result.preservedCheckedState) {
-      continue;
-    }
     if ((CONFIDENCE_RANK[result.confidence] ?? 0) < minRank) {
       result.passed = false;
       result.reasons = [
