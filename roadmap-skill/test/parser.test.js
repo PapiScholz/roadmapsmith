@@ -174,3 +174,30 @@ test('parseRoadmap does not emit parseWarnings when explicit IDs are unique', ()
   const parsed = parseRoadmap(content);
   assert.deepEqual(parsed.parseWarnings, []);
 });
+
+test('parseRoadmap accepts ✅ evidence: sub-bullets (matches sync emit format)', () => {
+  const content = [
+    '- [x] Ship thermal printer <!-- rs:task=thermal-printer -->',
+    '  - ✅ evidence: src/lib/thermal-printer.ts',
+    ''
+  ].join('\n');
+
+  const task = parseRoadmap(content).tasks[0];
+  assert.equal(task.evidenceLines.length, 1);
+  assert.equal(task.evidenceLines[0].text, 'src/lib/thermal-printer.ts');
+});
+
+test('parseRoadmap accepts standalone rs:kind=rollup marker without rs:task=', () => {
+  const content = '- [x] Milestone shipped <!-- rs:kind=rollup -->';
+  const task = parseRoadmap(content).tasks[0];
+  assert.equal(task.kind, 'rollup');
+  assert.equal(task.text, 'Milestone shipped');
+  assert.equal(task.markerId, null);
+});
+
+test('parseRoadmap throws deprecated marker error even without rs:task= prefix', () => {
+  assert.throws(
+    () => parseRoadmap('- [ ] Legacy <!-- rs:no-test -->'),
+    /rs:no-test.*migrate-markers/s
+  );
+});

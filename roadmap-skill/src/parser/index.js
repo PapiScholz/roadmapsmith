@@ -60,6 +60,11 @@ function parseTaskLine(line) {
       markerId = markerParts[0] || null;
       markerFlags = markerParts.slice(1).join(' ');
       text = text.slice(0, markerStart).trimEnd();
+    } else if (markerBody.startsWith('rs:')) {
+      // Standalone rs: flags (e.g. `<!-- rs:kind=rollup -->`) without rs:task=; let downstream
+      // deprecated-marker checks + kind extraction run on markerFlags instead of silently ignoring.
+      markerFlags = markerBody;
+      text = text.slice(0, markerStart).trimEnd();
     }
   }
 
@@ -84,9 +89,11 @@ function parseChildBulletLine(line) {
 }
 
 function parseEvidenceLine(content) {
-  if (content.length < 9) return null;
-  if (content.slice(0, 9).toLowerCase() !== 'evidence:') return null;
-  return content.slice(9).trim();
+  // ponytail: sync/index.js emits `- ✅ evidence: <path>`; tolerate that shape when hand-authored.
+  const normalized = content.replace(/^✅\s*/, '');
+  if (normalized.length < 9) return null;
+  if (normalized.slice(0, 9).toLowerCase() !== 'evidence:') return null;
+  return normalized.slice(9).trim();
 }
 
 function parsePrefixedChildLine(content, prefix) {
