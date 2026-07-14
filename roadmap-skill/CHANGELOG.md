@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.13.3 - 2026-07-14
+
+### Fixed
+- (release) auto-restore missing "## Unreleased" section in CHANGELOG (#91)
+
 ## v0.13.2 - 2026-07-14
 
 Parser tolerance patch. Two silent-rejection bugs surfaced while hand-editing `ROADMAP.md` to strengthen weak-evidence tasks.
