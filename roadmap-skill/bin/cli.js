@@ -21,6 +21,22 @@ function isEnabled(v) {
   return v === true || v === 'true' || v === '1' || v === 'yes';
 }
 
+// v0.13.10: centralize --json contract enforcement so early-return paths in the CLI
+// can't silently break the "JSON always on stdout when --json is set" invariant.
+function emitSuccess({ human, json, useJson }) {
+  if (useJson) {
+    console.log(JSON.stringify(json || {}, null, 2));
+  } else if (human != null) {
+    console.log(human);
+  }
+}
+function emitError({ human, error, useJson, extra = {} }) {
+  if (human != null) console.error(human);
+  if (useJson) {
+    console.log(JSON.stringify({ error, message: human, ...extra }, null, 2));
+  }
+}
+
 // v0.13.4: extra vocabulary for drift detection.
 // Reads package.json (name/description/keywords) + README first 4KB so northStar
 // tokens have somewhere to match beyond scan-derived languages/frameworks/modules.
@@ -224,7 +240,11 @@ function runUpdate(projectRoot, config, flags) {
     const existing = readTextIfExists(roadmapFile) || '';
     const updated = addTask(flags['add-task'], existing, {});
     writeText(roadmapFile, updated, { dryRun });
-    console.log(`${dryRun ? 'Would add' : 'Added'} task: ${flags['add-task']}`);
+    emitSuccess({
+      human: `${dryRun ? 'Would add' : 'Added'} task: ${flags['add-task']}`,
+      json: { action: 'add-task', task: flags['add-task'], dryRun, file: roadmapFile },
+      useJson
+    });
     return;
   }
 
@@ -233,7 +253,12 @@ function runUpdate(projectRoot, config, flags) {
     const { tasks } = parseRoadmap(existing);
     const target = tasks.find((t) => t.markerId === flags.task || t.id === flags.task);
     if (!target) {
-      console.error(`Task not found: ${flags.task}`);
+      emitError({
+        human: `Task not found: ${flags.task}`,
+        error: 'task-not-found',
+        useJson,
+        extra: { task: flags.task, file: roadmapFile }
+      });
       process.exitCode = 1;
       return;
     }
@@ -241,7 +266,11 @@ function runUpdate(projectRoot, config, flags) {
     const insertAt = (target.lastChildLineIndex != null ? target.lastChildLineIndex : target.lineIndex) + 1;
     lines.splice(insertAt, 0, `  - Evidence: ${flags.evidence}`);
     writeText(roadmapFile, lines.join('\n'), { dryRun });
-    console.log(`${dryRun ? 'Would add' : 'Added'} evidence to ${flags.task}`);
+    emitSuccess({
+      human: `${dryRun ? 'Would add' : 'Added'} evidence to ${flags.task}`,
+      json: { action: 'add-evidence', task: flags.task, evidence: flags.evidence, dryRun, file: roadmapFile },
+      useJson
+    });
     return;
   }
 
@@ -251,9 +280,19 @@ function runUpdate(projectRoot, config, flags) {
       const resolvedConfigPath = resolveConfigPath({ projectRoot, configPath: flags.config });
       const configExists = fs.existsSync(resolvedConfigPath);
       if (!configExists) {
-        console.error(`Config \`roadmap-skill.config.json\` not found (searched from ${projectRoot} upwards). Pass --project-root <repo-root> or --config <path>.`);
+        emitError({
+          human: `Config \`roadmap-skill.config.json\` not found (searched from ${projectRoot} upwards). Pass --project-root <repo-root> or --config <path>.`,
+          error: 'config-not-found',
+          useJson,
+          extra: { searchedFrom: projectRoot }
+        });
       } else {
-        console.error(`Config at ${resolvedConfigPath} has no \`product.northStar\`. Add it and re-run.`);
+        emitError({
+          human: `Config at ${resolvedConfigPath} has no \`product.northStar\`. Add it and re-run.`,
+          error: 'northstar-missing',
+          useJson,
+          extra: { configFile: resolvedConfigPath }
+        });
       }
       process.exitCode = 1;
       return;
@@ -284,13 +323,12 @@ function runUpdate(projectRoot, config, flags) {
   // creating an empty one in the current directory. `init` is the intended entry point
   // for bootstrapping; `update` is only for maintaining an existing roadmap.
   if (!fs.existsSync(roadmapFile)) {
-    const msg = `No ROADMAP.md found at ${roadmapFile}. Run 'roadmapsmith init' first, or pass --project-root <existing-repo>.`;
-    console.error(msg);
-    // v0.13.9: preserve the "--json always emits parseable JSON on stdout" contract
-    // even on the guard-fail path added in v0.13.8.
-    if (useJson) {
-      console.log(JSON.stringify({ error: 'roadmap-not-found', message: msg, file: roadmapFile }, null, 2));
-    }
+    emitError({
+      human: `No ROADMAP.md found at ${roadmapFile}. Run 'roadmapsmith init' first, or pass --project-root <existing-repo>.`,
+      error: 'roadmap-not-found',
+      useJson,
+      extra: { file: roadmapFile }
+    });
     process.exitCode = 1;
     return;
   }
