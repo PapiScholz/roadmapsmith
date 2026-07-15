@@ -429,6 +429,17 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });
 
+test('update fails loud when no ROADMAP.md exists (does not silently create one)', () => {
+  // v0.13.8 regression: pre-fix, running `update` in a directory without a
+  // ROADMAP.md created a bare/empty one instead of pointing the user at `init`.
+  const dir = tmpdir();
+  // deliberately no ROADMAP.md, no package.json — pristine empty dir
+  const res = runResult(['update', '--project-root', dir], dir);
+  assert.equal(res.status, 1, 'must exit 1 on missing roadmap');
+  assert.match(res.stderr, /No ROADMAP\.md found at .+ Run 'roadmapsmith init' first/);
+  assert.equal(fs.existsSync(path.join(dir, 'ROADMAP.md')), false, 'must NOT create a file as side effect');
+});
+
 test('update --json without --audit still emits a valid JSON status on stdout', () => {
   // v0.13.5: pre-fix, `--json` without `--audit` printed nothing to stdout — --json is
   // supposed to always mean "machine-parseable output".

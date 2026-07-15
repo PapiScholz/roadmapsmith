@@ -280,6 +280,14 @@ function runUpdate(projectRoot, config, flags) {
   }
 
   // Default: refresh existing tasks (parse → validate → apply)
+  // v0.13.8: fail loud when there's no ROADMAP.md to refresh instead of silently
+  // creating an empty one in the current directory. `init` is the intended entry point
+  // for bootstrapping; `update` is only for maintaining an existing roadmap.
+  if (!fs.existsSync(roadmapFile)) {
+    console.error(`No ROADMAP.md found at ${roadmapFile}. Run 'roadmapsmith init' first, or pass --project-root <existing-repo>.`);
+    process.exitCode = 1;
+    return;
+  }
   const existingContent = readTextIfExists(roadmapFile) || '';
   const plugins = loadPlugins(projectRoot, config.plugins || []);
   const context = buildValidationContext(projectRoot, config, plugins, { strictValidation: strict });
