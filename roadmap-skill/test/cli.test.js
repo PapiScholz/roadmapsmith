@@ -429,6 +429,37 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });
 
+test('update --add-task --json emits action JSON on stdout', () => {
+  // v0.13.10: audit swept all early-return paths for --json contract compliance.
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
+  const res = runResult(['update', '--add-task', 'Ship it', '--json', '--project-root', dir], dir);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.action, 'add-task');
+  assert.equal(parsed.task, 'Ship it');
+  assert.equal(typeof parsed.file, 'string');
+});
+
+test('update --task --evidence --json (task not found) emits error JSON on stdout', () => {
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
+  const res = runResult(['update', '--task', 'ghost', '--evidence', 'x.js', '--json', '--project-root', dir], dir);
+  assert.equal(res.status, 1);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.error, 'task-not-found');
+  assert.equal(parsed.task, 'ghost');
+});
+
+test('update --check-drift --json (no config) emits error JSON on stdout', () => {
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
+  const res = runResult(['update', '--check-drift', '--json', '--project-root', dir], dir);
+  assert.equal(res.status, 1);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.error, 'config-not-found');
+  assert.equal(typeof parsed.searchedFrom, 'string');
+});
+
 test('update --json on missing ROADMAP.md still emits parseable JSON error on stdout', () => {
   // v0.13.9: v0.13.8's guard broke v0.13.5's "--json always emits parseable JSON" invariant
   // by exiting before the JSON payload was written. This locks the fix.
