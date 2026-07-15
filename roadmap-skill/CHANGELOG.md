@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.13.4 - 2026-07-15
+
+### Fixed
+- (update) clean --json stdout, honest no-op status, useful drift detection (#93)
+
 ## v0.13.3 - 2026-07-14
 
 ### Fixed
