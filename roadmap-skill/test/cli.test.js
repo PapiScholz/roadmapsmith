@@ -429,6 +429,25 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });
 
+test('update --json without --audit still emits a valid JSON status on stdout', () => {
+  // v0.13.5: pre-fix, `--json` without `--audit` printed nothing to stdout — --json is
+  // supposed to always mean "machine-parseable output".
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), [
+    '<!-- rs:managed:start -->',
+    '## Phase',
+    '- [x] Rollup only <!-- rs:kind=rollup -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n'));
+  const res = runResult(['update', '--json', '--project-root', dir], dir);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(typeof parsed.changed, 'boolean');
+  assert.equal(typeof parsed.dryRun, 'boolean');
+  assert.equal(typeof parsed.annotateOnly, 'boolean');
+  assert.equal(typeof parsed.file, 'string');
+});
+
 test('update --audit --json keeps stdout as valid JSON (status goes to stderr)', () => {
   // Regression: pre-v0.13.4, "Updated <path> (annotate-only: ...)" leaked to stdout,
   // making `roadmapsmith update --audit --json | jq .` fail with "Unexpected token 'U'".

@@ -44,8 +44,8 @@ Trabajo pendiente real fuera del managed block. `generate` no toca esta sección
 - [x] `[P1]` Agregar entrada al `CHANGELOG.md` para v0.12.1 con los dos cambios del refactor: generator marca descriptive tasks como rollup por default; Section 6 corta boilerplate "Document/Add test coverage" cuando no hay moduleMetadata <!-- rs:task=changelog-0-12-1 -->
   - ✅ evidence: CHANGELOG.md
 - [ ] `[P1]` Wire el dogfood demo en el flujo principal: `scripts/demo/run.sh` + `scripts/demo/README.md` + pointer en root README (sección "See it in action") <!-- rs:task=wire-dogfood-demo-docs -->
-  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only
+  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → attest completion with 'roadmapsmith update --task <id> --evidence <path>' then re-run
 - [ ] `[P2]` Agregar tests unitarios para los helpers `taskLineWithPriority` y `exitLine` en `roadmap-skill/src/renderer/professional.js` — hoy solo tienen coverage vía integration tests <!-- rs:task=test-taskline-helpers -->
-  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only
+  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → attest completion with 'roadmapsmith update --task <id> --evidence <path>' then re-run
 - [ ] `[P2]` Agregar un ejemplo de `moduleMetadata` config a `roadmap-skill.config.json` o a docs, para que el nuevo state-line de Section 6 apunte a algo concreto ("Add \`moduleMetadata.X\` to config") <!-- rs:task=example-module-metadata-config -->
-  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only
+  - ⚠️ no implementation evidence found yet: file reference shows implementation location, not confirmed completion → attest completion with 'roadmapsmith update --task <id> --evidence <path>' then re-run

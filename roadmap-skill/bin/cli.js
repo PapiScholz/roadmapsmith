@@ -74,7 +74,6 @@ update flags:
   --evidence <text>             Evidence to add to --task
   --apply                       Flip [ ]/[x] checkboxes (default: annotate-only)
   --audit                       Show validation audit after refresh
-  --evidence-only               (legacy alias for annotate-only default; no-op)
   --concise, --no-warnings      Suppress ⚠️ warning lines in the output
   --check-drift                 Check alignment of northStar vs repo state
   --strict                      Use strict validation mode
@@ -321,6 +320,16 @@ function runUpdate(projectRoot, config, flags) {
     if (audit.checkedWithoutEvidence.length > 0 || audit.readyButUnchecked.length > 0) {
       process.exitCode = 2;
     }
+    return;
+  }
+  // v0.13.5: --json without --audit still guarantees a parseable JSON payload on stdout.
+  if (useJson) {
+    console.log(JSON.stringify({
+      changed: !noChanges,
+      dryRun,
+      annotateOnly: evidenceOnly,
+      file: roadmapFile
+    }, null, 2));
   }
 }
 
