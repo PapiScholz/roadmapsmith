@@ -284,7 +284,13 @@ function runUpdate(projectRoot, config, flags) {
   // creating an empty one in the current directory. `init` is the intended entry point
   // for bootstrapping; `update` is only for maintaining an existing roadmap.
   if (!fs.existsSync(roadmapFile)) {
-    console.error(`No ROADMAP.md found at ${roadmapFile}. Run 'roadmapsmith init' first, or pass --project-root <existing-repo>.`);
+    const msg = `No ROADMAP.md found at ${roadmapFile}. Run 'roadmapsmith init' first, or pass --project-root <existing-repo>.`;
+    console.error(msg);
+    // v0.13.9: preserve the "--json always emits parseable JSON on stdout" contract
+    // even on the guard-fail path added in v0.13.8.
+    if (useJson) {
+      console.log(JSON.stringify({ error: 'roadmap-not-found', message: msg, file: roadmapFile }, null, 2));
+    }
     process.exitCode = 1;
     return;
   }

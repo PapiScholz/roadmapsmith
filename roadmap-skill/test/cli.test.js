@@ -429,6 +429,19 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });
 
+test('update --json on missing ROADMAP.md still emits parseable JSON error on stdout', () => {
+  // v0.13.9: v0.13.8's guard broke v0.13.5's "--json always emits parseable JSON" invariant
+  // by exiting before the JSON payload was written. This locks the fix.
+  const dir = tmpdir();
+  const res = runResult(['update', '--json', '--project-root', dir], dir);
+  assert.equal(res.status, 1);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.error, 'roadmap-not-found');
+  assert.match(parsed.message, /Run 'roadmapsmith init' first/);
+  assert.equal(typeof parsed.file, 'string');
+  assert.match(res.stderr, /No ROADMAP\.md found/);
+});
+
 test('update fails loud when no ROADMAP.md exists (does not silently create one)', () => {
   // v0.13.8 regression: pre-fix, running `update` in a directory without a
   // ROADMAP.md created a bare/empty one instead of pointing the user at `init`.
