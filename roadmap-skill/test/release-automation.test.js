@@ -191,6 +191,32 @@ test('buildReleaseSection groups commits and falls back to Changed while excludi
   assert.doesNotMatch(section, /chore\(release\)/);
 });
 
+test('buildReleaseSection renders commit body `- ` lines as CHANGELOG sub-bullets', () => {
+  const section = buildReleaseSection({
+    version: '1.2.4',
+    date: '2026-06-18',
+    subjects: [
+      {
+        subject: 'fix(update): three UX polish fixes',
+        body: [
+          '- --json stdout is now pure JSON (status moved to stderr).',
+          '- "No changes" replaces the misleading "Updated" on no-op runs.',
+          '',
+          'Ignored prose line — should not appear as a sub-bullet.',
+          '- drift score honors a stop-list so "make"/"every" no longer count as missing.'
+        ].join('\n')
+      }
+    ]
+  });
+
+  assert.match(section, /### Fixed/);
+  assert.match(section, /- \(update\) three UX polish fixes/);
+  assert.match(section, /  - --json stdout is now pure JSON \(status moved to stderr\)\./);
+  assert.match(section, /  - "No changes" replaces the misleading "Updated" on no-op runs\./);
+  assert.match(section, /  - drift score honors a stop-list/);
+  assert.doesNotMatch(section, /Ignored prose line/);
+});
+
 test('updateChangelog auto-restores a missing Unreleased stub instead of throwing', () => {
   // Simulates the state left behind by a hand-crafted release commit that dropped the
   // Unreleased section (as happened during v0.13.1 -> v0.13.2).
@@ -253,8 +279,8 @@ test('runAutoRelease normal mode simulates bump, commit, publish, and GitHub Rel
   const runner = createRunner({
     'git log -1 --pretty=%s': { stdout: 'feat: auto patch releases\n' },
     'git describe --tags --abbrev=0': { stdout: 'v1.2.3\n' },
-    'git log --pretty=%s --reverse v1.2.3..HEAD': {
-      stdout: 'feat: auto patch releases\nfix: keep release idempotent\ndocs: explain main publish contract\n'
+    'git log --pretty=%s%x1f%b%x1e --reverse v1.2.3..HEAD': {
+      stdout: 'feat: auto patch releases\x1f\x1efix: keep release idempotent\x1f\x1edocs: explain main publish contract\x1f\x1e'
     },
     'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
     'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
@@ -335,7 +361,7 @@ test('runAutoRelease normal mode reuses an existing release PR when present', ()
   const runner = createRunner({
     'git log -1 --pretty=%s': { stdout: 'feat: auto patch releases\n' },
     'git describe --tags --abbrev=0': { stdout: 'v1.2.3\n' },
-    'git log --pretty=%s --reverse v1.2.3..HEAD': { stdout: 'feat: auto patch releases\n' },
+    'git log --pretty=%s%x1f%b%x1e --reverse v1.2.3..HEAD': { stdout: 'feat: auto patch releases\x1f\x1e' },
     'git checkout -B release/v1.2.4': { stdout: "Switched to branch 'release/v1.2.4'\n" },
     'git push --force-with-lease origin HEAD:refs/heads/release/v1.2.4': { stdout: 'pushed\n' },
     'gh pr list --state open --base main --head release/v1.2.4 --json number,url,title': {

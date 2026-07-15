@@ -1993,7 +1993,7 @@ function validateTask(task, context, config, plugins) {
     if (task.checked) {
       preservedCheckedState = true;
     } else {
-      reasons.push('file reference shows implementation location, not confirmed completion → if implementation is complete, mark [x] and re-run with --evidence-only');
+      reasons.push("file reference shows implementation location, not confirmed completion → attest completion with 'roadmapsmith update --task <id> --evidence <path>' then re-run");
     }
   }
 

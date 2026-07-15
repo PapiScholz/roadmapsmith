@@ -47,6 +47,25 @@ function classifyCommitSubject(subject) {
   return 'Changed';
 }
 
+// v0.13.5: entries can be strings (legacy) or `{subject, body}` (with commit body).
+// Pull the subject out either way.
+function subjectOf(entry) {
+  if (typeof entry === 'string') return entry;
+  return entry && entry.subject ? String(entry.subject) : '';
+}
+
+// Extract the body sub-bullets from a commit body: only lines that already
+// start with `- ` (dash + space) become CHANGELOG sub-bullets. Everything else
+// is prose that shouldn't leak into the changelog.
+function extractBodySubBullets(body) {
+  if (!body) return [];
+  return String(body)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^- \S/.test(line))
+    .map((line) => line.replace(/^-\s+/, ''));
+}
+
 function groupCommitSubjects(subjects) {
   const groups = {
     Added: [],
@@ -54,12 +73,16 @@ function groupCommitSubjects(subjects) {
     Changed: []
   };
 
-  (subjects || []).forEach((subject) => {
+  (subjects || []).forEach((entry) => {
+    const subject = subjectOf(entry);
     const section = classifyCommitSubject(subject);
     if (!section) {
       return;
     }
-    groups[section].push(normalizeCommitEntry(subject));
+    groups[section].push({
+      text: normalizeCommitEntry(subject),
+      subBullets: extractBodySubBullets(typeof entry === 'string' ? '' : entry.body)
+    });
   });
 
   return groups;
@@ -86,7 +109,10 @@ function buildReleaseSection(options = {}) {
     }
     hasEntries = true;
     lines.push(`### ${section}`);
-    groups[section].forEach((entry) => lines.push(`- ${entry}`));
+    groups[section].forEach((entry) => {
+      lines.push(`- ${entry.text}`);
+      entry.subBullets.forEach((sub) => lines.push(`  - ${sub}`));
+    });
     lines.push('');
   });
 

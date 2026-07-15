@@ -92,15 +92,23 @@ function getPreviousTag(runner, repoRoot) {
 }
 
 function getCommitSubjects(runner, repoRoot, previousTag) {
-  const args = ['log', '--pretty=%s', '--reverse'];
+  // v0.13.5: capture subject + body per commit so buildReleaseSection can render
+  // body lines that start with `- ` as CHANGELOG sub-bullets.
+  // %x1e = record separator between commits, %x1f = unit separator between subject and body.
+  const args = ['log', '--pretty=%s%x1f%b%x1e', '--reverse'];
   if (previousTag) {
     args.push(`${previousTag}..HEAD`);
   }
   const output = runChecked(runner, 'git', args, { cwd: repoRoot }).stdout;
   return output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .split('\x1e')
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [subject = '', body = ''] = record.split('\x1f');
+      return { subject: subject.trim(), body: body.trim() };
+    })
+    .filter((entry) => entry.subject.length > 0);
 }
 
 function ensureLocalTag(runner, repoRoot, tag) {
