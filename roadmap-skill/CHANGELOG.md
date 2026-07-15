@@ -4,6 +4,13 @@
 
 - None yet.
 
+## v0.13.7 - 2026-07-15
+
+### Fixed
+- (release) strip (#N) PR ref from CHANGELOG + widen Node test matrix
+  - normalizeCommitEntry now strips trailing `(#123)` PR-merge refs from
+  - CI test matrix widened from Node 18/20 to 18/20/22/24 so we catch
+
 ## v0.13.6 - 2026-07-15
 
 ### Fixed
