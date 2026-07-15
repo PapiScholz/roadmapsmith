@@ -125,11 +125,28 @@ function mergeConfig(userConfig) {
   };
 }
 
+function findConfigUpwards(startDir, filename) {
+  let current = path.resolve(startDir);
+  while (true) {
+    const candidate = path.join(current, filename);
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch (_) { /* ignore stat errors, keep walking */ }
+    const parent = path.dirname(current);
+    if (parent === current) return null; // reached filesystem root
+    current = parent;
+  }
+}
+
 function resolveConfigPath(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
-  return options.configPath
-    ? path.resolve(projectRoot, String(options.configPath))
-    : path.resolve(projectRoot, 'roadmap-skill.config.json');
+  if (options.configPath) {
+    return path.resolve(projectRoot, String(options.configPath));
+  }
+  // v0.13.6: walk up directories looking for roadmap-skill.config.json so users can invoke
+  // the CLI from a nested sub-directory (roadmap-skill/, packages/foo/) without --config.
+  const found = findConfigUpwards(projectRoot, 'roadmap-skill.config.json');
+  return found || path.resolve(projectRoot, 'roadmap-skill.config.json');
 }
 
 function loadConfig(options = {}) {

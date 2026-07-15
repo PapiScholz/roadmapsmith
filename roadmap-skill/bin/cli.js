@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
-const { resolveRoadmapFile, loadConfig, loadPlugins } = require('../src/config');
+const { resolveRoadmapFile, loadConfig, loadPlugins, resolveConfigPath } = require('../src/config');
 const { readTextIfExists, writeText } = require('../src/io');
 const { importTasks } = require('../src/importer');
 const { addTask } = require('../src/addTask');
@@ -248,7 +248,13 @@ function runUpdate(projectRoot, config, flags) {
   if (isEnabled(flags['check-drift'])) {
     const northStar = config && config.product && config.product.northStar;
     if (!northStar) {
-      console.error('No northStar configured. Set product.northStar in roadmap-skill.config.json');
+      const resolvedConfigPath = resolveConfigPath({ projectRoot, configPath: flags.config });
+      const configExists = fs.existsSync(resolvedConfigPath);
+      if (!configExists) {
+        console.error(`Config \`roadmap-skill.config.json\` not found (searched from ${projectRoot} upwards). Pass --project-root <repo-root> or --config <path>.`);
+      } else {
+        console.error(`Config at ${resolvedConfigPath} has no \`product.northStar\`. Add it and re-run.`);
+      }
       process.exitCode = 1;
       return;
     }

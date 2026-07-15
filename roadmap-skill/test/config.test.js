@@ -5,7 +5,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('os');
-const { DEFAULT_CONFIG, loadConfig, resolveRoadmapFile } = require('../src/config');
+const { DEFAULT_CONFIG, loadConfig, resolveRoadmapFile, resolveConfigPath } = require('../src/config');
 
 function withMockedReaddir(entries, callback) {
   const original = fs.readdirSync;
@@ -63,4 +63,25 @@ test('loadConfig preserves user-defined pathAliases object', () => {
   fs.writeFileSync(path.join(dir, 'roadmap-skill.config.json'), JSON.stringify({ pathAliases: aliases }));
   const loaded = loadConfig({ projectRoot: dir });
   assert.deepEqual(loaded.pathAliases, aliases);
+});
+
+test('resolveConfigPath walks up directories to find roadmap-skill.config.json', () => {
+  // v0.13.6: running `roadmapsmith update --check-drift` from a nested subdir
+  // should still find the repo-root config instead of silently defaulting.
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rs-config-walkup-'));
+  const configPath = path.join(repoRoot, 'roadmap-skill.config.json');
+  fs.writeFileSync(configPath, JSON.stringify({ product: { northStar: 'test' } }));
+  const nested = path.join(repoRoot, 'packages', 'foo', 'src');
+  fs.mkdirSync(nested, { recursive: true });
+
+  assert.equal(resolveConfigPath({ projectRoot: nested }), configPath);
+  const loaded = loadConfig({ projectRoot: nested });
+  assert.equal(loaded.product.northStar, 'test');
+});
+
+test('resolveConfigPath falls back to projectRoot/roadmap-skill.config.json when no config exists anywhere', () => {
+  const isolated = fs.mkdtempSync(path.join(os.tmpdir(), 'rs-config-none-'));
+  const resolved = resolveConfigPath({ projectRoot: isolated });
+  assert.equal(resolved, path.join(isolated, 'roadmap-skill.config.json'));
+  assert.equal(fs.existsSync(resolved), false);
 });
