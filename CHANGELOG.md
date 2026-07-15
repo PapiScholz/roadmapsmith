@@ -6,6 +6,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-07-15
+
+### Breaking
+- **Namespace structural gate is no longer hardcoded to the maintainer's repo.**
+  Prior to this release, task IDs prefixed with `cls-`, `dsg-`, `evh2-`, `cst-`,
+  `uxf-`, `cfgo-`, or `doc3-` triggered a filesystem-shape gate specific to this
+  repository's directory layout. The gate is now driven by
+  `namespacePatterns` in `roadmap-skill.config.json`; the default is `{}`
+  (gate skipped entirely). If you relied on any of those prefixes for the
+  structural gate, add a `namespacePatterns` block — see
+  `docs/audit-remediation.md` § "Namespace structural gate" for the migration
+  snippet. **Requires a minor version bump to 0.14.0.**
+
+### Added
+- `namespacePatterns` config field: maps ID prefix → regex string. Regexes
+  compile at config load time with the `i` flag; invalid regex strings throw
+  with a pointer to the offending entry. Empty/missing → gate disabled.
+- End-to-end smoke test (`scripts/e2e-smoke.sh`, `npm run test:e2e`, wired
+  into CI). Exercises `init` → `add-task` → `audit --json` → `audit` text on
+  a fresh temp repo. Extends first-hour UX bug coverage that unit tests miss.
+- README audience segmentation ("Who this is for" + "When NOT to use"
+  section) in both the root README and the `roadmap-skill/` package README.
+- Decision log `docs/plans/markup-shape-decision.md` closing Rec 5 of the
+  2026-07-15 audit at "keep status quo" per the plan's own escape hatch
+  (no external opinions available; default to A).
+
 ## [0.9.35] — 2026-06-28
 
 ### Added

@@ -1,5 +1,13 @@
 # RoadmapSmith CLI Contract
 
+**Who this is for:** solo devs and small teams that run AI coding agents (Claude Code, Codex) at least a few hours a week and want an **auditable trail** of what the agent claims it shipped vs what actually landed in the code.
+
+**When NOT to use:**
+
+- You already have Jira / Linear / Asana as your source of truth — a third tracker creates drift.
+- You don't use AI coding agents — a plain `TODO.md` covers 95% of the value with 5% of the overhead.
+- Your repo is >2 languages or a large monorepo — the evidence scanner is optimized for single-primary-language repos.
+
 This package owns the RoadmapSmith CLI, validator, sync engine, host setup files, and the shared command-surface contract consumed by the root bundle docs, `skills.json`, and both plugin manifests.
 
 ## Public Contract

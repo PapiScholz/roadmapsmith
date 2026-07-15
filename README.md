@@ -4,7 +4,11 @@
 
 <h1 align="center">RoadmapSmith</h1>
 
-Evidence-backed roadmap workflows for AI coding agents — two commands: `init` and `update`.
+**Who this is for:** solo devs and small teams that run AI coding agents (Claude Code, Codex) at least a few hours a week and want an **auditable trail** of what the agent claims it shipped vs what actually landed in the code.
+
+**Who this is NOT for:** (see [When NOT to use](#when-not-to-use) below).
+
+Two commands — `init` and `update` — turn `ROADMAP.md` into a validated, evidence-backed source of truth that survives an agent saying "done!" when nothing is done.
 
 ## See it in action
 
@@ -37,6 +41,17 @@ npx skills add PapiScholz/roadmapsmith --skill '*' -a claude-code
 ```
 
 This installs the native Claude GUI slash commands (`/roadmap-init`, `/roadmap-update`). It does not install the CLI.
+
+## When NOT to use
+
+RoadmapSmith is opinionated tooling. It's the wrong fit if:
+
+- **You already have Jira / Linear / Asana as source of truth.** Adding a third tracker creates drift, not clarity. Stay with what your team already trusts.
+- **You don't use AI coding agents.** The killer feature is "agent claims done → validator disagrees against real files". Without an agent, a plain `TODO.md` covers 95% of the value with 5% of the overhead.
+- **Your repo is >2 languages or a large monorepo.** The evidence scanner is optimized for single-primary-language repos; monorepo support is best-effort (see `pathAliases` in config).
+- **You need multi-user assignment, sprints, or estimation.** RoadmapSmith is a *validation* tool, not a project-management tool. It has no concept of "assignee" or "story points".
+
+If any of the above applies, close this tab. If none apply and you run agents daily, keep reading.
 
 ## Quick Start
 

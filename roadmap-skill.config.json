@@ -1,5 +1,14 @@
 {
   "roadmapProfile": "professional",
+  "namespacePatterns": {
+    "cls":  "classif(?:ier|y)|archetype",
+    "dsg":  "generator[/\\\\](?:domain|web|landing|profiles?)|(?:domain|web|landing)[/\\\\](?:profile|generator)",
+    "evh2": "[/\\\\]validator[/\\\\]",
+    "cst":  "smoke|integration[-_]test|e2e",
+    "uxf":  "[/\\\\]renderer[/\\\\]|renderer\\.[jt]sx?$",
+    "cfgo": "config[/\\\\]|schema[/\\\\]|config\\.[jt]s$|schema\\.[jt]s$",
+    "doc3": "(?:^|[/\\\\])docs[/\\\\]|readme\\.md$"
+  },
   "product": {
     "name": "RoadmapSmith",
     "northStar": "Make every software project ship with a living, evidence-backed roadmap — zero manual maintenance.",

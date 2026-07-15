@@ -1,6 +1,6 @@
 {
   "name": "roadmapsmith",
-  "version": "0.13.10",
+  "version": "0.14.0",
   "description": "Evidence-backed ROADMAP.md workflows for AI coding agents — two commands: init and update.",
   "main": "src/index.js",
   "bin": {
@@ -9,6 +9,7 @@
   "type": "commonjs",
   "scripts": {
     "test": "node scripts/run-tests.js",
+    "test:e2e": "bash scripts/e2e-smoke.sh",
     "validate:qa-regression": "node scripts/pre-push-gate.js qa-regression",
     "validate:functional-smoke": "node scripts/pre-push-gate.js functional-smoke",
     "validate:pre-push": "node scripts/pre-push-gate.js all",

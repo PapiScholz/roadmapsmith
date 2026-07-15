@@ -17,6 +17,35 @@ function setupFixture(name) {
   return target;
 }
 
+// Legacy hardcoded gate patterns — used by tests that exercise the namespace
+// structural gate. Config field lives in roadmap-skill.config.json for the
+// self-hosted repo; tests that copy fixtures to a fresh tmpdir do not inherit
+// that config, so they opt in explicitly.
+const LEGACY_NAMESPACE_PATTERNS = {
+  cls:  'classif(?:ier|y)|archetype',
+  dsg:  'generator[/\\\\](?:domain|web|landing|profiles?)|(?:domain|web|landing)[/\\\\](?:profile|generator)',
+  evh2: '[/\\\\]validator[/\\\\]',
+  cst:  'smoke|integration[-_]test|e2e',
+  uxf:  '[/\\\\]renderer[/\\\\]|renderer\\.[jt]sx?$',
+  cfgo: 'config[/\\\\]|schema[/\\\\]|config\\.[jt]s$|schema\\.[jt]s$',
+  doc3: '(?:^|[/\\\\])docs[/\\\\]|readme\\.md$',
+};
+
+function withNamespacePatterns(config, patterns = LEGACY_NAMESPACE_PATTERNS) {
+  const cloned = { ...config, namespacePatterns: patterns };
+  const compiled = {};
+  for (const [ns, pat] of Object.entries(patterns)) {
+    compiled[ns] = new RegExp(pat, 'i');
+  }
+  Object.defineProperty(cloned, '__namespacePatternMap', {
+    value: compiled,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+  return cloned;
+}
+
 test('validator checks explicit file existence hints', () => {
   const projectRoot = setupFixture('generic');
   const config = loadConfig({ projectRoot });
@@ -225,7 +254,7 @@ test('checked task without Evidence or path hints is preserved with low confiden
 
 test('checked task with failed structural evidence is not preserved', () => {
   const projectRoot = setupFixture('namespace-vocab');
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
   const result = validateTask(
     {
@@ -434,7 +463,7 @@ test('unquoted paths with file extensions are still treated as path hints after 
 
 test('implementation tasks with classifier/domain vocabulary do not pass via generic token overlap', () => {
   const projectRoot = setupFixture('node');
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   // These features do not exist in the node fixture — only src/app.js and its test exist
@@ -591,7 +620,7 @@ test('isAcceptanceCriteria detects phN-stN-exit task IDs', () => {
 
 test('cls-* tasks fail in namespace-vocab fixture: no classifier/ directory', () => {
   const projectRoot = setupFixture('namespace-vocab');
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   const clsTasks = [
@@ -615,7 +644,7 @@ test('cls-* tasks fail in namespace-vocab fixture: no classifier/ directory', ()
 
 test('dsg-* tasks fail in namespace-vocab fixture: no generator/domain/ directory', () => {
   const projectRoot = setupFixture('namespace-vocab');
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   const dsgTasks = [
@@ -634,7 +663,7 @@ test('dsg-* tasks fail in namespace-vocab fixture: no generator/domain/ director
 
 test('evh2-* tasks fail in namespace-vocab fixture: no validator/ directory', () => {
   const projectRoot = setupFixture('namespace-vocab');
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   const evh2Task = { id: 'evh2-replace-naive-slash-path-regex', text: 'Replace naive slash-path regex with a stricter explicit path parser' };
@@ -657,7 +686,7 @@ module.exports = { classifyRepository };
     'utf8'
   );
 
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask(
@@ -685,7 +714,7 @@ module.exports = { generateWebLandingProfile };
     'utf8'
   );
 
-  const config = loadConfig({ projectRoot });
+  const config = withNamespacePatterns(loadConfig({ projectRoot }));
   const context = buildValidationContext(projectRoot, config, []);
 
   const result = validateTask(
@@ -1201,6 +1230,61 @@ test('validation reasons include actionable hints (pathAliases + evidence + evid
   assert.match(
     results['hint-b'].reasons.join(' | '),
     /roadmapsmith update --task <id> --evidence <path>/
+  );
+});
+
+// ── v0.14.0: namespace patterns now config-driven, not hardcoded ─────────────
+
+test('empty namespacePatterns config skips the namespace gate entirely', () => {
+  // Before v0.14.0, tasks with prefix "cls-", "dsg-", "evh2-" etc. hit a hardcoded
+  // gate specific to the maintainer's own repo. Now: default is empty → gate off.
+  const projectRoot = setupFixture('namespace-vocab');
+  const config = loadConfig({ projectRoot }); // NO withNamespacePatterns wrapper
+  const context = buildValidationContext(projectRoot, config, []);
+
+  const result = validateTask(
+    { id: 'cls-detect-frontend-web-signals', text: 'Detect frontend-web signals from app pages and components' },
+    context, config, []
+  );
+
+  // Gate skipped → structuralEvidence stays null (never set), no namespace-related failure reason
+  assert.equal(result.evidence.structuralEvidence, null, 'gate must not set structuralEvidence when patterns are empty');
+  assert.ok(
+    !result.reasons.some((r) => /namespace/.test(r)),
+    `no failure reason should mention namespace when gate is disabled, got: ${result.reasons.join('; ')}`
+  );
+});
+
+test('invalid regex in namespacePatterns config throws at load time with actionable pointer', () => {
+  const { DEFAULT_CONFIG } = require('../src/config');
+  // Re-require mergeConfig via a fresh require to exercise the compile path.
+  // (mergeConfig is not exported; we test via loadConfig against a tmp config file.)
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-badregex-'));
+  fs.writeFileSync(
+    path.join(tmpDir, 'roadmap-skill.config.json'),
+    JSON.stringify({ namespacePatterns: { bad: '(unclosed' } }),
+    'utf8'
+  );
+
+  assert.throws(
+    () => loadConfig({ projectRoot: tmpDir }),
+    (err) => /namespacePatterns/.test(err.message) && /"bad"/.test(err.message),
+    'error must reference the config field and the bad entry key'
+  );
+});
+
+test('namespacePatterns entry must be a non-empty string', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-skill-emptypat-'));
+  fs.writeFileSync(
+    path.join(tmpDir, 'roadmap-skill.config.json'),
+    JSON.stringify({ namespacePatterns: { empty: '' } }),
+    'utf8'
+  );
+
+  assert.throws(
+    () => loadConfig({ projectRoot: tmpDir }),
+    (err) => /namespacePatterns/.test(err.message) && /"empty"/.test(err.message),
+    'error must reference the config field and the empty entry key'
   );
 });
 

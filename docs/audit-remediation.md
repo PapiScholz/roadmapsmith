@@ -255,6 +255,70 @@ cited files do not contain the relevant symbols/behavior) must emit `WARN:UNVERI
 
 ---
 
+## Namespace structural gate — configuring `namespacePatterns`
+
+**Status:** available since v0.14.0
+
+The validator can require, for a given task-ID namespace prefix (e.g. `cls-*`,
+`evh2-*`), that at least one file in the repository match a structural pattern
+before the task is allowed to pass on token overlap alone. This prevents generic
+vocabulary matches in unrelated infrastructure files from validating a feature
+that has no dedicated implementation directory.
+
+### When to configure it
+
+Configure `namespacePatterns` if **all** apply:
+
+1. You use ID namespace prefixes (`myfeat-1`, `myfeat-2`, …) to group tasks
+   that must land in a specific directory or set of files.
+2. False positives from token overlap in unrelated files are a real problem.
+3. You are willing to maintain the regex map when directory layout changes.
+
+**If you do not use ID prefixes for structural grouping — leave `namespacePatterns`
+empty (the default). The gate is skipped entirely.**
+
+### Schema
+
+```json
+{
+  "namespacePatterns": {
+    "myfeat":  "(?:^|[/\\\\])features[/\\\\]",
+    "auth":    "auth[/\\\\]|[/\\\\]auth\\.[jt]sx?$",
+    "billing": "billing[/\\\\]|stripe|paypal"
+  }
+}
+```
+
+- Keys are ID namespace prefixes (the token before the first `-` in a task ID).
+- Values are regex strings. They are compiled with the `i` (case-insensitive)
+  flag and matched against normalized file paths (both `/` and `\` separators
+  are supported by the `[/\\\\]` character class shown above).
+- Invalid regex strings **throw at config load time** with a pointer to the
+  offending entry — fail-loud, not silent skip.
+
+### Migration from v0.13.x
+
+Before v0.14.0, the validator carried a hardcoded map for 7 prefixes specific
+to the maintainer's own repository (`cls`, `dsg`, `evh2`, `cst`, `uxf`, `cfgo`,
+`doc3`). If you inherited those prefixes and relied on the gate:
+
+```json
+{
+  "namespacePatterns": {
+    "cls":  "classif(?:ier|y)|archetype",
+    "dsg":  "generator[/\\\\](?:domain|web|landing|profiles?)|(?:domain|web|landing)[/\\\\](?:profile|generator)",
+    "evh2": "[/\\\\]validator[/\\\\]",
+    "cst":  "smoke|integration[-_]test|e2e",
+    "uxf":  "[/\\\\]renderer[/\\\\]|renderer\\.[jt]sx?$",
+    "cfgo": "config[/\\\\]|schema[/\\\\]|config\\.[jt]s$|schema\\.[jt]s$",
+    "doc3": "(?:^|[/\\\\])docs[/\\\\]|readme\\.md$"
+  }
+}
+```
+
+Otherwise, do nothing — the empty default is the new correct baseline for
+every repository except the maintainer's own.
+
 ## Cross-reference
 
 - Known limitations: [docs/limitations.md](limitations.md)

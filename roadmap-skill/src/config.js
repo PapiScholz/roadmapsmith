@@ -12,6 +12,7 @@ const DEFAULT_CONFIG = {
   customSections: [],
   plugins: [],
   pathAliases: {},
+  namespacePatterns: {},
   product: {
     name: '',
     northStar: '',
@@ -70,8 +71,23 @@ function safeParseJson(content, filePath) {
   }
 }
 
+function compileNamespacePatterns(patterns) {
+  const compiled = {};
+  for (const [ns, pattern] of Object.entries(patterns || {})) {
+    if (typeof pattern !== 'string' || !pattern.trim()) {
+      throw new Error(`Invalid namespacePatterns config: entry "${ns}" must be a non-empty regex string`);
+    }
+    try {
+      compiled[ns] = new RegExp(pattern, 'i');
+    } catch (err) {
+      throw new Error(`Invalid namespacePatterns config: entry "${ns}" is not a valid regex — ${err.message}`);
+    }
+  }
+  return compiled;
+}
+
 function mergeConfig(userConfig) {
-  return {
+  const merged = {
     ...DEFAULT_CONFIG,
     ...userConfig,
     taskMatchers: Array.isArray(userConfig.taskMatchers) ? userConfig.taskMatchers : DEFAULT_CONFIG.taskMatchers,
@@ -81,6 +97,9 @@ function mergeConfig(userConfig) {
     pathAliases: (userConfig && typeof userConfig.pathAliases === 'object' && !Array.isArray(userConfig.pathAliases) && userConfig.pathAliases !== null)
       ? userConfig.pathAliases
       : DEFAULT_CONFIG.pathAliases,
+    namespacePatterns: (userConfig && typeof userConfig.namespacePatterns === 'object' && !Array.isArray(userConfig.namespacePatterns) && userConfig.namespacePatterns !== null)
+      ? userConfig.namespacePatterns
+      : DEFAULT_CONFIG.namespacePatterns,
     milestones: Array.isArray(userConfig.milestones) ? userConfig.milestones : DEFAULT_CONFIG.milestones,
     phaseTemplates: {
       ...DEFAULT_CONFIG.phaseTemplates,
@@ -123,6 +142,13 @@ function mergeConfig(userConfig) {
         : DEFAULT_CONFIG.validation.testReports
     }
   };
+  Object.defineProperty(merged, '__namespacePatternMap', {
+    value: compileNamespacePatterns(merged.namespacePatterns),
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+  return merged;
 }
 
 function findConfigUpwards(startDir, filename) {

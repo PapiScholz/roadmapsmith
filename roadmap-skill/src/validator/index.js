@@ -68,18 +68,29 @@ const SELF_REFERENTIAL_FILES = new Set(['ROADMAP.md']);
 // semantics invert — passing means the file is absent, failing means it still exists.
 const DELETION_KEYWORD_RE = /\b(eliminado|eliminada|borrado|borrada|deleted|removed|dropped)\b/i;
 
-// Maps task-ID namespace prefix to a predicate on (normalized) file paths.
-// When a task ID has a known namespace, at least one evidence file must satisfy
-// the predicate — otherwise generic token overlap alone cannot pass the task.
-const NAMESPACE_STRUCTURAL_PATTERNS = {
-  cls:  (p) => /classif(?:ier|y)|archetype/.test(p),
-  dsg:  (p) => /generator[/\\](?:domain|web|landing|profiles?)|(?:domain|web|landing)[/\\](?:profile|generator)/.test(p),
-  evh2: (p) => p.includes('/validator/') || p.includes('\\validator\\'),
-  cst:  (p) => /smoke|integration[-_]test|e2e/.test(p),
-  uxf:  (p) => p.includes('/renderer/') || p.includes('\\renderer\\') || /renderer\.[jt]sx?$/.test(p),
-  cfgo: (p) => /config[/\\]|schema[/\\]|config\.[jt]s$|schema\.[jt]s$/.test(p),
-  doc3: (p) => /(?:^|[/\\])docs[/\\]|readme\.md$/i.test(p),
-};
+// Namespace structural patterns are sourced from `config.namespacePatterns`
+// (compiled to a `<prefix>: RegExp` map on config load, stored in the
+// non-enumerable `__namespacePatternMap`). See src/config.js and
+// docs/audit-remediation.md § "Namespace structural gate".
+// When no patterns are configured, the namespace gate is skipped entirely.
+function resolveNamespacePatternMap(config) {
+  if (!config) return {};
+  if (config.__namespacePatternMap && typeof config.__namespacePatternMap === 'object') {
+    return config.__namespacePatternMap;
+  }
+  // Fallback: tests / callers that pass a raw config without going through
+  // mergeConfig — compile on the fly, but do not cache back onto the object.
+  const raw = config.namespacePatterns;
+  if (!raw || typeof raw !== 'object') return {};
+  const compiled = {};
+  for (const [ns, pattern] of Object.entries(raw)) {
+    if (typeof pattern !== 'string' || !pattern.trim()) continue;
+    try {
+      compiled[ns] = new RegExp(pattern, 'i');
+    } catch { /* mergeConfig already validated; skip on the fly */ }
+  }
+  return compiled;
+}
 
 // Test fixture directories contain synthetic code created to drive test scenarios,
 // not real implementations. Including them pollutes the evidence pool with vocabulary
@@ -1238,14 +1249,15 @@ function isAcceptanceCriteria(taskId) {
 //   3. For implementation tasks: feature tokens from task text must score ≥ ceil(n/2)
 //      against namespace-matched files, preventing vocabulary overlap from generic
 //      infrastructure code (io.js, generator/index.js) from serving as evidence.
-function checkNamespaceStructuralEvidence(taskId, taskText, fileIndex) {
+function checkNamespaceStructuralEvidence(taskId, taskText, fileIndex, patternMap) {
   const namespace = extractTaskNamespace(taskId);
-  if (!namespace || !NAMESPACE_STRUCTURAL_PATTERNS[namespace]) {
+  const patterns = patternMap || {};
+  if (!namespace || !patterns[namespace]) {
     return { applicable: false, passed: true, structuralFiles: [], reason: null };
   }
 
-  const predicate = NAMESPACE_STRUCTURAL_PATTERNS[namespace];
-  const namespaceFiles = fileIndex.filter((f) => predicate(f.relativePath));
+  const regex = patterns[namespace];
+  const namespaceFiles = fileIndex.filter((f) => regex.test(f.relativePath));
 
   if (namespaceFiles.length === 0) {
     return {
@@ -2020,8 +2032,11 @@ function validateTask(task, context, config, plugins) {
   // Namespace structural gate
   let structuralEvidence = null;
   const ns = extractTaskNamespace(taskId);
-  if (ns && NAMESPACE_STRUCTURAL_PATTERNS[ns]) {
-    const structuralCheck = checkNamespaceStructuralEvidence(taskId, task.text || '', fileIndex);
+  const namespacePatternMap = resolveNamespacePatternMap(
+    (!Array.isArray(context) && context && context.config) || config
+  );
+  if (ns && namespacePatternMap[ns]) {
+    const structuralCheck = checkNamespaceStructuralEvidence(taskId, task.text || '', fileIndex, namespacePatternMap);
     if (structuralCheck.applicable) {
       if (!structuralCheck.passed) {
         reasons.push(structuralCheck.reason || `no structural evidence for namespace "${ns}"`);
