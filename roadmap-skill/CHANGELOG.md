@@ -4,6 +4,21 @@
 
 - None yet.
 
+## v0.13.5 - 2026-07-15
+
+### Fixed
+- (update) multi-point UX polish + release infra hardening (#95)
+  - `update --json` now always emits a valid JSON payload on stdout. Pre-fix,
+  - Removed the legacy `--evidence-only` flag from `--help`. It has been a
+  - Updated the stale `--evidence-only` reference in the validator's weak-
+  - `.git/hooks/pre-commit`: replaced the hardcoded Windows Node path
+  - Bumped `actions/checkout` v4.3.1 -> v5.0.1 and `actions/setup-node`
+  - `scripts/generate-changelog.js` + `scripts/auto-release.js`: commit
+  - Repo branch protection: disabled `required_conversation_resolution` on
+  - `update --json` without `--audit` still emits a parseable JSON status.
+  - `buildReleaseSection` renders commit body `- ` lines as sub-bullets and
+  - Release automation tests updated for the new `%s%x1f%b%x1e` git log
+
 ## v0.13.4 - 2026-07-15
 
 ### Fixed
