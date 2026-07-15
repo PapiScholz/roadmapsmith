@@ -53,3 +53,24 @@ test('handles null/empty inputs gracefully', () => {
   assert.equal(result.score, 100);
   assert.equal(result.drifted, false);
 });
+
+test('English filler and generic product words are stripped before scoring', () => {
+  // Real regression: pre-v0.13.4 this northStar produced score=0 (100% false-positive drift)
+  // because every filler token ("make", "every", "project", ...) reported as unmatched.
+  const result = detectDrift(
+    'Make every software project ship with a living, evidence-backed roadmap — zero manual maintenance.',
+    { languages: ['javascript'], testFrameworks: ['node:test'], modules: ['roadmap'], projectType: 'cli' }
+  );
+  assert.equal(result.drifted, false, `expected aligned, got: ${result.summary}\n${result.details.join('\n')}`);
+  assert.ok(result.score >= 50, `score should be >= 50, got ${result.score}`);
+});
+
+test('extraSignals lets README/package.json text back domain vocabulary', () => {
+  const result = detectDrift(
+    'Ship an evidence-backed roadmap CLI',
+    { languages: ['javascript'], testFrameworks: [], modules: [], projectType: 'cli' },
+    ['roadmap tool for evidence-driven planning across repos']
+  );
+  assert.equal(result.drifted, false);
+  assert.ok(result.details.length === 0 || result.details.every((d) => !d.includes('roadmap')));
+});

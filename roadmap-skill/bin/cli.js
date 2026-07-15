@@ -21,6 +21,29 @@ function isEnabled(v) {
   return v === true || v === 'true' || v === '1' || v === 'yes';
 }
 
+// v0.13.4: extra vocabulary for drift detection.
+// Reads package.json (name/description/keywords) + README first 4KB so northStar
+// tokens have somewhere to match beyond scan-derived languages/frameworks/modules.
+function collectDriftExtraSignals(projectRoot) {
+  const signals = [];
+  try {
+    const pkgPath = path.join(projectRoot, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      if (pkg.name) signals.push(String(pkg.name));
+      if (pkg.description) signals.push(String(pkg.description));
+      if (Array.isArray(pkg.keywords)) signals.push(...pkg.keywords.map(String));
+    }
+  } catch (_) { /* ignore parse/read errors — drift stays best-effort */ }
+  try {
+    const readmePath = path.join(projectRoot, 'README.md');
+    if (fs.existsSync(readmePath)) {
+      signals.push(fs.readFileSync(readmePath, 'utf8').slice(0, 4096));
+    }
+  } catch (_) { /* ignore */ }
+  return signals;
+}
+
 // ─── Help ─────────────────────────────────────────────────────────────────────
 
 const HELP = `roadmapsmith — living evidence-backed roadmap tool
@@ -235,8 +258,9 @@ function runUpdate(projectRoot, config, flags) {
       languages: scan.languages,
       testFrameworks: scan.testFrameworks,
       modules: scan.modules,
+      commands: scan.commands,
       projectType: scan.projectType
-    });
+    }, collectDriftExtraSignals(projectRoot));
     if (useJson) {
       console.log(JSON.stringify(drift, null, 2));
     } else {
@@ -272,8 +296,20 @@ function runUpdate(projectRoot, config, flags) {
   const concise = isEnabled(flags.concise) || isEnabled(flags['no-warnings']);
   const { content: synced, changes } = applySync(existingContent, tasks, resultMap, { forceRefresh: true, evidenceOnly, concise });
 
-  writeText(roadmapFile, synced, { dryRun });
-  console.log(`${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (annotate-only: no checkboxes flipped; pass --apply to mutate)' : ''}`);
+  // v0.13.4: skip the write and print "No changes" when the sync produced byte-identical output.
+  // Also route the human status line to stderr under --json so stdout stays parseable.
+  const noChanges = synced === existingContent;
+  if (!noChanges) {
+    writeText(roadmapFile, synced, { dryRun });
+  }
+  const statusLine = noChanges
+    ? `No changes for ${roadmapFile}`
+    : `${dryRun ? 'Would update' : 'Updated'} ${roadmapFile}${evidenceOnly ? ' (annotate-only: no checkboxes flipped; pass --apply to mutate)' : ''}`;
+  if (useJson) {
+    process.stderr.write(`${statusLine}\n`);
+  } else {
+    console.log(statusLine);
+  }
 
   if (isEnabled(flags.audit)) {
     const audit = auditValidation(tasks, resultMap, changes);
