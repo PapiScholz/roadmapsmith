@@ -12,19 +12,34 @@ Two commands — `init` and `update` — turn `ROADMAP.md` into a validated, evi
 
 ## See it in action
 
-RoadmapSmith does not make an AI agent smarter. It makes the agent's output **auditable** — a validated trail of what got done, why, and with what evidence.
+The killer moment: your agent marks a task `[x]`, RoadmapSmith checks the code, and the audit disagrees.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="A/B demo: claude-code session with ROADMAP.md vs without" width="800">
+  <img src="assets/demo.gif" alt="Agent marks a task done without writing code; roadmapsmith --audit catches it and surfaces the task id" width="800">
 </p>
 
-A scripted A/B demo runs two identical `claude-code` sessions against this repo — one that can read `ROADMAP.md`, one that can't — and diffs the results:
+Reproduce it locally in ~2 seconds:
+
+```bash
+bash scripts/demo/false-claim-repro.sh
+```
+
+The script sets up a throwaway repo, adds a task, flips the checkbox without writing code, and runs `update --audit`. Expected output: `checkedWithoutEvidence: 1` and the specific caught task id.
+
+<details>
+<summary>Deeper look — A/B demo (two claude-code sessions, one blind to ROADMAP.md)</summary>
+
+<p align="center">
+  <img src="assets/demo-ab.gif" alt="A/B demo: claude-code session with ROADMAP.md vs without" width="800">
+</p>
+
+Two identical `claude-code` sessions on the same worktree — one can read `ROADMAP.md`, one can't — and the results diverge on evidence, alignment, and audit-cleanliness. Full walkthrough: [`scripts/demo/README.md`](scripts/demo/README.md).
 
 ```bash
 bash scripts/demo/run.sh
 ```
 
-Full walkthrough and honest caveats: [`scripts/demo/README.md`](scripts/demo/README.md).
+</details>
 
 ## Install
 

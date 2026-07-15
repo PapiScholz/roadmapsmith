@@ -13,6 +13,9 @@ function buildId(baseId, existingIds) {
   }
 }
 
+// v0.15.0: return the assigned id/text/phase alongside content so callers
+// (CLI --json, importers) can pipe `add-task | jq -r .task.id` into follow-up
+// `--evidence` calls without re-parsing ROADMAP.md.
 function addTask(text, content, options = {}) {
   const defaultPhase = options.phase || 'P1';
   const parsed = parseRoadmap(String(content || ''));
@@ -52,7 +55,8 @@ function addTask(text, content, options = {}) {
   }
 
   const managedBody = blockLines.join('\n');
-  return upsertManagedBlock(content, managedBody);
+  const updated = upsertManagedBlock(content, managedBody);
+  return { content: updated, id, text: cleanText, phase };
 }
 
 module.exports = { addTask };

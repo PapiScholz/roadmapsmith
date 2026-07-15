@@ -429,15 +429,33 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
 });
 
-test('update --add-task --json emits action JSON on stdout', () => {
+test('update --add-task --json emits action JSON on stdout with assigned task id', () => {
   // v0.13.10: audit swept all early-return paths for --json contract compliance.
+  // v0.15.0: JSON now includes { task: { id, text, phase } } so callers can
+  // pipe `add-task | jq -r .task.id` into follow-up --evidence calls.
   const dir = tmpdir();
   fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
   const res = runResult(['update', '--add-task', 'Ship it', '--json', '--project-root', dir], dir);
   const parsed = JSON.parse(res.stdout);
   assert.equal(parsed.action, 'add-task');
-  assert.equal(parsed.task, 'Ship it');
+  assert.equal(typeof parsed.task, 'object', 'task must be an object with id/text/phase');
+  assert.equal(parsed.task.id, 'ship-it');
+  assert.equal(parsed.task.text, 'Ship it');
+  assert.equal(parsed.task.phase, 'P1');
   assert.equal(typeof parsed.file, 'string');
+});
+
+test('update --add-task --json id can be piped into follow-up --evidence call', () => {
+  // v0.15.0 pipeability contract: add-task | jq -r .task.id → update --task <id> --evidence
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), '<!-- rs:managed:start -->\n<!-- rs:managed:end -->\n');
+  const addRes = runResult(['update', '--add-task', 'Wire login', '--json', '--project-root', dir], dir);
+  const parsedAdd = JSON.parse(addRes.stdout);
+  const taskId = parsedAdd.task.id;
+  const evRes = runResult(['update', '--task', taskId, '--evidence', 'src/auth/login.ts', '--project-root', dir], dir);
+  assert.equal(evRes.status, 0, `evidence attach failed: ${evRes.stderr}`);
+  const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
+  assert.match(content, /Evidence: src\/auth\/login\.ts/);
 });
 
 test('update --task --evidence --json (task not found) emits error JSON on stdout', () => {

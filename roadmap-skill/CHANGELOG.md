@@ -2,7 +2,36 @@
 
 ## Unreleased
 
-- None yet.
+### Breaking
+- (init) default `init` output shape changed. Fresh runs now scan the repo and
+  emit real tasks (`Add tests for <fn> in <file>:<line>`, `Address TODO: ...`)
+  instead of the v0.14.x `phaseTemplates` boilerplate ("Stabilize project
+  baseline", "Reduce operational risk before v0.3", etc). Empty repos get a
+  minimal "Your first tasks" shape with no fake Phase headers.
+  - Migration for anyone who scripted around the exact phaseTemplate text:
+    pass `--with-phase-templates` to keep the v0.14.x static template
+    byte-for-byte.
+
+### Added
+- (init) new `--interactive` flag. Prompts for product name, primary user,
+  whether AI coding agents are used daily, and target host(s). Answering "n"
+  to the AI-agents question exits 0 with a redirect message — this tool is
+  not the right fit for non-agent workflows.
+- (init) new `--with-phase-templates` flag preserves the v0.14.x static
+  template output for callers that scripted around the old shape.
+- (update) `--add-task --json` now includes the assigned task in the JSON
+  payload (`{ id, text, phase }`) so callers can pipe
+  `add-task --json | jq -r .task.id | xargs -I{} update --task {} --evidence …`
+  without re-parsing ROADMAP.md.
+- (scripts) new `scripts/demo/false-claim-repro.sh` at the repo root — a
+  deterministic reproducer of the "agent claims [x], validator catches it"
+  value proposition. Wired into `roadmap-skill/scripts/e2e-smoke.sh` so the
+  catch stops silently regressing.
+
+### Internal
+- New `src/inferTasks.js` module: JS/TS/Python function-without-test +
+  TODO/FIXME/HACK scanner used by the dynamic `init` path. Cap: 10 tasks
+  per run; falls back to the minimal empty-repo shape below that threshold.
 
 ## v0.14.1 - 2026-07-15
 

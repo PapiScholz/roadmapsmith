@@ -20,10 +20,11 @@ This package owns the RoadmapSmith CLI, validator, sync engine, host setup files
 - `roadmapsmith status [--json]`
 - `roadmapsmith validate [--json] [--strict]`
 - `roadmapsmith update [--task <stable-id> --evidence "<single-line evidence>"]`
+- `roadmapsmith update --add-task "<text>" [--json]` — append a new task. With `--json`, stdout emits `{ action, task: { id, text, phase }, file }` so the assigned ID can be chained into a follow-up `--evidence` call: `roadmapsmith update --add-task "X" --json | jq -r .task.id | xargs -I{} roadmapsmith update --task {} --evidence …`. The ID is a deterministic slug of the task text (v0.15.0+).
 
 ### Advanced
 
-- `roadmapsmith init`
+- `roadmapsmith init [--with-phase-templates] [--interactive]` — since v0.15.0, `init` scans the repo (JS/TS/Python) and emits real tasks (`Add tests for <fn> in <file>:<line>`, `Address TODO: …`). Empty repos get a minimal "Your first tasks" shape. `--with-phase-templates` restores the v0.14.x static template byte-for-byte. `--interactive` prompts for product name, primary user, whether AI agents are used daily, and target host(s).
 - `roadmapsmith generate`
 - `roadmapsmith generate --full-regen`
 - `roadmapsmith sync`

@@ -6,16 +6,17 @@ const path = require('path');
 
 const { renderRoadmapTemplate, renderAgentsTemplate } = require('../src/templates');
 const { resolveRoadmapFile, loadConfig, loadPlugins, resolveConfigPath } = require('../src/config');
-const { readTextIfExists, writeText } = require('../src/io');
+const { readTextIfExists, writeText, walkFiles, detectLanguages } = require('../src/io');
 const { importTasks } = require('../src/importer');
 const { addTask } = require('../src/addTask');
 const { detectDrift } = require('../src/drift');
 const { parseRoadmap } = require('../src/parser');
 const { generateRoadmapDocument, scanProject } = require('../src/generator');
+const { inferTasks } = require('../src/inferTasks');
 const { validateTasks, buildValidationContext, auditValidation } = require('../src/validator');
 const { applySync } = require('../src/sync');
 const { buildSetupFiles, applySetupFiles, parseHosts, assertSupportedEditor, inspectHostSetup } = require('../src/host');
-const { parseArgv } = require('../src/utils');
+const { parseArgv, slugify } = require('../src/utils');
 
 function isEnabled(v) {
   return v === true || v === 'true' || v === '1' || v === 'yes';
@@ -105,6 +106,108 @@ verify flags (roadmapsmith verify --task <id>):
 
 // ─── runInit ──────────────────────────────────────────────────────────────────
 
+// v0.15.0: dynamic init that scans the repo instead of emitting phaseTemplate boilerplate.
+// Empty repos get a minimal "Your first tasks" shape; repos with signal get real tasks
+// derived from function-without-test + TODO scans. `--with-phase-templates` opts back
+// into the v0.14.x static template for backward compat.
+function renderScannedRoadmap(projectRoot, header) {
+  const inferred = inferTasks(projectRoot);
+  const langs = detectLanguages(walkFiles(projectRoot));
+  const stackLine = langs.length > 0 ? langs.join(', ') : 'unspecified';
+
+  const productName = header.productName || 'Project Roadmap';
+  const parts = [];
+  parts.push('<!-- rs:managed:start -->');
+  parts.push(`# ${productName}`);
+  parts.push('');
+  if (header.problemStatement) {
+    parts.push(`**Problem being solved:** ${header.problemStatement}`);
+  }
+  if (header.primaryUser) {
+    parts.push(`**Primary user:** ${header.primaryUser}`);
+  }
+  parts.push('');
+
+  if (inferred.tasks.length < 3) {
+    parts.push('## Detected surface');
+    parts.push('- No implementation files with clear task candidates yet.');
+    parts.push(`- Detected stack: ${stackLine}`);
+    parts.push('');
+    parts.push('## Your first tasks');
+    parts.push('Add a task with:');
+    parts.push('');
+    parts.push('    roadmapsmith update --add-task "Describe the first thing to build"');
+  } else {
+    parts.push('## Detected surface');
+    parts.push(`- Scanned ${inferred.codeFileCount} implementation files`);
+    parts.push(`- Detected stack: ${stackLine}`);
+    parts.push(`- ${inferred.p0Count} functions without matching test files`);
+    parts.push(`- ${inferred.p1Count} TODO/FIXME markers`);
+    parts.push('');
+    parts.push('## Phased Roadmap');
+    parts.push('');
+    const p0 = inferred.tasks.filter((t) => t.priority === 'P0');
+    const p1 = inferred.tasks.filter((t) => t.priority === 'P1');
+    if (p0.length > 0) {
+      parts.push('### Phase P0 (Critical)');
+      for (const t of p0) parts.push(`- [ ] ${t.text} <!-- rs:task=${slugify(t.text)} -->`);
+      parts.push('');
+    }
+    if (p1.length > 0) {
+      parts.push('### Phase P1 (Important)');
+      for (const t of p1) parts.push(`- [ ] ${t.text} <!-- rs:task=${slugify(t.text)} -->`);
+      parts.push('');
+    }
+  }
+
+  parts.push('<!-- rs:managed:end -->');
+  return `${parts.join('\n')}\n`;
+}
+
+// v0.15.0: 4-prompt interactive init. Non-interactive path is unchanged.
+// Answering "n" to the AI-agents question exits 0 with a redirect message —
+// this tool is not the right fit for non-agent workflows and pretending
+// otherwise wastes the user's time.
+function promptInteractive(projectRoot) {
+  const defaults = {
+    productName: path.basename(projectRoot),
+    primaryUser: 'solo dev',
+    hosts: 'claude',
+  };
+  const materialize = (pn, pu, ag, hs) => {
+    const productName = String(pn || '').trim() || defaults.productName;
+    const primaryUser = String(pu || '').trim() || defaults.primaryUser;
+    const usesAgents = /^y(es)?$/i.test(String(ag || '').trim());
+    const hostsRaw = String(hs || '').trim().toLowerCase() || defaults.hosts;
+    const hosts = hostsRaw === 'both' ? 'codex,claude' : hostsRaw;
+    return { productName, primaryUser, usesAgents, hosts };
+  };
+
+  // Non-TTY path (piped stdin, tests, CI): consume all input as an ordered answer list.
+  // readline's `question` sequences unreliably against a non-TTY input stream on Node —
+  // reading the buffer once is both simpler and deterministic for scripting.
+  if (!process.stdin.isTTY) {
+    const raw = fs.readFileSync(0, 'utf8');
+    const [pn, pu, ag, hs] = raw.split(/\r?\n/);
+    return Promise.resolve(materialize(pn, pu, ag, hs));
+  }
+
+  const readline = require('readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
+  return (async () => {
+    try {
+      const pn = await ask(`Product name [${defaults.productName}]: `);
+      const pu = await ask(`Primary user [${defaults.primaryUser}]: `);
+      const ag = await ask('Do you use AI coding agents daily? [y/N]: ');
+      const hs = await ask(`Which host(s)? [claude/codex/both, default: ${defaults.hosts}]: `);
+      return materialize(pn, pu, ag, hs);
+    } finally {
+      rl.close();
+    }
+  })();
+}
+
 function runInit(projectRoot, config, flags) {
   const dryRun = isEnabled(flags['dry-run']);
   const setupOnly = isEnabled(flags['setup-only']);
@@ -114,20 +217,31 @@ function runInit(projectRoot, config, flags) {
     const agentsFile = path.resolve(projectRoot, flags['agents-file'] || 'AGENTS.md');
 
     if (!fs.existsSync(roadmapFile)) {
-      const replacements = {
-        productName: flags['product-name'] || 'Project Roadmap',
-        productNorthStar: 'Ship validated increments with transparent completion evidence and deterministic planning artifacts.',
-        problemStatement: flags['problem-statement'] ? `\n\n**Problem being solved:** ${flags['problem-statement']}` : '',
-        primaryUser: flags['primary-user'] ? `\n\n**Primary user:** ${flags['primary-user']}` : '',
-      };
+      const productName = flags['product-name'] || 'Project Roadmap';
+      const useTemplates = isEnabled(flags['with-phase-templates']);
 
-      let content = renderRoadmapTemplate(replacements);
+      let content;
+      if (useTemplates) {
+        const replacements = {
+          productName,
+          productNorthStar: 'Ship validated increments with transparent completion evidence and deterministic planning artifacts.',
+          problemStatement: flags['problem-statement'] ? `\n\n**Problem being solved:** ${flags['problem-statement']}` : '',
+          primaryUser: flags['primary-user'] ? `\n\n**Primary user:** ${flags['primary-user']}` : '',
+        };
+        content = renderRoadmapTemplate(replacements);
+      } else {
+        content = renderScannedRoadmap(projectRoot, {
+          productName,
+          problemStatement: flags['problem-statement'] || '',
+          primaryUser: flags['primary-user'] || '',
+        });
+      }
 
       const importFiles = [flags['import']].flat().filter(Boolean);
       if (importFiles.length > 0) {
         const imported = importTasks(importFiles);
         for (const task of imported) {
-          content = addTask(task.text, content, {});
+          content = addTask(task.text, content, {}).content;
         }
       }
 
@@ -238,11 +352,19 @@ function runUpdate(projectRoot, config, flags) {
 
   if (flags['add-task']) {
     const existing = readTextIfExists(roadmapFile) || '';
-    const updated = addTask(flags['add-task'], existing, {});
+    const { content: updated, id, text, phase } = addTask(flags['add-task'], existing, {});
     writeText(roadmapFile, updated, { dryRun });
+    // v0.15.0: JSON now includes the assigned task info so callers can chain
+    // `add-task | jq -r .task.id | xargs -I{} update --task {} --evidence ...`.
+    // Legacy `.task` string kept for backward compat with pre-v0.15 consumers.
     emitSuccess({
       human: `${dryRun ? 'Would add' : 'Added'} task: ${flags['add-task']}`,
-      json: { action: 'add-task', task: flags['add-task'], dryRun, file: roadmapFile },
+      json: {
+        action: 'add-task',
+        task: { id, text, phase },
+        dryRun,
+        file: roadmapFile
+      },
       useJson
     });
     return;
@@ -638,7 +760,26 @@ function main() {
   const config = loadConfig({ projectRoot, configPath: flags.config });
 
   if (cmd === 'init') {
-    runInit(projectRoot, config, flags);
+    if (isEnabled(flags.interactive)) {
+      promptInteractive(projectRoot).then((answers) => {
+        if (!answers.usesAgents) {
+          console.log('RoadmapSmith is designed for AI-agent workflows. `TODO.md` covers your case better.');
+          return;
+        }
+        const merged = {
+          ...flags,
+          'product-name': flags['product-name'] || answers.productName,
+          'primary-user': flags['primary-user'] || answers.primaryUser,
+          hosts: flags.hosts || answers.hosts,
+        };
+        runInit(projectRoot, config, merged);
+      }).catch((err) => {
+        console.error(`Interactive init failed: ${err.message}`);
+        process.exitCode = 1;
+      });
+    } else {
+      runInit(projectRoot, config, flags);
+    }
   } else if (cmd === 'update') {
     runUpdate(projectRoot, config, flags);
   } else if (cmd === 'maintain' || cmd === '/roadmap-update') {
