@@ -4,6 +4,13 @@
 
 - None yet.
 
+## v0.13.6 - 2026-07-15
+
+### Fixed
+- (config) walk up directories to find roadmap-skill.config.json (#97)
+  - `resolveConfigPath` walks up from projectRoot looking for
+  - `--check-drift` distinguishes "no config file found (searched from <path>
+
 ## v0.13.5 - 2026-07-15
 
 ### Fixed
