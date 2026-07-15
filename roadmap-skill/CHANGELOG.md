@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.13.8 - 2026-07-15
+
+### Fixed
+- (update) refuse to run when no ROADMAP.md exists
+
 ## v0.13.7 - 2026-07-15
 
 ### Fixed
