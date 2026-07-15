@@ -22,7 +22,8 @@ function isReleaseCommitSubject(subject) {
 }
 
 function normalizeCommitEntry(subject) {
-  const trimmed = String(subject || '').trim();
+  // v0.13.7: strip trailing `(#123)` PR-merge ref so CHANGELOG bullets stay signal-only.
+  const trimmed = String(subject || '').trim().replace(/\s*\(#\d+\)\s*$/, '');
   const match = /^([a-z]+)(?:\(([^)]+)\))?!?:\s*(.+)$/i.exec(trimmed);
   if (!match) {
     return trimmed;

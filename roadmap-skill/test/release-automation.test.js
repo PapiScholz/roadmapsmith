@@ -191,6 +191,23 @@ test('buildReleaseSection groups commits and falls back to Changed while excludi
   assert.doesNotMatch(section, /chore\(release\)/);
 });
 
+test('normalizeCommitEntry strips trailing (#N) PR-merge ref from squashed subjects', () => {
+  const section = buildReleaseSection({
+    version: '1.2.4',
+    date: '2026-06-18',
+    subjects: [
+      'fix(config): walk up directories to find roadmap-skill.config.json (#97)',
+      'feat: add magic (#100)',
+      'chore: no PR ref here'
+    ]
+  });
+  assert.match(section, /- \(config\) walk up directories to find roadmap-skill\.config\.json$/m);
+  assert.doesNotMatch(section, /\(#97\)/);
+  assert.doesNotMatch(section, /\(#100\)/);
+  assert.match(section, /- add magic$/m);
+  assert.match(section, /- no PR ref here$/m);
+});
+
 test('buildReleaseSection renders commit body `- ` lines as CHANGELOG sub-bullets', () => {
   const section = buildReleaseSection({
     version: '1.2.4',
