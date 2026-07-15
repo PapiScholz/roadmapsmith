@@ -4,6 +4,11 @@
 
 - None yet.
 
+## v0.13.9 - 2026-07-15
+
+### Fixed
+- (update) preserve --json contract on the v0.13.8 missing-roadmap guard
+
 ## v0.13.8 - 2026-07-15
 
 ### Fixed
