@@ -4,6 +4,18 @@
 
 - None yet.
 
+## v0.13.10 - 2026-07-15
+
+### Fixed
+- (update) honor --json contract across all early-return paths
+  - Introduced two tiny helpers `emitSuccess` and `emitError` that centralize
+  - Audited and fixed the 4 pre-v0.13.5 paths:
+  - `--add-task` → emits { action, task, dryRun, file } JSON when --json
+  - `--task --evidence` (success) → emits { action, task, evidence, dryRun, file } JSON
+  - `--task --evidence` (not-found error) → emits { error: 'task-not-found', ... } JSON
+  - `--check-drift` (no config / no northStar errors) → emits { error: 'config-not-found' | 'northstar-missing', ... } JSON
+  - Refactored the v0.13.9 missing-roadmap guard through the same helper.
+
 ## v0.13.9 - 2026-07-15
 
 ### Fixed
