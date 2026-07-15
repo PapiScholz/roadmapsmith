@@ -123,7 +123,9 @@ test('update defaults to annotate-only: does not flip [ ] to [x] even when valid
   const out = run(['update', '--project-root', dir], dir);
   const content = fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8');
   assert.match(content, /- \[ \] Manual bypass task/, 'checkbox must stay unchecked without --apply');
-  assert.match(out, /annotate-only/);
+  // v0.13.4: status may be "annotate-only ..." when the sync adds annotations, or "No changes"
+  // when the roadmap is already byte-identical to the sync output. Both prove no [x] flip.
+  assert.match(out, /annotate-only|No changes for /);
 });
 
 test('update --apply flips [ ] to [x] when validation passes', () => {
@@ -425,6 +427,40 @@ test('migrate-markers is a no-op on already-migrated roadmap', () => {
   const out = run(['migrate-markers', '--project-root', dir], dir);
   assert.match(out, /Nothing to migrate/);
   assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial);
+});
+
+test('update --audit --json keeps stdout as valid JSON (status goes to stderr)', () => {
+  // Regression: pre-v0.13.4, "Updated <path> (annotate-only: ...)" leaked to stdout,
+  // making `roadmapsmith update --audit --json | jq .` fail with "Unexpected token 'U'".
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), [
+    '<!-- rs:managed:start -->',
+    '## Phase',
+    '- [x] Rollup only <!-- rs:kind=rollup -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n'));
+  const res = runResult(['update', '--audit', '--json', '--project-root', dir], dir);
+  const parsed = JSON.parse(res.stdout);
+  assert.ok(Array.isArray(parsed.checkedWithoutEvidence), 'stdout must be the audit JSON, not human status');
+  assert.match(res.stderr, /Updated|No changes/, 'human status must be routed to stderr');
+});
+
+test('update prints "No changes" when the roadmap sync produces byte-identical output', () => {
+  const dir = tmpdir();
+  const initial = [
+    '<!-- rs:managed:start -->',
+    '## Phase',
+    '- [x] Rollup only <!-- rs:kind=rollup -->',
+    '<!-- rs:managed:end -->',
+    ''
+  ].join('\n');
+  fs.writeFileSync(path.join(dir, 'ROADMAP.md'), initial);
+  const firstOut = run(['update', '--project-root', dir], dir);
+  assert.match(firstOut, /Updated|No changes/);
+  const secondOut = run(['update', '--project-root', dir], dir);
+  assert.match(secondOut, /No changes for /, 'second run should be a no-op with explicit "No changes"');
+  assert.equal(fs.readFileSync(path.join(dir, 'ROADMAP.md'), 'utf8'), initial, 'no-op run must not touch the file');
 });
 
 test('migrate-markers --dry-run reports without writing', () => {

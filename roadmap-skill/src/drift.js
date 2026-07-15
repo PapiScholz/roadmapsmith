@@ -2,7 +2,29 @@
 
 const { tokenize } = require('./utils');
 
-function detectDrift(northStar, scanResult) {
+// v0.13.4: filter English filler + generic product words that would otherwise
+// dominate any northStar phrase and drown out the real domain vocabulary.
+const STOP_WORDS = new Set([
+  // articles, prepositions, conjunctions, common short verbs
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into', 'onto', 'over', 'under', 'between', 'through',
+  'has', 'had', 'have', 'was', 'were', 'been', 'being', 'are', 'you', 'your', 'our', 'their', 'its', 'not',
+  // generic English verbs / actions
+  'make', 'makes', 'made', 'ship', 'ships', 'shipped', 'build', 'builds', 'built', 'use', 'uses', 'used',
+  'run', 'runs', 'get', 'gets', 'set', 'sets', 'add', 'adds', 'let', 'lets', 'give', 'gives', 'take', 'takes',
+  'put', 'puts', 'keep', 'keeps', 'kept', 'want', 'wants', 'need', 'needs', 'help', 'helps', 'work', 'works',
+  // determiners / quantifiers
+  'all', 'any', 'some', 'every', 'each', 'many', 'much', 'more', 'less', 'few', 'both', 'one', 'two',
+  // generic tech / product filler
+  'app', 'apps', 'code', 'codes', 'file', 'files', 'tool', 'tools', 'thing', 'things', 'stuff',
+  'project', 'projects', 'product', 'products', 'system', 'systems', 'platform', 'platforms',
+  'software', 'feature', 'features', 'user', 'users', 'team', 'teams', 'task', 'tasks', 'item', 'items',
+  // marketing filler that appears in most one-liners
+  'better', 'best', 'good', 'great', 'nice', 'clean', 'simple', 'easy', 'fast', 'small', 'large', 'big',
+  'zero', 'living', 'evidence', 'backed', 'manual', 'automatic', 'auto', 'first',
+  'maintenance', 'ready', 'production', 'modern', 'new', 'old'
+]);
+
+function detectDrift(northStar, scanResult, extraSignals = []) {
   const {
     languages = [],
     testFrameworks = [],
@@ -11,13 +33,19 @@ function detectDrift(northStar, scanResult) {
     projectType = ''
   } = scanResult || {};
 
-  const signals = new Set(
-    [...languages, ...testFrameworks, ...modules, ...commands, projectType]
-      .map((s) => String(s).toLowerCase())
-      .filter(Boolean)
-  );
+  const signalStrings = [
+    ...languages,
+    ...testFrameworks,
+    ...modules,
+    ...commands,
+    projectType,
+    ...(Array.isArray(extraSignals) ? extraSignals : [])
+  ]
+    .map((s) => String(s || '').toLowerCase())
+    .filter(Boolean);
 
-  const tokens = tokenize(String(northStar || '')).filter((t) => t.length >= 3);
+  const tokens = tokenize(String(northStar || ''))
+    .filter((t) => t.length >= 3 && !STOP_WORDS.has(t));
 
   if (tokens.length === 0) {
     return { drifted: false, score: 100, summary: 'Aligned (score: 100)', details: [] };
@@ -27,7 +55,7 @@ function detectDrift(northStar, scanResult) {
   let matched = 0;
 
   for (const token of tokens) {
-    const found = [...signals].some((s) => s.includes(token));
+    const found = signalStrings.some((s) => s.includes(token));
     if (found) {
       matched += 1;
     } else {
