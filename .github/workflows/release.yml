@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths: [package.json]
+  workflow_dispatch:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   publish:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.check.outputs.changed == 'true'
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
