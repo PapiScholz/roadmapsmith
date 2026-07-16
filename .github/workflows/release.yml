@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Detect new version
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view roadmapsmith version 2>/dev/null || echo "0.0.0")
+          echo "local=$LOCAL" >> $GITHUB_OUTPUT
+          if [ "$LOCAL" = "$PUBLISHED" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "no version change ($LOCAL == $PUBLISHED on npm) — skipping publish"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "new version: $LOCAL (was $PUBLISHED on npm)"
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.changed == 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          gh release create "v${{ steps.check.outputs.local }}" \
+            --title "v${{ steps.check.outputs.local }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
