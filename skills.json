@@ -1,0 +1,40 @@
+{
+  "name": "roadmapsmith",
+  "version": "1.1.0",
+  "description": "Self-contained skill for Claude Code, Codex, and any host that reads SKILL.md. Creates and maintains ROADMAP.md coherent with real code — the agent proposes updates only when evidence exists, waits for OK, never modifies silently.",
+  "triggers": [
+    "roadmap",
+    "create roadmap",
+    "update roadmap",
+    "maintain ROADMAP.md",
+    "AI agent project tracking",
+    "evidence-backed tasks"
+  ],
+  "usageExamples": [
+    "npx github:PapiScholz/roadmapsmith",
+    "npx roadmapsmith",
+    "npm install -g roadmapsmith",
+    "/roadmap-init",
+    "/roadmap-update"
+  ],
+  "install": {
+    "command": "npx github:PapiScholz/roadmapsmith",
+    "source": "PapiScholz/roadmapsmith",
+    "alternative": "npx roadmapsmith (from npm registry)",
+    "notes": "The install script (install.js) copies both SKILL.md files to ~/.claude/skills/ and ~/.codex/skills/ automatically, detecting whichever host directories exist. Once installed, two slashcommands become available in the agent: /roadmap-init (once, at repo start) and /roadmap-update (whenever code changes). No CLI, no configs, no accounts. See github.com/PapiScholz/roadmapsmith for the full contract."
+  },
+  "skills": [
+    {
+      "name": "roadmap-init",
+      "path": "plugins/roadmapsmith/skills/roadmap-init",
+      "description": "Create a fresh ROADMAP.md by scanning the repo and asking the user 3 minimal questions. Groups tasks by phase and code area. Never overwrites an existing ROADMAP.md.",
+      "version": "1.1.0"
+    },
+    {
+      "name": "roadmap-update",
+      "path": "plugins/roadmapsmith/skills/roadmap-update",
+      "description": "Update ROADMAP.md truthfully based on real code. Full-scan the repo, evaluate evidence per task, propose a diff for user approval. Never flips [x] without verifiable evidence. v1.1: preflight scan mode choice, prose stale detection, PROSE UPDATE sub-section in diff.",
+      "version": "1.1.0"
+    }
+  ]
+}
