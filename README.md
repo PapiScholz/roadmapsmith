@@ -1,6 +1,6 @@
 # roadmapsmith
 
-Una habilidad para Claude Code que mantiene tu `ROADMAP.md` al día automáticamente. El agente lo crea, y después lo actualiza solo cuando ve evidence real en el código. Sin CLIs, sin configs.
+Una habilidad para agentes de IA (Claude Code, Codex, o cualquier host que soporte skills en formato SKILL.md) que mantiene tu `ROADMAP.md` al día automáticamente. El agente lo crea, y después lo actualiza solo cuando ve evidence real en el código. Sin CLIs, sin configs.
 
 ## Install (un comando)
 
@@ -8,7 +8,9 @@ Una habilidad para Claude Code que mantiene tu `ROADMAP.md` al día automáticam
 npx github:PapiScholz/roadmapsmith
 ```
 
-`npx` clona el repo desde GitHub, corre `install.js`, y copia los dos SKILL.md a `~/.claude/skills/`. Sin `npm install -g` de nada más.
+`npx` clona el repo desde GitHub y corre `install.js`, que copia los dos SKILL.md a los directorios de skills locales que encuentre (`~/.claude/skills/` para Claude Code, `~/.codex/skills/` para Codex, etc.). Sin `npm install -g` de nada más.
+
+Para Codex nativo, el manifest `.codex-plugin/plugin.json` a la raíz del repo ya declara los skills — instalación vía Codex plugin marketplace también funciona.
 
 ## Uso (dos slashcommands)
 
