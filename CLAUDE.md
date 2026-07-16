@@ -94,11 +94,20 @@ This is a write-time hook, not the same thing as the git `pre-commit` hook. The 
 
 ## Publishing
 
+Release is fully automated. Two commands:
+
 ```bash
-cd roadmap-skill
-npm test
-npm whoami            # verify npm auth before publish
-npm version patch     # or minor / major
-npm publish --access public
-git push origin main --follow-tags
+npm version patch          # or minor / major
+git push --follow-tags
 ```
+
+What happens under the hood:
+
+1. `npm version` bumps `package.json`.
+2. npm fires the `version` lifecycle script → `scripts/sync-skills.js --fix` propagates the new version to the 4 mirrored manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `plugins/roadmapsmith/.codex-plugin/plugin.json`, `skills.json`) → `git add -A` stages them.
+3. `npm version` creates the commit + tag with all mirrors inside.
+4. `git push --follow-tags` uploads commit and tag.
+5. `.github/workflows/release.yml` triggers on `package.json` change in `main`, compares local vs. published version, runs `npm publish --access public`, and creates the GitHub release with auto-generated notes.
+6. On the publish itself, `prepublishOnly` runs `sync-skills.js --check` as the last safety net — publish aborts if any mirror is out of sync.
+
+Never run `npm publish` locally. Never edit a mirrored manifest's `version` field by hand — the source of truth is `package.json` and drift will fail CI (`.github/workflows/mirror-check.yml`) and `prepublishOnly`.

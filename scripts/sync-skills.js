@@ -20,6 +20,14 @@ const pairs = SKILLS.map(function (name) {
   };
 });
 
+// package.json is source of truth for version. These manifests mirror it.
+const VERSION_MIRRORS = [
+  '.claude-plugin/plugin.json',
+  '.codex-plugin/plugin.json',
+  'plugins/roadmapsmith/.codex-plugin/plugin.json',
+  'skills.json'
+];
+
 const mode = process.argv[2] || '--check';
 if (mode !== '--check' && mode !== '--fix') {
   console.error('usage: node scripts/sync-skills.js [--check|--fix]');
@@ -44,9 +52,26 @@ for (const pair of pairs) {
   }
 }
 
+const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+const versionRe = /"version"\s*:\s*"[^"]*"/;
+for (const rel of VERSION_MIRRORS) {
+  const abs = path.join(ROOT, rel);
+  const raw = fs.readFileSync(abs, 'utf8');
+  const m = raw.match(versionRe);
+  if (m && m[0] === '"version": "' + pkgVersion + '"') continue;
+  drift++;
+  const relSlash = rel.split(path.sep).join('/');
+  if (mode === '--fix') {
+    fs.writeFileSync(abs, raw.replace(versionRe, '"version": "' + pkgVersion + '"'));
+    console.log('fixed: ' + relSlash + ' version <- package.json (' + pkgVersion + ')');
+  } else {
+    console.error('out of sync: ' + relSlash + ' version != package.json (' + pkgVersion + ')');
+  }
+}
+
 if (mode === '--check' && drift > 0) {
   console.error('');
-  console.error(drift + ' skill file(s) out of sync. Run: npm run sync-skills');
+  console.error(drift + ' file(s) out of sync. Run: npm run sync-skills');
   process.exit(1);
 }
 console.log(mode === '--fix' && drift === 0 ? 'already in sync' : (mode === '--check' ? 'in sync' : 'sync complete'));

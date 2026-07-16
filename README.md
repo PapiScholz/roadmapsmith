@@ -26,6 +26,19 @@ That's it.
 
 Si el agente cree que completó una tarea mientras trabajás, también te va a proponer marcarla antes de terminar su respuesta.
 
+## Release (mantainers)
+
+Dos comandos y el resto es automático:
+
+```bash
+npm version patch          # o minor / major
+git push --follow-tags
+```
+
+Bajo el capó: el hook `version` de npm corre `scripts/sync-skills.js --fix` y propaga la nueva version a los 4 manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `plugins/roadmapsmith/.codex-plugin/plugin.json`, `skills.json`) antes del commit. Al pushear el tag, `.github/workflows/release.yml` publica a npm y crea el GitHub release. `prepublishOnly` corre un `--check` final como safety net.
+
+No editar la `version` de los manifests a mano — la fuente de verdad es `package.json`. CI (`mirror-check.yml`) falla si hay drift.
+
 ## Personal tool
 
 Esto es una herramienta personal. Feedback bienvenido vía issues; no busco adopción activa. Si te sirve, genial. Si no, `TODO.md` cubre el 90% del valor con menos ceremonia.
