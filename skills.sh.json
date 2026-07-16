@@ -1,0 +1,10 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "groupings": [
+    {
+      "title": "Project Tracking",
+      "description": "Evidence-backed ROADMAP.md workflows for AI coding agents.",
+      "skills": ["roadmap-init", "roadmap-update"]
+    }
+  ]
+}

@@ -6,6 +6,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07-16
+
+**Discovery pública en https://skills.sh/.**
+
+### Added
+- `skills.sh.json` en la raíz del repo con `$schema` oficial y grouping "Project Tracking" que agrupa `roadmap-init` + `roadmap-update`. Es el manifest que skills.sh consume para indexar el repo.
+- `skills/roadmap-init/SKILL.md` y `skills/roadmap-update/SKILL.md` en la raíz — convención esperada por skills.sh y por `npx skills add PapiScholz/roadmapsmith` (Vercel Labs CLI).
+- `scripts/sync-skills.js` — CLI con `--check` (falla si divergen) y `--fix` (copia root → nested). Root es la source de verdad.
+- `.github/workflows/mirror-check.yml` — CI job que corre `--check` en cada push/PR a main. Bloquea merge si algún SKILL.md se editó en un solo lado.
+- `scripts` en `package.json`: `sync-skills`, `check-skills`, `prepublishOnly` (este último bloquea `npm publish` si el mirror divergió).
+
+### Changed
+- `plugins/roadmapsmith/skills/*/SKILL.md` (bundle Codex escaneado por `.github/workflows/hol-plugin-scanner.yml`) queda como **mirror derivado** de `skills/`. Fluxo: editar `skills/<name>/SKILL.md` → `npm run sync-skills` regenera el mirror. Si te olvidás, CI y `prepublishOnly` gritan.
+
+### Notes
+- `install.js` sigue leyendo de `plugins/roadmapsmith/skills/` (source del tarball npm). Sin cambios de comportamiento para `npx roadmapsmith`.
+- Version bump a `1.2.0` en `package.json`, `.codex-plugin/plugin.json`, `plugins/roadmapsmith/.codex-plugin/plugin.json`, `skills.json`.
+
 ## [1.1.0] — 2026-07-16
 
 **Skill hardening basado en autofeedback del primer real-world run de `/roadmap-update`.**
