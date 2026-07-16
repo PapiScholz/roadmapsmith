@@ -6,6 +6,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-07-15
+
+**Pivote a self-contained Claude Code skill.** El maintainer nunca quiso construir un CLI con validator y audit engine. La visión original era: una habilidad instalable con un comando, dos slashcommands, y `ROADMAP.md` mantenido verídicamente por el agente. v1.0.0 entrega esa visión.
+
+### Breaking
+- **Toda la superficie CLI** (`roadmapsmith init`, `update`, `verify`, `--strict`, `--json`, `--interactive`, etc.) se movió a `legacy/roadmap-skill/`. Ya no se instala por default. Los users que dependían del CLI pueden seguir usándolo desde `legacy/` pero no recibe desarrollo activo.
+- **Nueva superficie:** dos slashcommands (`/roadmap-init` y `/roadmap-update`) definidos por SKILL.md files. El agente usa sus tools nativos (Read/Write/Edit/Bash-git) para operar sobre ROADMAP.md. Cero binarios externos requeridos.
+- **Install:** `npx github:PapiScholz/roadmapsmith` reemplaza `npm install -g roadmapsmith` + `npx skills add ...`.
+
+### Added
+- `plugins/roadmapsmith/skills/roadmap-init/SKILL.md` — procedimiento self-contained para crear ROADMAP.md desde cero: 3 preguntas al user en un turno, scan del repo, generación con formato hybrid (fases + áreas), reporte estructurado.
+- `plugins/roadmapsmith/skills/roadmap-update/SKILL.md` — procedimiento self-contained para actualizar ROADMAP.md: full-scan, evidence multi-signal por task (grep + file match + session context + git log), diff propuesto con espera de OK del user, invariantes explícitas (nunca `[x]` sin evidence verificable).
+- `install.js` — script Node que copia los SKILL.md a `~/.claude/skills/`. Ejecutado por `npx github:PapiScholz/roadmapsmith`.
+- `package.json` (root) — mínimo con `bin: ./install.js` para que `npx github:...` funcione.
+- `legacy/README.md` — explica que el contenido de `legacy/` es pre-v1.0 y no recibe dev-activo.
+
+### Moved (git mv, history preserved)
+- `roadmap-skill/` → `legacy/roadmap-skill/`
+- `docs/` → `legacy/docs/`
+- `scripts/` → `legacy/scripts/`
+- `assets/` → `legacy/assets/`
+- `skills/` (top-level) → `legacy/skills/`
+- `roadmap-skill.config.json` → `legacy/roadmap-skill.config.json`
+- `skills.json` → `legacy/skills.json`
+
+### Removed
+- `demo-gif/` (empty untracked directory)
+- Dependency on `npm install -g roadmapsmith`
+- Dependency on the `skills` third-party install tool
+
+### Changed
+- Root `README.md` reescrito a ~30 líneas: install command, dos slashcommands, "personal tool" paragraph, `<details>` toggle apuntando a legacy.
+- Los 3 plugin.json manifests (`.claude-plugin/`, `.codex-plugin/`, `plugins/roadmapsmith/.codex-plugin/`) bumpeados a `"version": "1.0.0"`.
+
 ## [0.14.0] — 2026-07-15
 
 ### Breaking
