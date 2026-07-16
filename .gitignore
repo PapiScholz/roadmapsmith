@@ -11,6 +11,8 @@ build/
 .claude/hooks/.sync.lock
 .worktrees/
 .dev/
+# created by `npx skills add` when run from repo root during testing
+.agents/skills/
 roadmap-skill/.codex/skills/
 # demo artifacts
 demo-gif/
