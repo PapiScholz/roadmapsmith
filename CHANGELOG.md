@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-07-16
+
+**Skill hardening basado en autofeedback del primer real-world run de `/roadmap-update`.**
+
+### Added
+- **Preflight modo scan (Q4):** `/roadmap-update` ahora pregunta al inicio "¿full-scan (determinístico) o short-circuit (uso contexto de sesión)?" El humano elige el trade-off token vs determinismo en cada corrida. Report incluye campo `MODE:` explícito.
+- **Detección de prose stale (Q1 + Q5):** nuevo Step 2b compara la versión del `package.json` root con menciones de versión en el ROADMAP. Si hay mismatch, propone rewrite de la prose afectada como parte del diff (before/after visible, aprobación explícita).
+- **Sub-sección `PROSE CHANGES` en el report template.**
+- **Sub-sección `PROSE UPDATE` en el diff proposal** con before/after por cada cambio de prose.
+
+### Changed
+- **Invariante nueva:** cualquier cambio de prose (headers, versions, texto que no sea checkbox ni evidence) DEBE aparecer en el diff visible antes del OK. Cero cambios silentes — cierra la brecha del scope creep detectado en el autofeedback.
+- **Invariante nueva:** al inicio SIEMPRE preguntar el modo de scan. El humano elige.
+- **Invariante endurecida:** "no inventar tasks desde el chat" — ahora explícito con rationale ("la conversación es efímera, el ROADMAP es persistente"). Q2 se mantiene estricto por diseño.
+- Trigger proactivo relabelado como "experimental" en el SKILL.md — el enforcement mecánico queda deferred en el ROADMAP (task `proactive-trigger-hook`).
+
+### Notes
+- Skill files: `plugins/roadmapsmith/skills/roadmap-update/SKILL.md` (165 líneas) + mirror en `.claude/skills/roadmap-update/SKILL.md`.
+- `roadmap-init` sin cambios en v1.1.
+
 ## [1.0.0] — 2026-07-15
 
 **Pivote a self-contained Claude Code skill.** El maintainer nunca quiso construir un CLI con validator y audit engine. La visión original era: una habilidad instalable con un comando, dos slashcommands, y `ROADMAP.md` mantenido verídicamente por el agente. v1.0.0 entrega esa visión.
