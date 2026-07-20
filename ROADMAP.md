@@ -43,3 +43,12 @@ Trabajo pendiente real fuera del managed block. `generate` no toca esta sección
   - ✅ evidence: CHANGELOG.md
 - [ ] `[P2]` Enforcement mecánico del proactive trigger de `/roadmap-update` (experimental): PostToolUse hook que después de N Edit/Write operations en una sesión sugiere correr el skill. Hoy el trigger depende de que el agente se acuerde y en la práctica se cae. Pending real-world validation antes de shipear. <!-- rs:task=proactive-trigger-hook -->
   - ⚠️ no implementation evidence yet — deferred desde v1.1 autofeedback (Q3)
+
+## 5. Deferred Backlog
+
+Ítems conscientemente NO shippeados. Movidos acá desde autofeedback runs para no perder trazabilidad. Se levantan solo si aparece un user real que los pida.
+
+- [ ] `[P3]` **Fix classifier legacy** — agregar type `claude-skill-plugin` + config override `projectType` en `legacy/roadmap-skill/src/classifier/index.js`. Descartado en v1.3 porque la CLI legacy está deprecada (`install.js:25` redirige a `roadmapsmith@0.14`) y arreglarla es re-invertir en path muerto. Levantar si un user reporta uso activo. <!-- rs:task=legacy-classifier-skill-type -->
+- [ ] `[P3]` **Renderer legacy: Risks/Anti-Goals como statements en lugar de checkboxes** — en `legacy/roadmap-skill/src/renderer/professional.js:273–293` los renderiza como `- [ ] [P0] ${risk}` cuando semánticamente no son tasks completables. Mismo argumento del ítem anterior (legacy deprecated). <!-- rs:task=legacy-renderer-risks-statements -->
+- [ ] `[P3]` **Renderer legacy: de-duplicar managed block con secciones human-authored** — cuando el user ya escribió Anti-Goals/Risks/Assumptions/Exit Criteria en la parte de arriba del ROADMAP, el generator repite versiones genéricas sin agregar contexto. Requiere que el generator LEA la parte human-authored antes de renderizar el managed block. Deferred con el resto del legacy. <!-- rs:task=legacy-renderer-dedup-human-sections -->
+- [ ] `[P3]` **Generator legacy: leer git tags para auto-flip de milestones** — hoy `DEFAULT_CONFIG.milestones` (v0.1/v0.2/v0.3/v1.0) aparece `[ ]` por diseño; con `git tag --list` matching v0.1.0..v1.0.0 se podrían auto-flippear. Deferred porque el generator no se shippa en v1.0+. <!-- rs:task=legacy-generator-git-tag-milestones -->

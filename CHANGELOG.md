@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — `/roadmap-update` (v1.3)
+- **Version source of truth con cascada explícita** (Step 2a). Antes: asumía `package.json`; ahora prueba en orden `package.json` → `pyproject.toml` → `Cargo.toml` → `SKILL.md` YAML `version:` → `bin/**/*.js` const `TOOL_VERSION` → `git describe --tags`. Si ninguna resuelve, pregunta al user. Antes fallaba silencioso en repos zero-dep tipo skill-only.
+- **Detección de "managed block basura"** (nuevo Step 2c). Heurística sobre residuos del generator pre-v1.0 (`<!-- rs:managed -->` con >50% tasks tautológicas como "Stabilize project baseline", "Add automated test harness for Shell"). Solo agrega WARNING al reporte — cero acción automática, invariante de "no modificar sin OK" respetada.
+- **Detección de features shippeadas sin task** (nuevo Step 3b). Corre `git log --since="30 days ago"` filtrando `feat|fix|refactor`, grepea keywords del subject contra el ROADMAP, y lista los commits sin task en el `NEW` del reporte como `[INFERRED]` retroactivos. Aclaración de invariante: git log ES evidencia del repo (persistente), NO chat (efímero).
+- **RENAME+FLIP** para tasks vagas con implementación real detectada (Step 5). Ej: `- [ ] Add automated test harness for Shell` con `bin/lib/diff-classify.self-test.js` existente → propone rename a `- [x] Add self-test for bin/lib/diff-classify.js`. Regla estricta: solo cuando la task original matchea heurística de "vaga" Y la evidence es `strong`.
+- **Convención de labels canónicos para prose** (`[HISTÓRICO]`, `[STALE]`, `[FIXED]`, `[INFERRED]`). Documentada en Step 5 y en el template del reporte. Antes cada corrida elegía labels ad-hoc → caos de anotaciones en 6 meses.
+- **Logging explícito `[SC]` / `[SC→FS]`** por tool call en modo short-circuit (Step 0). Antes solo el `MODE:` final del reporte revelaba el fallback; ahora cada turno es auditable.
+
+### Added — `/roadmap-init` (v1.3)
+- **Signals de skill/plugin project como first-class type** (Step 1). Detecta 2+ de: SKILL.md YAML, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `commands/*.md` con frontmatter, `bin/*.js`, `plugins/**/skills/**/SKILL.md` → clasifica como `type: skill-plugin`. Cierra el bug clásico del generator pre-v1.0 que veía `install.sh/ps1` y clasificaba como "Shell".
+- **5ta pregunta opcional al user: project type override** (Step 2). Choices: `cli`, `skill-plugin`, `web`, `electron`, `monorepo`, `auto` (default). El override humano gana sobre el auto-detect cuando el detector falla feo.
+- **Task inference por type** (Step 4). Para `skill-plugin`: `Compact description in <skill>/SKILL.md`, `Add frontmatter to commands/<name>.md`, `Add smoke test for bin/<entrypoint>.js`. Para `cli`/`web`/`electron`/`monorepo`: plantillas específicas al ecosistema. Invariante nueva: NUNCA generar genéricos por lenguaje ("Add automated test harness for Shell") — ese es el bug legacy que dispara todo el feedback.
+
+### Rationale
+Basado en autofeedback estructurado corriendo `/roadmap-update` v1.2 en `C:\Users\ezesc\Github\doc-governance-skill`. Los 8 items van a las skills LLM (source de valor real de v1.0+), no al generator legacy en `legacy/roadmap-skill/` (deprecated, no shippado). Ver `ROADMAP.md` Deferred Backlog para ítems del feedback que quedaron fuera de scope.
+
 ## [1.2.0] — 2026-07-16
 
 **Discovery pública en https://skills.sh/.**
