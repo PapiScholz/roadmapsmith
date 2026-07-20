@@ -2,21 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development
+## Repo layout (post v1.3.0 pivot)
 
-All source code, tests, and the npm package live in `roadmap-skill/`. Run every command from that directory:
+roadmapsmith shipped as a Node CLI through v0.14.x. v1.3.0 pivoted to a **skills-only distribution**: the npm package is now a thin shim (`install.js`) that delegates to `skills.sh`, and the actual product is the SKILL.md bundle under `skills/` and `plugins/roadmapsmith/skills/`.
+
+- **Current shipping surface** — `install.js` + `skills/roadmap-init/SKILL.md` + `skills/roadmap-update/SKILL.md`. Root `package.json` `files:` limits the published tarball to those three (plus the plugins/ mirror). Sync between `skills/` and `plugins/roadmapsmith/skills/` is enforced by `scripts/sync-skills.js` (called from `version` and `prepublishOnly` lifecycle scripts) and `.github/workflows/mirror-check.yml`.
+- **Archived CLI** — the pre-pivot Node CLI (parser, generator, validator, sync, tests) lives untouched in `legacy/roadmap-skill/`. It is **not** shipped by `npm i roadmapsmith` anymore; it stays in the repo for reference and manual local use.
+
+## Working on the legacy CLI
+
+If you need to touch the archived CLI (rare — bug fix in the SKILL.md prompts is usually the right move), all commands run inside `legacy/roadmap-skill/`:
 
 ```bash
-cd roadmap-skill
+cd legacy/roadmap-skill
 npm install
 npm test                                    # runs all tests via node --test test/*.test.js
 node bin/cli.js --help
 node bin/cli.js init --dry-run
 node bin/cli.js generate --project-root . --dry-run --audit
-node bin/cli.js validate --json --project-root .. --task <task-id>
-node bin/cli.js sync --dry-run --project-root ..
-node bin/cli.js sync --audit --project-root ..
-node bin/cli.js doctor --project-root ..
+node bin/cli.js validate --json --project-root ../.. --task <task-id>
+node bin/cli.js sync --dry-run --project-root ../..
+node bin/cli.js sync --audit --project-root ../..
+node bin/cli.js doctor --project-root ../..
 ```
 
 Run a single test file:
@@ -29,7 +36,9 @@ Test names are passed to filter:
 node --test test/validator.test.js --test-name-pattern "passes when code"
 ```
 
-## Architecture
+## Architecture (legacy CLI)
+
+The Architecture / Invariants / Config sections below describe the archived CLI in `legacy/roadmap-skill/`. All `src/`, `bin/`, `test/` paths are relative to that directory.
 
 The pipeline is unidirectional:
 
@@ -76,11 +85,11 @@ validator.validateTasks → sync.applySync → ROADMAP.md (updated)
 
 ## Config and File Resolution
 
-The project uses `roadmap-skill.config.json` at the repo root (one level above `roadmap-skill/`). When running CLI commands against this repo, omit `--config` — auto-discovery finds it. Passing `--config` with a wrong path silently falls back to defaults.
+The legacy CLI reads `roadmap-skill.config.json` from `legacy/` (moved during the v1.3.0 pivote — was at repo root pre-1.3.0). When running the CLI against this repo, omit `--config` — auto-discovery finds it. Passing `--config` with a wrong path silently falls back to defaults.
 
 Config fields `northStar`, `targetUser`, `problemStatement`, etc. are forward-compatible: recognized by the agent skill today, not yet wired into the generator/validator.
 
-Config field `moduleMetadata` (object keyed by lowercased module/command name) drives Section 6 ("Maturity Path") of the professional profile. Each entry is `{ state: string, tasks: Array<{ text, priority, id }> }`. When a detected module/command name matches an entry, the renderer emits its `state` line and `tasks`; otherwise it falls back to generic "Document <name> public API" + "Add test coverage for <name>" tasks. See `roadmap-skill.config.json` in this monorepo root for a working example.
+Config field `moduleMetadata` (object keyed by lowercased module/command name) drives Section 6 ("Maturity Path") of the professional profile. Each entry is `{ state: string, tasks: Array<{ text, priority, id }> }`. When a detected module/command name matches an entry, the renderer emits its `state` line and `tasks`; otherwise it falls back to generic "Document <name> public API" + "Add test coverage for <name>" tasks. See `legacy/roadmap-skill.config.json` for a working example.
 
 ## PostToolUse Hook
 
