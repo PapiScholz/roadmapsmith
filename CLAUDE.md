@@ -120,3 +120,9 @@ What happens under the hood:
 6. On the publish itself, `prepublishOnly` runs `sync-skills.js --check` as the last safety net — publish aborts if any mirror is out of sync.
 
 Never run `npm publish` locally. Never edit a mirrored manifest's `version` field by hand — the source of truth is `package.json` and drift will fail CI (`.github/workflows/mirror-check.yml`) and `prepublishOnly`.
+
+## Lessons Learned
+
+- **source-of-truth discovery en repos con mirrors** (v1.3): antes de planear cambios en un repo con multi-mirror (npm+plugin bundle, root skills/+plugins/roadmapsmith/skills/, .agents/+.claude/+.codex/), leer PRIMERO los sync/build scripts (`scripts/sync-skills.js`, `package.json` `files:`, `.github/workflows/mirror-check.yml`) para identificar cuál path es source y cuáles son mirrors derivados. El CLAUDE.md del repo puede estar stale en paths tras un pivote. Editar el mirror en vez del source → sync automático lo pisa en el próximo release.
+
+- **LLM skill verification: dry-run el SKILL.md nuevo contra un repo real que exhiba el fallo** (v1.3): para cambios de SKILL.md (prompts LLM-driven, no código), `npm test` / `check-skills` sólo validan sintaxis y sync — no verifican output distinto contra el mismo input problemático. Protocolo post-edit: (1) identificar 1 repo real que reproducía el fallo, (2) actuar como agente ejecutando el skill nuevo step-by-step contra ese repo, (3) generar el reporte estructurado sin modificar el target, (4) confirmar que cada capacidad nueva dispara. Modo full-scan + modo short-circuit son verificaciones distintas.
