@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — `/roadmap-update` (v1.4)
+- **Guard de placeholders en cascada de versión** (Step 2a). Antes: `0.0.0` en `package.json` de un scaffold pasaba como "versión válida" y Step 2b (prose stale) se volvía no-op silencioso. Ahora versiones que matchean `/^0\.0\.[0-9]+$/`, literales `unreleased` / `dev` / `TBD`, o `0.1.0` con mtime <7d hacen fall-through al siguiente candidato. Si ninguna resuelve semver real, WARNING automático.
+- **Detección de warnings legacy roadmapsmith CLI** (nuevo Step 3a). Bullets con `⚠️  no implementation evidence found ... 'roadmapsmith update --task <id>'` (residuo del generator pre-v1.0) se listan en WARNINGS con acción sugerida — el skill ya evalúa evidence cada corrida, esos bullets son ruido permanente.
+- **Ranking explícito de evidence signals** (Step 3). Antes: `grep`/`file`/`session`/`git log` tenían peso implícito. Ahora tabla numerada: git-log=2, file+function=2, grep=1, session=0.5. Umbrales: `strong` ≥ 3 con al menos 1 señal persistente, `weak` 1-2.5, `none` = 0. Session context sola NUNCA es strong. Output requerido: `evidence: git-log a1b2c3d + file:src/x.js, weight=strong`.
+- **Heurística de "task vaga" ampliada** (Step 2c). Además de las 4 frases hardcoded, matchea categoría verbo-genérico + sustantivo-global sin sujeto específico (`Improve test coverage`, `Add automated pipeline`). No-match si nombra archivo/módulo/función concreto.
+- **Modo terse cuando no hay drift** (Template). Si `DONE=0` AND `PROSE=0` AND `RENAME=0` AND `NEW=0` AND `WARNINGS<=2`, emite 1-liner `✓ no drift · MODE:<x> · VERSION:<source> · N pending · N warnings` en lugar de 40+ líneas de `(ninguno)`. Report completo solo con cambios reales o >2 warnings.
+- **Nota de nomenclatura `rs:` markers**. Sección corta antes de Invariantes aclarando que `<!-- rs:task=... -->` y `<!-- rs:managed:start -->` son residuos del CLI pre-v1.0 preservados por compat, no emitidos por el skill actual.
+- **Frontmatter `version: 1.4.0`** en el SKILL.md (antes no había campo version).
+
+### Rationale (v1.4)
+Basado en autofeedback estructurado corriendo `/roadmap-update` v1.3 en `C:\Users\ezesc\Github\SGG`. 6 de 8 frictions aplicadas; 2 deferred (persistencia de `last_run_sha` y tracking de `[x]` con evidence deleted) por costo vs valor en un único repo reportando.
+
 ### Added — `/roadmap-update` (v1.3)
 - **Version source of truth con cascada explícita** (Step 2a). Antes: asumía `package.json`; ahora prueba en orden `package.json` → `pyproject.toml` → `Cargo.toml` → `SKILL.md` YAML `version:` → `bin/**/*.js` const `TOOL_VERSION` → `git describe --tags`. Si ninguna resuelve, pregunta al user. Antes fallaba silencioso en repos zero-dep tipo skill-only.
 - **Detección de "managed block basura"** (nuevo Step 2c). Heurística sobre residuos del generator pre-v1.0 (`<!-- rs:managed -->` con >50% tasks tautológicas como "Stabilize project baseline", "Add automated test harness for Shell"). Solo agrega WARNING al reporte — cero acción automática, invariante de "no modificar sin OK" respetada.
