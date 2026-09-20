@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: HOL AI Plugin Scanner
-        uses: hashgraph-online/ai-plugin-scanner-action@8f0a503ca2a70c1968a9a883e11fdff5737b7909 # v1.2.514
+        uses: hashgraph-online/ai-plugin-scanner-action@7deb00ad5e5b59252f4b324098eaf25ed53131db # v1.2.689
         with:
           plugin_dir: "plugins/roadmapsmith"
           mode: scan
