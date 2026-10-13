@@ -1,0 +1,31 @@
+name: Version guard
+
+# Fails a push or PR that changes what ships in the plugin without bumping
+# "version" in plugin.json. The directory scans every pushed commit, but
+# `claude plugin update` only delivers a new copy when the version moved.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  version-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Version bumped when the plugin changed
+        env:
+          BASE_SHA: >-
+            ${{ github.event_name == 'pull_request'
+                && github.event.pull_request.base.sha
+                || github.event.before }}
+        run: node .github/scripts/version-guard.mjs --base "$BASE_SHA"
