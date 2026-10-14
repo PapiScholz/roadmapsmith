@@ -34,6 +34,12 @@ Basado en autofeedback estructurado corriendo `/roadmap-update` v1.3 en `C:\User
 ### Rationale
 Basado en autofeedback estructurado corriendo `/roadmap-update` v1.2 en `C:\Users\ezesc\Github\doc-governance-skill`. Los 8 items van a las skills LLM (source de valor real de v1.0+), no al generator legacy en `legacy/roadmap-skill/` (deprecated, no shippado). Ver `ROADMAP.md` Deferred Backlog para ítems del feedback que quedaron fuera de scope.
 
+## [1.4.1] — 2026-10-13
+
+### Added
+- Ícono del plugin: `.claude-plugin/icon.svg` y `icon.png` de 512 px (una brújula, en el azul noche, crema y ámbar de los otros plugins del autor).
+- CI: `version-guard` falla un push que cambia el plugin sin subir `version`.
+
 ## [1.2.0] — 2026-07-16
 
 **Discovery pública en https://skills.sh/.**

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2A4A"/>
+      <stop offset="1" stop-color="#0F1A30"/>
+    </linearGradient>
+    <linearGradient id="north" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2A541"/>
+      <stop offset="1" stop-color="#C9822E"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFD27A" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#FFD27A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="200" fill="url(#bg)"/>
+
+  <!-- warm glow behind the dial -->
+  <circle cx="512" cy="512" r="380" fill="url(#halo)"/>
+
+  <!-- body: outer ring and dial -->
+  <circle cx="512" cy="512" r="318" fill="#22345A" stroke="#E9E4DA" stroke-width="34"/>
+  <circle cx="512" cy="512" r="262" fill="none" stroke="#E9E4DA" stroke-width="6" opacity="0.35"/>
+
+  <!-- cardinal ticks -->
+  <g stroke="#E9E4DA" stroke-width="20" stroke-linecap="round">
+    <line x1="512" y1="214" x2="512" y2="262"/>
+    <line x1="512" y1="762" x2="512" y2="810"/>
+    <line x1="214" y1="512" x2="262" y2="512"/>
+    <line x1="762" y1="512" x2="810" y2="512"/>
+  </g>
+  <!-- intercardinal ticks -->
+  <g stroke="#E9E4DA" stroke-width="10" stroke-linecap="round" opacity="0.6">
+    <line x1="302" y1="302" x2="326" y2="326"/>
+    <line x1="722" y1="302" x2="698" y2="326"/>
+    <line x1="302" y1="722" x2="326" y2="698"/>
+    <line x1="722" y1="722" x2="698" y2="698"/>
+  </g>
+
+  <!-- needle, slightly turned: amber points the way, cream is the tail -->
+  <g transform="rotate(28 512 512)">
+    <polygon points="512,272 566,512 458,512" fill="url(#north)"/>
+    <polygon points="512,752 566,512 458,512" fill="#E9E4DA"/>
+  </g>
+  <circle cx="512" cy="512" r="36" fill="#0F1A30" stroke="#E9E4DA" stroke-width="12"/>
+</svg>
