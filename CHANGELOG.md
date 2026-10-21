@@ -34,6 +34,11 @@ Basado en autofeedback estructurado corriendo `/roadmap-update` v1.3 en `C:\User
 ### Rationale
 Basado en autofeedback estructurado corriendo `/roadmap-update` v1.2 en `C:\Users\ezesc\Github\doc-governance-skill`. Los 8 items van a las skills LLM (source de valor real de v1.0+), no al generator legacy en `legacy/roadmap-skill/` (deprecated, no shippado). Ver `ROADMAP.md` Deferred Backlog para ítems del feedback que quedaron fuera de scope.
 
+## [1.4.2] — 2026-10-21
+
+### Removed
+- `legacy/assets/demo-ab.mp4`: video de la demo A/B vieja que nada referenciaba. El validador del directorio de Anthropic no puede inspeccionar video y retenía cada versión nueva por política.
+
 ## [1.4.1] — 2026-10-13
 
 ### Added
