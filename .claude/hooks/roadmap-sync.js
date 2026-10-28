@@ -7,7 +7,9 @@ const { execFileSync } = require('child_process');
 
 // .claude/hooks/ -> project root (two levels up)
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const CLI = path.join(PROJECT_ROOT, 'roadmap-skill', 'bin', 'cli.js');
+// The CLI moved from roadmap-skill/ to legacy/roadmap-skill/, and `sync` became `update`.
+// Pointing at the old path made this hook fail on every edit without anyone noticing.
+const CLI = path.join(PROJECT_ROOT, 'legacy', 'roadmap-skill', 'bin', 'cli.js');
 const LOCK_FILE = path.join(__dirname, '.sync.lock');
 
 let data = '';
@@ -33,7 +35,7 @@ process.stdin.on('end', () => {
 
   try {
     fs.writeFileSync(LOCK_FILE, String(process.pid));
-    execFileSync(process.execPath, [CLI, 'sync', '--project-root', PROJECT_ROOT], {
+    execFileSync(process.execPath, [CLI, 'update', '--project-root', PROJECT_ROOT, '--concise'], {
       stdio: 'inherit'
     });
   } catch (err) {
