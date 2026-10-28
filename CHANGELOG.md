@@ -34,6 +34,14 @@ Basado en autofeedback estructurado corriendo `/roadmap-update` v1.3 en `C:\User
 ### Rationale
 Basado en autofeedback estructurado corriendo `/roadmap-update` v1.2 en `C:\Users\ezesc\Github\doc-governance-skill`. Los 8 items van a las skills LLM (source de valor real de v1.0+), no al generator legacy en `legacy/roadmap-skill/` (deprecated, no shippado). Ver `ROADMAP.md` Deferred Backlog para ítems del feedback que quedaron fuera de scope.
 
+## [1.4.3] — 2026-10-28
+
+### Fixed
+- Hook de desarrollo `.claude/hooks/roadmap-sync.js`: apuntaba a `roadmap-skill/bin/cli.js` (movido a `legacy/roadmap-skill/`) y corría `sync`, que ya no existe; fallaba en cada edición sin avisar. Ahora corre `update --concise` sobre el CLI de `legacy/` y se registra con `$CLAUDE_PROJECT_DIR`.
+
+### Added
+- Versionadas las definiciones de agentes y convenciones de `.claude/` y las copias de skills de `legacy/roadmap-skill/.claude/`.
+
 ## [1.4.2] — 2026-10-21
 
 ### Removed
